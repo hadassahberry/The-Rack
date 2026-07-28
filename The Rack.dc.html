@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-714b0db9-95ec-412e-9596-a477f5993f72/styles.css">
+<script src="_ds/organic-714b0db9-95ec-412e-9596-a477f5993f72/_ds_bundle.js"></script>
+<script src="./image-slot.js"></script>
+<style>
+  /* Chic-girly retheme — retunes the Organic tokens: rosewater ground, raspberry accent, soft plum second voice */
+  :root {
+    --color-bg: #f8edea;
+    --color-surface: #f1dcd7;
+    --color-text: #26191d;
+    --color-accent: #b95877;
+    --color-accent-2: #8d7ba0;
+    --color-neutral-100: #faf3f1; --color-neutral-200: #f1e5e2; --color-neutral-300: #e0cfcc;
+    --color-neutral-400: #c5b0ae; --color-neutral-500: #a6918f; --color-neutral-600: #877372;
+    --color-neutral-700: #685758; --color-neutral-800: #4a3d3f; --color-neutral-900: #302629;
+    --color-accent-100: #ffeff4; --color-accent-200: #ffdbe7; --color-accent-300: #f7bccf;
+    --color-accent-400: #e396b2; --color-accent-500: #cc7494; --color-accent-600: #ad5677;
+    --color-accent-700: #883f5c; --color-accent-800: #612b42; --color-accent-900: #3e1c2b;
+    --color-accent-2-100: #f6f0fb; --color-accent-2-200: #e9def4; --color-accent-2-300: #d5c4e5;
+    --color-accent-2-400: #b8a3cd; --color-accent-2-500: #9a85b1; --color-accent-2-600: #7d6994;
+    --color-accent-2-700: #5f4e73; --color-accent-2-800: #443853; --color-accent-2-900: #2c2436;
+    --shadow-sm: 0 1px 2px color-mix(in srgb, #302629 14%, transparent);
+    --shadow-md: 0 3px 10px color-mix(in srgb, #302629 16%, transparent);
+    --shadow-lg: 0 12px 32px color-mix(in srgb, #302629 22%, transparent);
+  }
+  html, body { margin:0; height:100%; }
+  a { color: var(--color-accent-700); }
+  a:hover { color: var(--color-accent); }
+  @keyframes foldIn { from { opacity:0; transform: translateY(-10px) } to { opacity:1; transform:none } }
+  ::-webkit-scrollbar { width:10px; height:10px }
+  ::-webkit-scrollbar-thumb { background: var(--color-neutral-300); border-radius:999px; border:3px solid var(--color-bg) }
+</style>
+</helmet>
+
+<div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;background:var(--color-bg)">
+
+  <div class="nav" style="padding:14px 26px;gap:26px;flex:none">
+    <span class="nav-brand" style="display:flex;align-items:center;gap:10px">
+      <span style="width:26px;height:26px;border-radius:999px;background:var(--color-accent);display:inline-block"></span>
+      The Rack
+    </span>
+    <div style="display:flex;gap:6px;margin-right:auto">
+      <button class="btn" style="{{ tabPlannerStyle }}" onClick="{{ goPlanner }}">Planner</button>
+      <button class="btn" style="{{ tabClosetStyle }}" onClick="{{ goCloset }}">Closet</button>
+      <button class="btn" style="{{ tabStatsStyle }}" onClick="{{ goStats }}">Wear stats</button>
+    </div>
+    <span class="tag tag-neutral" style="gap:6px">{{ untaggedLabel }}</span>
+    <button class="btn btn-primary" onClick="{{ openAdd }}">+ Add clothes</button>
+  </div>
+
+  <sc-if value="{{ isPlanner }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;gap:22px;padding:4px 26px 26px;flex:1;min-height:0;overflow:auto">
+
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:flex-end;gap:14px">
+        <span style="display:flex;gap:2px;padding-bottom:1px">
+          <button class="btn btn-icon" style="width:30px;height:30px;font-size:16px" onClick="{{ prevMonth }}">‹</button>
+          <button class="btn btn-icon" style="width:30px;height:30px;font-size:16px" onClick="{{ nextMonth }}">›</button>
+        </span>
+        <h2 style="margin:0">{{ monthLabel }}</h2>
+        <span class="text-muted" style="font-size:13px;padding-bottom:4px">Notifications pause on Shabbos &amp; Yom Tov.</span>
+        <label style="margin-left:auto;display:flex;align-items:center;gap:8px;padding-bottom:2px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          <span style="position:relative">
+            <input class="input" list="fold-cities" value="{{ locationDraft }}" onChange="{{ typeLocation }}" onKeyDown="{{ locationKey }}" onBlur="{{ commitLocation }}" placeholder="Any city…" style="width:170px;min-height:32px;padding:4px 14px;font-size:13px">
+            <datalist id="fold-cities">
+              <sc-for list="{{ locations }}" as="loc" hint-placeholder-count="5">
+                <option value="{{ loc }}"></option>
+              </sc-for>
+            </datalist>
+          </span>
+        </label>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px">
+        <sc-for list="{{ weekdays }}" as="wd" hint-placeholder-count="7">
+          <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:color-mix(in srgb, var(--color-text) 50%, transparent);padding-left:6px">{{ wd }}</div>
+        </sc-for>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:minmax(94px,1fr);gap:8px;flex:1;min-height:0">
+        <sc-for list="{{ cells }}" as="c" hint-placeholder-count="35">
+          <button onClick="{{ c.pick }}" style="{{ c.style }}">
+            <span style="{{ c.holyStyle }}">{{ c.holy }}</span>
+            <span style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+              <span style="{{ c.numStyle }}">{{ c.num }}</span>
+              <span style="font-size:10px;color:color-mix(in srgb, var(--color-text) 45%, transparent)">{{ c.weather }}</span>
+            </span>
+            <span style="display:flex;flex-direction:column;gap:3px;flex:none">
+              <sc-for list="{{ c.chips }}" as="ch" hint-placeholder-count="0">
+                <span style="{{ ch.style }}">
+                  <span style="{{ ch.dot }}"></span>{{ ch.name }}
+                </span>
+              </sc-for>
+            </span>
+            <span style="{{ c.outfitStyle }}">{{ c.outfit }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="width:352px;flex:none;display:flex;flex-direction:column;gap:12px;background:var(--color-surface);border-radius:calc(var(--radius-lg) * 1.15);padding:20px;overflow:auto">
+      <div>
+        <div class="card-kicker">Planning</div>
+        <h3 style="margin:2px 0 0">{{ selLabel }}</h3>
+        <div class="text-muted" style="font-size:12px">{{ selWeatherLine }}</div>
+        <div style="{{ selHolyStyle }}">{{ selHolyLine }}</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ selPlanned }}" as="p" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;gap:10px;background:var(--color-bg);border-radius:999px;padding:6px 8px 6px 6px">
+            <span style="{{ p.dot }}"></span>
+            <span style="flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ p.name }}</span>
+            <span style="{{ p.warnStyle }}">{{ p.warn }}</span>
+            <button class="btn btn-icon" style="width:26px;height:26px;font-size:15px;color:var(--color-neutral-600)" onClick="{{ p.remove }}">×</button>
+          </div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ selEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="border:1.5px dashed var(--color-neutral-300);border-radius:var(--radius-lg);padding:16px;text-align:center;font-size:13px;color:color-mix(in srgb, var(--color-text) 55%, transparent)">Nothing planned yet</div>
+      </sc-if>
+
+      <div style="height:1px;background:var(--color-divider);margin:2px 0"></div>
+
+      <div class="card-kicker">Saved outfits</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <sc-for list="{{ outfits }}" as="o" hint-placeholder-count="3">
+          <button class="btn btn-secondary" style="font-size:12px;padding:5px 12px;white-space:nowrap" onClick="{{ o.apply }}">{{ o.name }}</button>
+        </sc-for>
+      </div>
+
+      <div class="card-kicker" style="margin-top:6px">Add a single piece</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">
+        <sc-for list="{{ pickerCats }}" as="pc" hint-placeholder-count="5">
+          <button style="{{ pc.style }}" onClick="{{ pc.pick }}">{{ pc.name }}</button>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <sc-for list="{{ picker }}" as="pi" hint-placeholder-count="6">
+          <button onClick="{{ pi.add }}" style="{{ pi.style }}">
+            <span style="display:flex;align-items:center;gap:6px">
+              <span style="{{ pi.dot }}"></span>
+              <span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pi.name }}</span>
+            </span>
+            <span style="{{ pi.metaStyle }}">{{ pi.meta }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isCloset }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;min-height:0;overflow:auto;padding:4px 26px 40px">
+    <div style="display:flex;align-items:flex-end;gap:14px;margin-bottom:14px">
+      <h2 style="margin:0">Your closet</h2>
+      <span class="text-muted" style="font-size:13px;padding-bottom:4px">{{ closetCountLine }}</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px">
+      <sc-for list="{{ closetCats }}" as="cc" hint-placeholder-count="6">
+        <button style="{{ cc.style }}" onClick="{{ cc.pick }}">{{ cc.name }}</button>
+      </sc-for>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:18px">
+      <sc-for list="{{ closetItems }}" as="it" hint-placeholder-count="8">
+        <div class="card" style="padding:10px;gap:10px">
+          <div style="position:relative;border-radius:var(--radius-md);overflow:hidden;aspect-ratio:3/4;background:var(--color-neutral-200)">
+            <image-slot id="{{ it.slotId }}" shape="rect" placeholder="{{ it.slotHint }}"></image-slot>
+            <span style="{{ it.badgeStyle }}">{{ it.badge }}</span>
+          </div>
+          <div>
+            <div style="font-family:var(--font-heading);font-size:15px;line-height:1.2">{{ it.name }}</div>
+            <div class="text-muted" style="font-size:11px">{{ it.sub }}</div>
+          </div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <span class="tag tag-accent-2" style="font-size:10px;padding:2px 8px">{{ it.season }}</span>
+            <span class="tag tag-neutral" style="font-size:10px;padding:2px 8px">{{ it.occasion }}</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;background:var(--color-bg);border-radius:999px;padding:4px 6px 4px 12px">
+            <span style="font-size:11px;line-height:1.2">{{ it.restLabel }}</span>
+            <span style="display:flex;gap:3px">
+              <button class="btn btn-icon" style="width:24px;height:24px;font-size:14px;background:var(--color-surface)" onClick="{{ it.less }}">−</button>
+              <button class="btn btn-icon" style="width:24px;height:24px;font-size:14px;background:var(--color-surface)" onClick="{{ it.more }}">+</button>
+            </span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isStats }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1;min-height:0;overflow:auto;padding:4px 26px 40px">
+    <h2 style="margin:0 0 14px">Wear stats</h2>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:26px">
+      <sc-for list="{{ summary }}" as="s" hint-placeholder-count="4">
+        <div class="card elev-sm" style="min-width:172px;padding:16px 18px;gap:2px">
+          <div class="card-kicker">{{ s.label }}</div>
+          <div style="font-family:var(--font-heading);font-size:34px;line-height:1.1">{{ s.value }}</div>
+          <div class="text-muted" style="font-size:11px">{{ s.note }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:26px;max-width:1100px">
+      <div>
+        <h4 style="margin:0 0 12px">Worn the most</h4>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ mostWorn }}" as="m" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="width:118px;flex:none;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ m.name }}</span>
+              <span style="flex:1;height:16px;background:var(--color-neutral-200);border-radius:999px;overflow:hidden">
+                <span style="{{ m.barStyle }}"></span>
+              </span>
+              <span style="width:44px;flex:none;text-align:right;font-size:12px" class="text-muted">{{ m.count }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div>
+        <h4 style="margin:0 0 12px">Neglected — give these a turn</h4>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ leastWorn }}" as="l" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:10px;background:var(--color-surface);border-radius:999px;padding:8px 14px">
+              <span style="{{ l.dot }}"></span>
+              <span style="flex:1;font-size:13px">{{ l.name }}</span>
+              <span class="text-muted" style="font-size:11px">{{ l.note }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;top:72px;right:20px;width:352px;z-index:60;animation:foldIn .22s ease-out">
+      <div style="{{ toastStyle }}">
+        <span style="{{ toastIcon }}">{{ toastGlyph }}</span>
+        <span style="flex:1">
+          <span style="display:block;font-family:var(--font-heading);font-size:14px;line-height:1.25">{{ toastTitle }}</span>
+          <span style="display:block;font-size:12px;opacity:.8;margin-top:2px">{{ toastBody }}</span>
+        </span>
+        <button class="btn btn-icon" style="width:24px;height:24px;font-size:14px;color:inherit;flex:none" onClick="{{ dismissToast }}">×</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="dialog-backdrop" style="z-index:70">
+      <div class="dialog" style="width:min(520px,100%);gap:16px">
+        <div>
+          <div class="card-kicker">New piece</div>
+          <div class="dialog-title">Add to your closet</div>
+          <div class="dialog-body" style="font-size:13px">Snap it now, tag it later — untagged pieces sit in a queue on your closet.</div>
+        </div>
+
+        <div class="seg" style="align-self:flex-start">
+          <label class="seg-opt"><input type="radio" name="addmode" checked="{{ isPhotoTab }}" onChange="{{ pickPhotoTab }}">Photo</label>
+          <label class="seg-opt"><input type="radio" name="addmode" checked="{{ isLinkTab }}" onChange="{{ pickLinkTab }}">Store link</label>
+        </div>
+
+        <sc-if value="{{ isPhotoTab }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:14px">
+            <div style="width:150px;flex:none;aspect-ratio:3/4;border-radius:var(--radius-md);overflow:hidden;background:var(--color-bg)">
+              <image-slot id="fold-draft-photo" shape="rect" placeholder="Drop a photo"></image-slot>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+              <div class="field"><label>Name (optional)</label><input class="input" value="{{ draftName }}" onChange="{{ setDraftName }}" placeholder="Cream linen shirt"></div>
+              <div class="field"><label>Rest days before repeat</label>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <input class="input" type="range" min="0" max="30" value="{{ draftRest }}" onChange="{{ setDraftRest }}" style="padding:0;background:transparent;border:none;accent-color:var(--color-accent)">
+                  <span style="font-family:var(--font-heading);font-size:16px;width:58px;flex:none">{{ draftRestLabel }}</span>
+                </div>
+              </div>
+              <div class="text-muted" style="font-size:11px">You'll get a notification if you plan it again sooner.</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isLinkTab }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="field"><label>Paste a product link</label>
+              <div style="display:flex;gap:8px">
+                <input class="input" value="{{ linkUrl }}" onChange="{{ setLinkUrl }}" placeholder="https://store.com/knit-cardigan">
+                <button class="btn btn-primary" style="flex:none" onClick="{{ fetchLink }}">Pull</button>
+              </div>
+            </div>
+            <sc-if value="{{ linkFetched }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:12px;align-items:center;background:var(--color-bg);border-radius:var(--radius-lg);padding:10px">
+                <div style="width:74px;height:96px;flex:none;border-radius:var(--radius-sm);overflow:hidden">
+                  <image-slot id="fold-link-preview" shape="rect" placeholder="Pulled image"></image-slot>
+                </div>
+                <div style="flex:1">
+                  <div style="font-family:var(--font-heading);font-size:15px">{{ linkTitle }}</div>
+                  <div class="text-muted" style="font-size:11px">{{ linkMeta }}</div>
+                  <span class="tag tag-accent-2" style="margin-top:6px">Image + details pulled</span>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" onClick="{{ closeAdd }}">Cancel</button>
+          <button class="btn btn-primary" onClick="{{ saveDraft }}">Save to closet</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultRestDays&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:7,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:0,&quot;max&quot;:30,&quot;unit&quot;:&quot;days&quot;,&quot;section&quot;:&quot;Rules&quot;},&quot;showWeather&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Planner&quot;},&quot;startView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;planner&quot;,&quot;options&quot;:[&quot;planner&quot;,&quot;closet&quot;,&quot;stats&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Planner&quot;}}">
+const TODAY = '2026-07-27';
+const D = iso => new Date(iso + 'T00:00:00');
+const ISO = d => d.toISOString().slice(0, 10);
+const gap = (a, b) => Math.round((D(a) - D(b)) / 86400000);
+const shift = (iso, n) => { const d = D(iso); d.setDate(d.getDate() + n); return ISO(d); };
+const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+// 5786–5787 dates, approximate — a real build would use a zmanim/luach API
+const HOLY = {
+  '2026-04-02': { name: 'Pesach I', type: 'yomtov' }, '2026-04-03': { name: 'Pesach II', type: 'yomtov' },
+  '2026-04-08': { name: 'Pesach VII', type: 'yomtov' }, '2026-04-09': { name: 'Pesach VIII', type: 'yomtov' },
+  '2026-05-22': { name: 'Shavuos I', type: 'yomtov' }, '2026-05-23': { name: 'Shavuos II', type: 'yomtov' },
+  '2026-07-02': { name: 'Fast of 17 Tammuz', type: 'fast' },
+  '2026-07-23': { name: "Tisha B'Av", type: 'fast' },
+  '2026-09-11': { name: 'Erev Rosh Hashana', type: 'erev' },
+  '2026-09-12': { name: 'Rosh Hashana I', type: 'yomtov' }, '2026-09-13': { name: 'Rosh Hashana II', type: 'yomtov' },
+  '2026-09-20': { name: 'Erev Yom Kippur', type: 'erev' }, '2026-09-21': { name: 'Yom Kippur', type: 'yomtov' },
+  '2026-09-25': { name: 'Erev Sukkos', type: 'erev' },
+  '2026-09-26': { name: 'Sukkos I', type: 'yomtov' }, '2026-09-27': { name: 'Sukkos II', type: 'yomtov' },
+  '2026-10-02': { name: 'Erev Shmini Atzeres', type: 'erev' },
+  '2026-10-03': { name: 'Shmini Atzeres', type: 'yomtov' }, '2026-10-04': { name: 'Simchas Torah', type: 'yomtov' },
+};
+const RAMP = ['var(--color-accent-300)','var(--color-accent-2-300)','var(--color-neutral-400)','var(--color-accent-500)','var(--color-accent-2-500)','var(--color-neutral-600)','var(--color-accent-200)','var(--color-accent-2-200)'];
+
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    const rest = p.defaultRestDays ?? 7;
+    const raw = [
+      ['Cream linen shirt','Tops','Summer','Work',18,-2,5],
+      ['Faded straight jeans','Bottoms','All year','Everyday',41,-1,2],
+      ['Sage knit cardigan','Outerwear','Spring','Everyday',12,-9,4],
+      ['White leather sneakers','Shoes','All year','Everyday',63,-1,1],
+      ['Terracotta midi dress','Dresses','Summer','Going out',6,-21,10],
+      ['Oxford button-down','Tops','All year','Work',22,-4,6],
+      ['Wide-leg trousers','Bottoms','All year','Work',15,-6,5],
+      ['Striped tee','Tops','Summer','Everyday',34,-3,3],
+      ['Denim jacket','Outerwear','Spring','Everyday',9,-13,4],
+      ['Black ankle boots','Shoes','Autumn','Going out',27,-16,2],
+      ['Olive utility shirt','Tops','Autumn','Everyday',11,-8,5],
+      ['Pleated skirt','Bottoms','Summer','Going out',4,-34,8],
+      ['Wool overcoat','Outerwear','Winter','Work',16,-121,7],
+      ['Silk scarf','Accessories','All year','Going out',3,-47,3],
+      ['Canvas tote','Accessories','All year','Everyday',52,-2,0],
+      ['Grey sweatpants','Bottoms','Winter','Loungewear',29,-5,2],
+    ];
+    const items = raw.map((r, i) => ({
+      id: i + 1, name: r[0], cat: r[1], season: r[2], occasion: r[3],
+      worn: r[4], lastWorn: shift(TODAY, r[5]), rest: r[6] || rest,
+      swatch: RAMP[i % RAMP.length], tagged: true,
+    }));
+    items.push({ id: 90, name: 'Untitled piece', cat: 'Untagged', season: '—', occasion: '—', worn: 0, lastWorn: null, rest: rest, swatch: RAMP[2], tagged: false });
+    items.push({ id: 91, name: 'Untitled piece', cat: 'Untagged', season: '—', occasion: '—', worn: 0, lastWorn: null, rest: rest, swatch: RAMP[6], tagged: false });
+    this.state = {
+      view: p.startView ?? 'planner', items,
+      plan: {
+        [shift(TODAY, 0)]: [1, 2, 4], [shift(TODAY, 1)]: [6, 7], [shift(TODAY, 2)]: [8, 2, 4],
+        [shift(TODAY, 4)]: [5, 10], [shift(TODAY, -2)]: [1, 15], [shift(TODAY, -5)]: [11, 7],
+        [shift(TODAY, 6)]: [3, 16], [shift(TODAY, 9)]: [9, 2, 4],
+      },
+      sel: TODAY, viewY: 2026, viewM: 6, cat: 'All', pickerCat: 'Tops', toast: null, location: 'Austin, TX', locationDraft: 'Austin, TX',
+      modal: false, tab: 'photo', link: '', linkFetched: false,
+      draftName: '', draftRest: rest, nextId: 100,
+      geo: null, wx: {}, luach: {}, candles: {},
+    };
+    this._luachLoaded = {};
+  }
+
+  async loadCity(name) {
+    try {
+      const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(name) + '&count=1&language=en');
+      const j = await r.json();
+      if (!j.results || !j.results.length) { this.notify('warn', 'City not found', 'Could not find "' + name + '" — kept ' + this.state.location + '.'); this.setState({ locationDraft: this.state.location }); return; }
+      const g = j.results[0];
+      const label = g.name + ', ' + (g.country_code === 'US' ? (g.admin1 || 'US') : (g.country || ''));
+      const geo = { lat: g.latitude, lon: g.longitude, tz: g.timezone };
+      this.setState({ geo, location: label, locationDraft: label });
+      this.loadWeather(g.latitude, g.longitude);
+      this._luachLoaded = {};
+      this.loadLuach(this.state.viewY, geo);
+      this.loadLuach(this.state.viewY + 1, geo);
+    } catch (e) { this.notify('warn', 'No connection', 'Live weather and zmanim unavailable — showing estimates.'); }
+  }
+
+  async loadWeather(lat, lon) {
+    try {
+      const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&daily=weather_code,temperature_2m_max&temperature_unit=fahrenheit&timezone=auto&forecast_days=16');
+      const j = await r.json();
+      const wx = {};
+      j.daily.time.forEach((d, i) => { wx[d] = { t: Math.round(j.daily.temperature_2m_max[i]), code: j.daily.weather_code[i] }; });
+      this.setState({ wx });
+    } catch (e) { /* leave forecast blank */ }
+  }
+
+  async loadLuach(year, g) {
+    g = g || (this.state.geo || {});
+    if (g.lat === undefined || this._luachLoaded[year]) return;
+    this._luachLoaded[year] = true;
+    try {
+      const r = await fetch('https://www.hebcal.com/hebcal?v=1&cfg=json&year=' + year + '&maj=on&min=on&mod=off&nx=off&ss=off&mf=off&c=on&b=18&M=on&geo=pos&latitude=' + g.lat + '&longitude=' + g.lon + '&tzid=' + encodeURIComponent(g.tz || 'America/Chicago'));
+      const j = await r.json();
+      const luach = { ...this.state.luach }, candles = { ...this.state.candles };
+      (j.items || []).forEach(it => {
+        const iso = it.date.slice(0, 10);
+        if (it.category === 'candles') {
+          const hm = it.date.slice(11, 16); let h = +hm.slice(0, 2); const m = hm.slice(3);
+          candles[iso] = (h > 12 ? h - 12 : h) + ':' + m + ' PM';
+        } else if (it.category === 'holiday') {
+          const type = it.yomtov ? 'yomtov' : /^Erev/.test(it.title) ? 'erev' : it.subcat === 'fast' ? 'fast' : null;
+          if (type && !(luach[iso] && luach[iso].type === 'yomtov')) luach[iso] = { name: it.title, type };
+        }
+      });
+      this.setState({ luach, candles });
+    } catch (e) { this._luachLoaded[year] = false; }
+  }
+
+  holy(iso) { return this.state.luach[iso] || HOLY[iso]; }
+
+  componentDidMount() {
+    this.loadCity('Austin');
+    setTimeout(() => this.notify('warn', 'Too soon to repeat', 'Faded straight jeans is planned for Wednesday but you wore it yesterday. Rest set to 2 days.'), 900);
+  }
+  componentWillUnmount() { clearTimeout(this._t); }
+
+  // Shabbos or Yom Tov today → the app goes quiet
+  isRestDay(iso) { const h = this.holy(iso); return D(iso).getDay() === 6 || (h && h.type === 'yomtov'); }
+
+  // Live from Hebcal when loaded; estimated until then
+  candleTime(iso) {
+    if (this.state.candles[iso]) return this.state.candles[iso];
+    const base = { 'Austin, TX': 1235, 'New York, NY': 1210, 'Seattle, WA': 1250, 'London, UK': 1255, 'Los Angeles, CA': 1195 }[this.state.location];
+    let b = base;
+    if (b === undefined) { let h = 0; for (const ch of this.state.location.toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) % 997; b = 1190 + (h % 70); }
+    const d = D(iso), min = b - Math.abs(d.getMonth() - 5.5) * 22 - 18;
+    const hh = Math.floor(min / 60), mm = Math.round(min % 60);
+    return (hh > 12 ? hh - 12 : hh) + ':' + String(mm).padStart(2, '0') + ' PM';
+  }
+
+  notify(kind, title, body) {
+    if (this.isRestDay(TODAY)) return;
+    clearTimeout(this._t);
+    this.setState({ toast: { kind, title, body } });
+    this._t = setTimeout(() => this.setState({ toast: null }), 6000);
+  }
+
+  item(id) { return this.state.items.find(i => i.id === id); }
+
+  // Nearest other wear (real or planned) to `date`, in days — null if none inside the rest window
+  conflict(item, date) {
+    let best = null;
+    const consider = d => { const g = Math.abs(gap(date, d)); if (g < item.rest && (best === null || g < best)) best = g; };
+    if (item.lastWorn) consider(item.lastWorn);
+    Object.entries(this.state.plan).forEach(([d, ids]) => { if (d !== date && ids.includes(item.id)) consider(d); });
+    return best;
+  }
+
+  addToDay(id) {
+    const date = this.state.sel, it = this.item(id);
+    if ((this.state.plan[date] || []).includes(id)) return;
+    const c = this.conflict(it, date);
+    this.setState(s => ({ plan: { ...s.plan, [date]: [...(s.plan[date] || []), id] } }));
+    if (c !== null) this.notify('warn', 'Too soon to repeat', it.name + ' was worn ' + (c === 0 ? 'the same day' : c + (c === 1 ? ' day' : ' days') + ' away') + ' — you asked for ' + it.rest + ' days of rest.');
+    else this.notify('ok', 'Added to ' + this.dayLabel(date), it.name + ' · rested ' + (it.lastWorn ? gap(date, it.lastWorn) + ' days' : 'never worn'));
+  }
+
+  removeFromDay(id) {
+    const date = this.state.sel;
+    this.setState(s => ({ plan: { ...s.plan, [date]: (s.plan[date] || []).filter(x => x !== id) } }));
+  }
+
+  dayLabel(iso) { const d = D(iso); return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] + ' ' + d.getDate(); }
+  // Live Open-Meteo forecast — null outside the 16-day window or before it loads
+  weather(iso) {
+    const w = this.state.wx[iso];
+    if (!w) return null;
+    const c = w.code;
+    const kind = c <= 1 ? 'sun' : (c <= 48 ? 'cloud' : (c >= 71 && c <= 86 && c !== 80 && c !== 81 && c !== 82) ? 'snow' : 'rain');
+    return { t: w.t, w: kind, glyph: kind === 'sun' ? '☀' : kind === 'cloud' ? '☁' : kind === 'snow' ? '❄' : '☂' };
+  }
+
+  bumpRest(id, d) {
+    this.setState(s => ({ items: s.items.map(i => i.id === id ? { ...i, rest: Math.max(0, Math.min(60, i.rest + d)) } : i) }));
+  }
+
+  renderVals() {
+    const s = this.state, showWeather = this.props.showWeather ?? true;
+    const tab = v => ({ background: s.view === v ? 'var(--color-surface)' : 'transparent', color: s.view === v ? 'var(--color-text)' : 'color-mix(in srgb, var(--color-text) 62%, transparent)', fontSize: '14px', padding: '7px 16px', whiteSpace: 'nowrap' });
+    const pill = on => ({ font: 'inherit', fontSize: '12px', padding: '5px 12px', borderRadius: '999px', cursor: 'pointer', border: '1px solid ' + (on ? 'transparent' : 'var(--color-divider)'), background: on ? 'var(--color-accent)' : 'transparent', color: on ? 'var(--color-bg)' : 'var(--color-text)' });
+    const dot = (c, sz) => ({ width: sz + 'px', height: sz + 'px', flex: 'none', borderRadius: '999px', background: c, display: 'inline-block' });
+
+    // month grid
+    const y = s.viewY, m = s.viewM;
+    const first = new Date(y, m, 1), start = new Date(y, m, 1 - first.getDay());
+    const cells = [];
+    for (let k = 0; k < 35; k++) {
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + k);
+      const iso = ISO(d), inMonth = d.getMonth() === m, isSel = iso === s.sel, isToday = iso === TODAY;
+      const ids = s.plan[iso] || [];
+      const w = this.weather(iso);
+      const hy = this.holy(iso), isFri = d.getDay() === 5, isShab = d.getDay() === 6;
+      const holy = hy ? hy.name : isFri ? '🕯 ' + this.candleTime(iso) : isShab ? 'Shabbos' : '';
+      const holyTint = isShab || (hy && hy.type === 'yomtov');
+      cells.push({
+        num: d.getDate(), pick: () => this.setState({ sel: iso }),
+        weather: showWeather && inMonth && w ? w.glyph + ' ' + w.t + '°' : '',
+        holy: inMonth ? holy : '',
+        holyStyle: { display: inMonth && holy ? 'block' : 'none', flex: 'none', fontSize: '9px', lineHeight: '12px', letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--color-accent-2-700)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+        style: {
+          display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', cursor: 'pointer',
+          padding: '7px 8px', borderRadius: 'var(--radius-md)', font: 'inherit',
+          background: isSel ? 'var(--color-accent-100)' : inMonth && holyTint ? 'var(--color-accent-2-200)' : inMonth ? 'var(--color-surface)' : 'transparent',
+          border: '2px solid ' + (isSel ? 'var(--color-accent)' : 'transparent'),
+          opacity: inMonth ? 1 : 0.35, overflow: 'hidden',
+        },
+        numStyle: { fontFamily: 'var(--font-heading)', fontSize: '14px', color: isToday ? 'var(--color-accent-700)' : 'inherit' },
+        chips: ids.slice(0, 2).map(id => { const it = this.item(id); const c = this.conflict(it, iso); return {
+          name: it.name, dot: dot(it.swatch, 7),
+          style: { display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', lineHeight: '14px', minHeight: '14px', flex: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: c !== null ? 'var(--color-accent-700)' : 'inherit' } }; }),
+        outfit: ids.length > 2 ? '+' + (ids.length - 2) + ' more' : '',
+        outfitStyle: { fontSize: '10px', lineHeight: '13px', flex: 'none', color: 'color-mix(in srgb, var(--color-text) 45%, transparent)', display: ids.length > 2 ? 'block' : 'none' },
+      });
+    }
+
+    const selIds = s.plan[s.sel] || [];
+    const selW = this.weather(s.sel);
+    const pickerCats = ['Tops','Bottoms','Outerwear','Shoes','Dresses','Accessories'];
+
+    const closetCats = ['All','Tops','Bottoms','Outerwear','Shoes','Dresses','Accessories','Untagged'];
+    const closetList = s.items.filter(i => s.cat === 'All' ? true : i.cat === s.cat);
+    const untagged = s.items.filter(i => !i.tagged).length;
+
+    const sorted = [...s.items].filter(i => i.tagged).sort((a, b) => b.worn - a.worn);
+    const max = sorted[0] ? sorted[0].worn : 1;
+    const plannedDays = Object.values(s.plan).filter(v => v.length).length;
+    const avgRest = Math.round(s.items.reduce((a, i) => a + i.rest, 0) / s.items.length);
+
+    return {
+      isPlanner: s.view === 'planner', isCloset: s.view === 'closet', isStats: s.view === 'stats',
+      goPlanner: () => this.setState({ view: 'planner' }), goCloset: () => this.setState({ view: 'closet' }), goStats: () => this.setState({ view: 'stats' }),
+      tabPlannerStyle: tab('planner'), tabClosetStyle: tab('closet'), tabStatsStyle: tab('stats'),
+      untaggedLabel: untagged ? untagged + ' to tag' : 'All tagged',
+
+      monthLabel: MON[m] + ' ' + y,
+      prevMonth: () => this.setState(st => ({ viewM: st.viewM === 0 ? 11 : st.viewM - 1, viewY: st.viewM === 0 ? st.viewY - 1 : st.viewY }), () => this.loadLuach(this.state.viewY)),
+      nextMonth: () => this.setState(st => ({ viewM: st.viewM === 11 ? 0 : st.viewM + 1, viewY: st.viewM === 11 ? st.viewY + 1 : st.viewY }), () => this.loadLuach(this.state.viewY + 1)),
+      locationDraft: s.locationDraft, locations: ['Austin, TX', 'New York, NY', 'Seattle, WA', 'London, UK', 'Los Angeles, CA'],
+      typeLocation: e => this.setState({ locationDraft: e.target.value }),
+      locationKey: e => { if (e.key === 'Enter') e.target.blur(); },
+      commitLocation: e => {
+        const v = e.target.value.trim();
+        if (!v || v === this.state.location) { this.setState({ locationDraft: this.state.location }); return; }
+        this.loadCity(v);
+      },
+      weekdays: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+      cells,
+
+      selLabel: D(s.sel).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+      selWeatherLine: showWeather && selW ? selW.glyph + '  ' + selW.t + '° · ' + (selW.w === 'rain' ? 'showers — think boots' : selW.w === 'snow' ? 'snow — bundle up' : selW.w === 'cloud' ? 'overcast and mild' : 'clear and warm') : showWeather ? 'Forecast covers the next 16 days' : (selIds.length + ' pieces planned'),
+      selHolyLine: (() => {
+        const d = D(s.sel), hy = this.holy(s.sel);
+        if (hy) return hy.type === 'erev' ? hy.name + ' · candles ' + this.candleTime(s.sel) : hy.name + (hy.type === 'yomtov' ? ' — Yom Tov, notifications paused' : '');
+        if (d.getDay() === 5) return 'Erev Shabbos · candles ' + this.candleTime(s.sel);
+        if (d.getDay() === 6) return 'Shabbos — notifications paused';
+        return '';
+      })(),
+      selHolyStyle: { display: (this.holy(s.sel) || D(s.sel).getDay() >= 5) ? 'inline-flex' : 'none', marginTop: '6px', fontSize: '11px', padding: '3px 10px', borderRadius: '999px', background: 'var(--color-accent-2-200)', color: 'var(--color-accent-2-800)' },
+      selEmpty: selIds.length === 0,
+      selPlanned: selIds.map(id => { const it = this.item(id); const c = this.conflict(it, s.sel); return {
+        name: it.name, dot: dot(it.swatch, 16), remove: () => this.removeFromDay(id),
+        warn: c === null ? '' : c === 0 ? 'same day' : c + 'd gap',
+        warnStyle: { display: c === null ? 'none' : 'inline-flex', alignItems: 'center', fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'var(--color-accent-200)', color: 'var(--color-accent-800)', flex: 'none' } }; }),
+
+      outfits: [
+        { name: 'Studio casual', apply: () => [8, 2, 4].forEach(i => this.addToDay(i)) },
+        { name: 'Rainy commute', apply: () => [6, 7, 10].forEach(i => this.addToDay(i)) },
+        { name: 'Dinner out', apply: () => [5, 10, 14].forEach(i => this.addToDay(i)) },
+      ],
+
+      pickerCats: pickerCats.map(c => ({ name: c, style: pill(s.pickerCat === c), pick: () => this.setState({ pickerCat: c }) })),
+      picker: s.items.filter(i => i.cat === s.pickerCat).map(it => { const c = this.conflict(it, s.sel); const inDay = selIds.includes(it.id); return {
+        name: it.name, dot: dot(it.swatch, 10), add: () => this.addToDay(it.id),
+        meta: inDay ? 'planned' : c !== null ? 'worn ' + (it.lastWorn ? gap(s.sel, it.lastWorn) : 0) + 'd ago · rest ' + it.rest : 'rested',
+        metaStyle: { fontSize: '10px', color: c !== null && !inDay ? 'var(--color-accent-700)' : 'color-mix(in srgb, var(--color-text) 45%, transparent)' },
+        style: { display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start', textAlign: 'left', font: 'inherit', cursor: 'pointer', padding: '8px 10px', borderRadius: 'var(--radius-md)', background: 'var(--color-bg)', border: '1.5px solid ' + (c !== null && !inDay ? 'var(--color-accent-300)' : 'transparent'), opacity: inDay ? 0.5 : 1 } }; }),
+
+      closetCountLine: s.items.length + ' pieces · ' + (untagged ? untagged + ' waiting to be tagged' : 'everything tagged'),
+      closetCats: closetCats.map(c => ({ name: c, style: pill(s.cat === c), pick: () => this.setState({ cat: c }) })),
+      closetItems: closetList.map(it => {
+        const since = it.lastWorn ? gap(TODAY, it.lastWorn) : null;
+        const resting = since !== null && since < it.rest;
+        return {
+          slotId: 'fold-item-' + it.id, slotHint: it.tagged ? 'Drop photo' : 'Photo added — tag it',
+          name: it.name, season: it.season, occasion: it.occasion,
+          sub: it.cat + ' · worn ' + it.worn + '× · ' + (since === null ? 'never worn' : since === 0 ? 'worn today' : since + ' days ago'),
+          restLabel: 'Rest ' + it.rest + ' day' + (it.rest === 1 ? '' : 's'),
+          badge: !it.tagged ? 'Needs tags' : resting ? 'Resting' : '',
+          badgeStyle: { position: 'absolute', top: '8px', left: '8px', fontSize: '10px', padding: '3px 9px', borderRadius: '999px', display: (!it.tagged || resting) ? 'inline-block' : 'none', background: !it.tagged ? 'var(--color-neutral-900)' : 'var(--color-accent-200)', color: !it.tagged ? 'var(--color-bg)' : 'var(--color-accent-800)' },
+          less: () => this.bumpRest(it.id, -1), more: () => this.bumpRest(it.id, 1),
+        };
+      }),
+
+      summary: [
+        { label: 'Pieces', value: s.items.length, note: 'in your closet' },
+        { label: 'Days planned', value: plannedDays, note: 'this month' },
+        { label: 'Avg rest rule', value: avgRest + 'd', note: 'across all pieces' },
+        { label: 'Never worn', value: s.items.filter(i => i.worn === 0).length, note: 'still with tags on' },
+      ],
+      mostWorn: sorted.slice(0, 6).map(i => ({ name: i.name, count: i.worn + '×', barStyle: { display: 'block', height: '100%', width: Math.round(i.worn / max * 100) + '%', background: 'var(--color-accent)', borderRadius: '999px' } })),
+      leastWorn: sorted.slice(-5).reverse().map(i => ({ name: i.name, dot: dot(i.swatch, 14), note: i.lastWorn ? gap(TODAY, i.lastWorn) + ' days ago' : 'never worn' })),
+
+      toast: !!s.toast, toastTitle: s.toast && s.toast.title, toastBody: s.toast && s.toast.body,
+      toastGlyph: s.toast && (s.toast.kind === 'warn' ? '!' : '✓'),
+      toastIcon: { width: '26px', height: '26px', flex: 'none', borderRadius: '999px', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-heading)', fontSize: '13px', background: s.toast && s.toast.kind === 'warn' ? 'var(--color-accent)' : 'var(--color-accent-2-500)', color: 'var(--color-bg)' },
+      toastStyle: { display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '14px 14px 14px 12px', borderRadius: 'var(--radius-lg)', background: 'var(--color-neutral-100)', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--color-divider)' },
+      dismissToast: () => { clearTimeout(this._t); this.setState({ toast: null }); },
+
+      modalOpen: s.modal, isPhotoTab: s.tab === 'photo', isLinkTab: s.tab === 'link',
+      openAdd: () => this.setState({ modal: true }), closeAdd: () => this.setState({ modal: false, link: '', linkFetched: false, draftName: '' }),
+      pickPhotoTab: () => this.setState({ tab: 'photo' }), pickLinkTab: () => this.setState({ tab: 'link' }),
+      draftName: s.draftName, setDraftName: e => this.setState({ draftName: e.target.value }),
+      draftRest: s.draftRest, draftRestLabel: s.draftRest + (s.draftRest === 1 ? ' day' : ' days'),
+      setDraftRest: e => this.setState({ draftRest: +e.target.value }),
+      linkUrl: s.link, setLinkUrl: e => this.setState({ link: e.target.value }),
+      fetchLink: () => { this.setState({ linkFetched: true }); this.notify('ok', 'Pulled from the store page', 'Image, name and colour filled in — drop your own photo any time.'); },
+      linkFetched: s.linkFetched, linkTitle: 'Ribbed knit cardigan', linkMeta: 'Sage · cotton blend · from ' + (s.link ? s.link.replace(/^https?:\/\//, '').split('/')[0] : 'store.com'),
+      saveDraft: () => {
+        const name = s.draftName.trim() || (s.linkFetched ? 'Ribbed knit cardigan' : 'Untitled piece');
+        const tagged = !!s.draftName.trim() || s.linkFetched;
+        this.setState(st => ({
+          items: [{ id: st.nextId, name, cat: tagged ? 'Tops' : 'Untagged', season: 'All year', occasion: 'Everyday', worn: 0, lastWorn: null, rest: st.draftRest, swatch: RAMP[st.nextId % RAMP.length], tagged }, ...st.items],
+          nextId: st.nextId + 1, modal: false, link: '', linkFetched: false, draftName: '', view: 'closet',
+        }));
+        this.notify('ok', 'Added to your closet', tagged ? name + ' · rest ' + s.draftRest + ' days' : 'Untitled piece saved — tag it when you have a minute.');
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
