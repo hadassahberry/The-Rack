@@ -1,38 +1,62 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const itemUpload = document.getElementById('item-upload');
-    const closetItemsContainer = document.getElementById('closet-items');
-    const weeklyGrid = document.getElementById('weekly-grid');
-    const getWeatherBtn = document.getElementById('get-weather-btn');
-    const cityInput = document.getElementById('city-input');
+    // Navigation Tabs
+    const navButtons = document.querySelectorAll('.nav-btn');
+    const viewSections = document.querySelectorAll('.view-section');
 
-    // Local storage state initialization
+    navButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            navButtons.forEach(b => b.classList.remove('active'));
+            viewSections.forEach(v => v.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(btn.dataset.tab).classList.add('active');
+        });
+    });
+
+    // App state
+    const itemUpload = document.getElementById('item-upload');
+    const fullClosetGrid = document.getElementById('full-closet-grid');
+    const weeklyGrid = document.getElementById('weekly-grid');
+    const categoryTabs = document.getElementById('category-tabs');
+
     let closet = JSON.parse(localStorage.getItem('rack_closet')) || [];
     let schedule = JSON.parse(localStorage.getItem('rack_schedule')) || {};
+    let activeCategory = 'all';
+
+    // Picker Modal elements
+    const pickerModal = document.getElementById('picker-modal');
+    const pickerTitle = document.getElementById('picker-title');
+    const pickerItemsGrid = document.getElementById('picker-items-grid');
+    const saveDayBtn = document.getElementById('save-day-btn');
+    const closePickerBtn = document.getElementById('close-picker-btn');
+    let currentEditingDay = null;
+    let tempSelectedIds = [];
+
+    // Edit Modal elements
+    const editModal = document.getElementById('edit-modal');
+    const modalImg = document.getElementById('modal-img');
+    const modalName = document.getElementById('modal-name');
+    const modalCategory = document.getElementById('modal-category');
+    const saveItemBtn = document.getElementById('save-item-btn');
+    const deleteItemBtn = document.getElementById('delete-item-btn');
+    const closeEditBtn = document.getElementById('close-edit-btn');
+    let editingItemId = null;
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-    // Render initial view
     renderCloset();
     renderCalendar();
 
-    // Weather Initialization
-    const savedCity = localStorage.getItem('rack_last_city');
-    if (savedCity) {
-        cityInput.value = savedCity;
-        fetchWeatherForCity(savedCity);
-    } else {
-        cityInput.value = "New York";
-        fetchWeatherForCity("New York");
-    }
-
-    getWeatherBtn.addEventListener('click', () => {
-        const cityName = cityInput.value.trim();
-        if (cityName) {
-            fetchWeatherForCity(cityName);
+    // Category filtering in closet view
+    categoryTabs.addEventListener('click', (e) => {
+        if (e.target.classList.contains('tab-btn')) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            activeCategory = e.target.dataset.category;
+            renderCloset();
         }
     });
 
-    // Handle Image Uploads
+    // Handle File Uploads
     itemUpload.addEventListener('change', (e) => {
         const files = e.target.files;
         for (let file of files) {
@@ -40,6 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = function(uploadEvent) {
                 const newItem = {
                     id: 'item_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                    name: file.name.substring(0, 15) || 'Wardrobe Item',
+                    category: 'tops',
                     image: uploadEvent.target.result
                 };
                 closet.push(newItem);
@@ -56,122 +82,180 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCalendar();
     }
 
-    // Render Closet Drawer
+    // Render Full Closet Grid
     function renderCloset() {
-        closetItemsContainer.innerHTML = '';
-        if (closet.length === 0) {
-            closetItemsContainer.innerHTML = '<p style="grid-column: span 2; text-align: center; color: #888; font-size: 0.9rem; margin-top: 20px;">No items yet. Upload some clothes above!</p>';
+        fullClosetGrid.innerHTML = '';
+        const filteredItems = activeCategory === 'all' 
+            ? closet 
+            : closet.filter(i => i.category === activeCategory);
+
+        if (filteredItems.length === 0) {
+            fullClosetGrid.innerHTML = '<p style="grid-column: span 3; text-align: center; color: #888; margin-top: 30px;">No items in this category yet. Click "+ Add New Item" above!</p>';
             return;
         }
 
-        closet.forEach(item => {
+        filteredItems.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'closet-card';
+
             const img = document.createElement('img');
             img.src = item.image;
-            img.className = 'clothing-thumb';
-            img.draggable = true;
-            
-            img.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', item.id);
-                e.dataTransfer.effectAllowed = 'copy';
-            });
+            card.appendChild(img);
 
-            closetItemsContainer.appendChild(img);
+            const info = document.createElement('div');
+            info.className = 'closet-card-info';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'closet-card-name';
+            nameSpan.textContent = item.name;
+            info.appendChild(nameSpan);
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'edit-icon-btn';
+            editBtn.innerHTML = '⚙️';
+            editBtn.title = "Edit Item";
+            editBtn.addEventListener('click', () => openEditModal(item));
+            info.appendChild(editBtn);
+
+            card.appendChild(info);
+            fullClosetGrid.appendChild(card);
         });
     }
 
-    // Render Weekly Grid Planner
+    // Render Weekly Calendar Grid
     function renderCalendar() {
         weeklyGrid.innerHTML = '';
         days.forEach(day => {
             const col = document.createElement('div');
             col.className = 'day-column';
+            col.addEventListener('click', () => openPickerModal(day));
 
             const header = document.createElement('div');
             header.className = 'day-header';
             header.textContent = day;
             col.appendChild(header);
 
-            const dropzone = document.createElement('div');
-            dropzone.className = 'day-dropzone';
-            dropzone.dataset.day = day;
+            const previewContainer = document.createElement('div');
+            previewContainer.className = 'day-outfits-preview';
 
-            // Drag and drop listeners
-            dropzone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
-                dropzone.classList.add('drag-over');
-            });
-
-            dropzone.addEventListener('dragleave', () => {
-                dropzone.classList.remove('drag-over');
-            });
-
-            dropzone.addEventListener('drop', (e) => {
-                e.preventDefault();
-                dropzone.classList.remove('drag-over');
-                const itemId = e.dataTransfer.getData('text/plain');
-                if (itemId) {
-                    assignItemToDay(day, itemId);
-                }
-            });
-
-            // Render assigned items for this day
             const assignedIds = schedule[day] || [];
             const isRepeat = checkOutfitRepetition(day, assignedIds);
 
-            assignedIds.forEach((itemId, index) => {
-                const itemData = closet.find(i => i.id === itemId);
-                if (itemData) {
-                    const itemCard = document.createElement('div');
-                    itemCard.className = 'slot-item';
-                    
-                    const img = document.createElement('img');
-                    img.src = itemData.image;
-                    itemCard.appendChild(img);
-
-                    itemCard.title = "Click to remove item";
-                    itemCard.style.cursor = 'pointer';
-                    itemCard.addEventListener('click', () => {
-                        schedule[day].splice(index, 1);
-                        saveAndRefresh();
-                    });
-
-                    dropzone.appendChild(itemCard);
-                }
-            });
-
             if (assignedIds.length === 0) {
-                const emptyText = document.createElement('div');
-                emptyText.style.cssText = "color: #bbb; font-size: 0.8rem; text-align: center; margin: auto;";
-                emptyText.textContent = "Drop item here";
-                dropzone.appendChild(emptyText);
+                const empty = document.createElement('div');
+                empty.className = 'day-empty-prompt';
+                empty.textContent = 'Tap to select outfit';
+                previewContainer.appendChild(empty);
+            } else {
+                assignedIds.forEach(itemId => {
+                    const itemData = closet.find(i => i.id === itemId);
+                    if (itemData) {
+                        const mini = document.createElement('div');
+                        mini.className = 'mini-slot-item';
+                        const img = document.createElement('img');
+                        img.src = itemData.image;
+                        mini.appendChild(img);
+                        previewContainer.appendChild(mini);
+                    }
+                });
             }
+
+            col.appendChild(previewContainer);
 
             if (isRepeat && assignedIds.length > 0) {
                 const warning = document.createElement('div');
                 warning.className = 'repeat-warning';
-                warning.textContent = '🔁 Combo repeated recently!';
+                warning.textContent = '🔁 Repeated recently!';
                 col.appendChild(warning);
             }
 
-            col.appendChild(dropzone);
             weeklyGrid.appendChild(col);
         });
     }
 
-    function assignItemToDay(day, itemId) {
-        if (!schedule[day]) {
-            schedule[day] = [];
+    // Click-to-Select Day Picker Modal
+    function openPickerModal(day) {
+        currentEditingDay = day;
+        pickerTitle.textContent = `Plan Outfit for ${day}`;
+        tempSelectedIds = [...(schedule[day] || [])];
+        
+        pickerItemsGrid.innerHTML = '';
+        if (closet.length === 0) {
+            pickerItemsGrid.innerHTML = '<p style="grid-column: span 3; text-align: center; color: #888;">Your closet is empty! Add items in the "My Closet" tab first.</p>';
+        } else {
+            closet.forEach(item => {
+                const pItem = document.createElement('div');
+                pItem.className = 'picker-item';
+                if (tempSelectedIds.includes(item.id)) {
+                    pItem.classList.add('selected');
+                }
+
+                const img = document.createElement('img');
+                img.src = item.image;
+                pItem.appendChild(img);
+
+                pItem.addEventListener('click', () => {
+                    if (tempSelectedIds.includes(item.id)) {
+                        tempSelectedIds = tempSelectedIds.filter(id => id !== item.id);
+                        pItem.classList.remove('selected');
+                    } else {
+                        tempSelectedIds.push(item.id);
+                        pItem.classList.add('selected');
+                    }
+                });
+
+                pickerItemsGrid.appendChild(pItem);
+            });
         }
-        if (!schedule[day].includes(itemId)) {
-            schedule[day].push(itemId);
-            saveAndRefresh();
-        }
+
+        pickerModal.classList.remove('hidden');
     }
 
+    closePickerBtn.addEventListener('click', () => pickerModal.classList.add('hidden'));
+
+    saveDayBtn.addEventListener('click', () => {
+        if (tempSelectedIds.length > 0) {
+            schedule[currentEditingDay] = tempSelectedIds;
+        } else {
+            delete schedule[currentEditingDay];
+        }
+        saveAndRefresh();
+        pickerModal.classList.add('hidden');
+    });
+
+    // Item Edit Modal Functions
+    function openEditModal(item) {
+        editingItemId = item.id;
+        modalImg.src = item.image;
+        modalName.value = item.name;
+        modalCategory.value = item.category || 'tops';
+        editModal.classList.remove('hidden');
+    }
+
+    closeEditBtn.addEventListener('click', () => editModal.classList.add('hidden'));
+
+    saveItemBtn.addEventListener('click', () => {
+        const item = closet.find(i => i.id === editingItemId);
+        if (item) {
+            item.name = modalName.value.trim() || 'Item';
+            item.category = modalCategory.value;
+            saveAndRefresh();
+        }
+        editModal.classList.add('hidden');
+    });
+
+    deleteItemBtn.addEventListener('click', () => {
+        closet = closet.filter(i => i.id !== editingItemId);
+        for (let day in schedule) {
+            schedule[day] = schedule[day].filter(id => id !== editingItemId);
+        }
+        saveAndRefresh();
+        editModal.classList.add('hidden');
+    });
+
+    // Outfit Repetition Checker
     function checkOutfitRepetition(currentDay, currentItemIds) {
         if (currentItemIds.length === 0) return false;
-        
         for (let day of days) {
             if (day === currentDay) continue;
             const otherDayIds = schedule[day] || [];
@@ -189,7 +273,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return sortedA.every((val, index) => val === sortedB[index]);
     }
 
-    // Live weather forecast function using Open-Meteo
+    // Weather API Integration
+    const getWeatherBtn = document.getElementById('get-weather-btn');
+    const cityInput = document.getElementById('city-input');
+
+    const savedCity = localStorage.getItem('rack_last_city');
+    if (savedCity) {
+        cityInput.value = savedCity;
+        fetchWeatherForCity(savedCity);
+    } else {
+        cityInput.value = "New York";
+        fetchWeatherForCity("New York");
+    }
+
+    getWeatherBtn.addEventListener('click', () => {
+        const cityName = cityInput.value.trim();
+        if (cityName) fetchWeatherForCity(cityName);
+    });
+
     async function fetchWeatherForCity(city) {
         const banner = document.getElementById('weather-banner');
         banner.textContent = `🔍 Finding weather for ${city}...`;
@@ -204,7 +305,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const { latitude, longitude, name, country } = geoData.results[0];
-
             const weatherResponse = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code`);
             const weatherData = await weatherResponse.json();
 
@@ -219,10 +319,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             banner.textContent = `📍 ${name}, ${country}: ${tempF}°F (${tempC}°C) — ${condition}`;
             localStorage.setItem('rack_last_city', city);
-
         } catch (error) {
             banner.textContent = `⚠️ Could not load weather data. Check your connection.`;
-            console.error(error);
         }
     }
 });
