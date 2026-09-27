@@ -3,32 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Rack - Closet Calendar</title>
+    <title>The Rack - Digital Closet & Calendar</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header>
         <h1>The Rack</h1>
-        <p>Plan your weekly outfits from your digital closet</p>
+        <p>Your digital wardrobe & weekly outfit planner</p>
+        
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="nav-btn active" data-tab="calendar-view">📅 Weekly Planner</button>
+            <button class="nav-btn" data-tab="closet-view">👗 My Closet</button>
+        </nav>
     </header>
 
     <main class="app-container">
-        <!-- Closet Sidebar -->
-        <section class="closet-section">
-            <h2>My Closet</h2>
-            <div class="upload-box">
-                <label for="item-upload" class="upload-btn">+ Add Closet Item</label>
-                <input type="file" id="item-upload" accept="image/*" multiple style="display: none;">
-            </div>
-            <div id="closet-items" class="closet-grid">
-                <!-- Uploaded items appear here -->
-            </div>
-        </section>
-
-        <!-- Weekly Calendar Grid Section -->
-        <section class="calendar-section">
+        <!-- Calendar View (Default) -->
+        <section id="calendar-view" class="view-section active">
             <div class="calendar-header">
-                <h2>Weekly Planner</h2>
+                <h2>Weekly Schedule</h2>
                 <div class="weather-controls">
                     <input type="text" id="city-input" placeholder="Enter city (e.g., New York)" />
                     <button id="get-weather-btn">Update Weather</button>
@@ -39,7 +33,70 @@
                 <!-- 7 Days generated via JS -->
             </div>
         </section>
+
+        <!-- Full Closet View -->
+        <section id="closet-view" class="view-section hidden">
+            <div class="closet-header-actions">
+                <h2>Wardrobe Collection</h2>
+                <label for="item-upload" class="upload-btn">+ Add New Item</label>
+                <input type="file" id="item-upload" accept="image/*" multiple style="display: none;">
+            </div>
+
+            <!-- Category Filter Tabs -->
+            <div class="category-tabs" id="category-tabs">
+                <button class="tab-btn active" data-category="all">All Items</button>
+                <button class="tab-btn" data-category="tops">Tops</button>
+                <button class="tab-btn" data-category="bottoms">Bottoms</button>
+                <button class="tab-btn" data-category="shoes">Shoes</button>
+                <button class="tab-btn" data-category="layers">Layers</button>
+                <button class="tab-btn" data-category="accessories">Accessories</button>
+            </div>
+
+            <div id="full-closet-grid" class="full-closet-grid">
+                <!-- Full inventory grid rendered here -->
+            </div>
+        </section>
     </main>
+
+    <!-- Day Outfit Picker Modal -->
+    <div id="picker-modal" class="modal hidden">
+        <div class="modal-content large">
+            <div class="modal-header-row">
+                <h3 id="picker-title">Plan Outfit for Day</h3>
+                <button id="close-picker-btn" class="close-x">&times;</button>
+            </div>
+            <p class="modal-subtitle">Select items from your closet to add to this day:</p>
+            <div id="picker-items-grid" class="picker-grid">
+                <!-- Clickable items to toggle selection -->
+            </div>
+            <button id="save-day-btn" class="primary-btn">Done</button>
+        </div>
+    </div>
+
+    <!-- Item Edit Modal -->
+    <div id="edit-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Edit Closet Item</h3>
+            <img id="modal-img" src="" alt="Item preview">
+            <label for="modal-name">Item Name:</label>
+            <input type="text" id="modal-name" placeholder="e.g., White Linen Shirt">
+            
+            <label for="modal-category">Category:</label>
+            <select id="modal-category">
+                <option value="tops">Tops</option>
+                <option value="bottoms">Bottoms</option>
+                <option value="shoes">Shoes</option>
+                <option value="layers">Layers</option>
+                <option value="accessories">Accessories</option>
+            </select>
+
+            <div class="modal-actions">
+                <button id="save-item-btn" class="primary-btn">Save</button>
+                <button id="delete-item-btn" class="danger-btn">Delete</button>
+                <button id="close-edit-btn" class="secondary-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
 
     <script src="image-slot.js"></script>
 </body>
