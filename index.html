@@ -29,8 +29,12 @@
         <section class="calendar-section">
             <div class="calendar-header">
                 <h2>Weekly Planner</h2>
-                <div id="weather-banner" class="weather-banner">🌤️ Loading forecast...</div>
+                <div class="weather-controls">
+                    <input type="text" id="city-input" placeholder="Enter city (e.g., New York)" />
+                    <button id="get-weather-btn">Update Weather</button>
+                </div>
             </div>
+            <div id="weather-banner" class="weather-banner">🌤️ Enter your city for the live forecast...</div>
             <div id="weekly-grid" class="weekly-grid">
                 <!-- 7 Days generated via JS -->
             </div>
