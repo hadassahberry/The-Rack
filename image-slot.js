@@ -2,6 +2,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemUpload = document.getElementById('item-upload');
     const closetItemsContainer = document.getElementById('closet-items');
     const weeklyGrid = document.getElementById('weekly-grid');
+    const getWeatherBtn = document.getElementById('get-weather-btn');
+    const cityInput = document.getElementById('city-input');
 
     // Local storage state initialization
     let closet = JSON.parse(localStorage.getItem('rack_closet')) || [];
@@ -12,7 +14,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Render initial view
     renderCloset();
     renderCalendar();
-    fetchWeather();
+
+    // Weather Initialization
+    const savedCity = localStorage.getItem('rack_last_city');
+    if (savedCity) {
+        cityInput.value = savedCity;
+        fetchWeatherForCity(savedCity);
+    } else {
+        cityInput.value = "New York";
+        fetchWeatherForCity("New York");
+    }
+
+    getWeatherBtn.addEventListener('click', () => {
+        const cityName = cityInput.value.trim();
+        if (cityName) {
+            fetchWeatherForCity(cityName);
+        }
+    });
 
     // Handle Image Uploads
     itemUpload.addEventListener('change', (e) => {
@@ -111,7 +129,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     img.src = itemData.image;
                     itemCard.appendChild(img);
 
-                    // Add a quick remove button on click so users can clear items
                     itemCard.title = "Click to remove item";
                     itemCard.style.cursor = 'pointer';
                     itemCard.addEventListener('click', () => {
@@ -146,14 +163,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!schedule[day]) {
             schedule[day] = [];
         }
-        // Prevent duplicate exact item assignment on same day
         if (!schedule[day].includes(itemId)) {
             schedule[day].push(itemId);
             saveAndRefresh();
         }
     }
 
-    // Repetition check logic
     function checkOutfitRepetition(currentDay, currentItemIds) {
         if (currentItemIds.length === 0) return false;
         
@@ -174,8 +189,40 @@ document.addEventListener('DOMContentLoaded', () => {
         return sortedA.every((val, index) => val === sortedB[index]);
     }
 
-    function fetchWeather() {
+    // Live weather forecast function using Open-Meteo
+    async function fetchWeatherForCity(city) {
         const banner = document.getElementById('weather-banner');
-        banner.textContent = "🌡️ 72°F & Sunny — Perfect weather for light layers!";
+        banner.textContent = `🔍 Finding weather for ${city}...`;
+
+        try {
+            const geoResponse = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
+            const geoData = await geoResponse.json();
+
+            if (!geoData.results || geoData.results.length === 0) {
+                banner.textContent = `❌ City not found. Try another location.`;
+                return;
+            }
+
+            const { latitude, longitude, name, country } = geoData.results[0];
+
+            const weatherResponse = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code`);
+            const weatherData = await weatherResponse.json();
+
+            const tempC = weatherData.current.temperature_2m;
+            const tempF = Math.round((tempC * 9/5) + 32);
+            const code = weatherData.current.weather_code;
+
+            let condition = "Clear & Pleasant";
+            if (code >= 1 && code <= 3) condition = "Partly Cloudy";
+            else if (code >= 51 && code <= 67) condition = "Rainy — Grab a jacket & boots!";
+            else if (code >= 71 && code <= 77) condition = "Snowy — Bundle up warmly!";
+
+            banner.textContent = `📍 ${name}, ${country}: ${tempF}°F (${tempC}°C) — ${condition}`;
+            localStorage.setItem('rack_last_city', city);
+
+        } catch (error) {
+            banner.textContent = `⚠️ Could not load weather data. Check your connection.`;
+            console.error(error);
+        }
     }
 });
