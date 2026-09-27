@@ -41,14 +41,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // Render Closet Drawer
     function renderCloset() {
         closetItemsContainer.innerHTML = '';
+        if (closet.length === 0) {
+            closetItemsContainer.innerHTML = '<p style="grid-column: span 2; text-align: center; color: #888; font-size: 0.9rem; margin-top: 20px;">No items yet. Upload some clothes above!</p>';
+            return;
+        }
+
         closet.forEach(item => {
             const img = document.createElement('img');
             img.src = item.image;
             img.className = 'clothing-thumb';
             img.draggable = true;
+            
             img.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', item.id);
+                e.dataTransfer.effectAllowed = 'copy';
             });
+
             closetItemsContainer.appendChild(img);
         });
     }
@@ -72,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Drag and drop listeners
             dropzone.addEventListener('dragover', (e) => {
                 e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
                 dropzone.classList.add('drag-over');
             });
 
@@ -83,16 +92,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 dropzone.classList.remove('drag-over');
                 const itemId = e.dataTransfer.getData('text/plain');
-                assignItemToDay(day, itemId);
+                if (itemId) {
+                    assignItemToDay(day, itemId);
+                }
             });
 
             // Render assigned items for this day
             const assignedIds = schedule[day] || [];
-            
-            // Check for outfit repetition against other days
             const isRepeat = checkOutfitRepetition(day, assignedIds);
 
-            assignedIds.forEach(itemId => {
+            assignedIds.forEach((itemId, index) => {
                 const itemData = closet.find(i => i.id === itemId);
                 if (itemData) {
                     const itemCard = document.createElement('div');
@@ -101,9 +110,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     const img = document.createElement('img');
                     img.src = itemData.image;
                     itemCard.appendChild(img);
+
+                    // Add a quick remove button on click so users can clear items
+                    itemCard.title = "Click to remove item";
+                    itemCard.style.cursor = 'pointer';
+                    itemCard.addEventListener('click', () => {
+                        schedule[day].splice(index, 1);
+                        saveAndRefresh();
+                    });
+
                     dropzone.appendChild(itemCard);
                 }
             });
+
+            if (assignedIds.length === 0) {
+                const emptyText = document.createElement('div');
+                emptyText.style.cssText = "color: #bbb; font-size: 0.8rem; text-align: center; margin: auto;";
+                emptyText.textContent = "Drop item here";
+                dropzone.appendChild(emptyText);
+            }
 
             if (isRepeat && assignedIds.length > 0) {
                 const warning = document.createElement('div');
@@ -128,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Repetition check logic (compares item combinations across days)
+    // Repetition check logic
     function checkOutfitRepetition(currentDay, currentItemIds) {
         if (currentItemIds.length === 0) return false;
         
@@ -149,10 +174,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return sortedA.every((val, index) => val === sortedB[index]);
     }
 
-    // Mock weather banner updater
     function fetchWeather() {
         const banner = document.getElementById('weather-banner');
-        // Simulated weather lookup
         banner.textContent = "🌡️ 72°F & Sunny — Perfect weather for light layers!";
     }
 });
