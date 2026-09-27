@@ -135,7 +135,44 @@ header p {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.weather-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.weather-controls input {
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    outline: none;
+    background: #faf9f7;
+}
+
+.weather-controls input:focus {
+    border-color: var(--primary);
+    background: #fff;
+}
+
+.weather-controls button {
+    padding: 8px 16px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.weather-controls button:hover {
+    background: var(--primary-hover);
 }
 
 .weather-banner {
@@ -143,9 +180,10 @@ header p {
     background: #fdf6ec;
     color: #8c5d28;
     border: 1px solid #f3e5d0;
-    padding: 8px 16px;
-    border-radius: 30px;
+    padding: 10px 16px;
+    border-radius: 12px;
     font-weight: 500;
+    margin-bottom: 20px;
 }
 
 .weekly-grid {
