@@ -8,32 +8,39 @@
 body {
     background-color: var(--bg-color);
     color: var(--text-main);
-    padding: 24px 16px;
+    padding: 20px 24px;
     min-height: 100vh;
 }
 
 header {
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
     margin-bottom: 24px;
 }
 
-header h1 {
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: var(--primary);
-    margin-bottom: 4px;
-    letter-spacing: -0.02em;
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-header p {
-    color: var(--text-muted);
-    font-size: 0.95rem;
-    margin-bottom: 16px;
+.brand-mark {
+    font-size: 1.4rem;
+}
+
+.brand h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+    letter-spacing: -0.02em;
 }
 
 .nav-tabs {
     display: inline-flex;
-    background: #eeece6;
+    background: #f0e4db;
     padding: 4px;
     border-radius: 30px;
     gap: 4px;
@@ -57,8 +64,14 @@ header p {
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .app-container {
-    max-width: 1350px;
+    max-width: 1400px;
     margin: 0 auto;
 }
 
@@ -72,4 +85,11 @@ header p {
 
 .hidden {
     display: none !important;
+}
+
+@media (max-width: 900px) {
+    header {
+        justify-content: center;
+        text-align: center;
+    }
 }

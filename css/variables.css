@@ -1,12 +1,15 @@
 :root {
-    --bg-color: #f9f8f6;
+    --bg-color: #f7ece5;
     --card-bg: #ffffff;
-    --primary: #1a1a1a;
-    --primary-hover: #333333;
+    --primary: #7d2a44;
+    --primary-hover: #611f34;
     --accent: #c29b61;
-    --text-main: #2b2b2b;
-    --text-muted: #737373;
-    --border: #e6e3dd;
-    --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04);
+    --accent-pink: #e2536c;
+    --lavender: #e4dbf3;
+    --lavender-text: #6a5a93;
+    --text-main: #2b2323;
+    --text-muted: #8a7d78;
+    --border: #ecdfd7;
+    --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.06);
     --radius: 16px;
 }
