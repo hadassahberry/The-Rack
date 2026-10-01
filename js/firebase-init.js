@@ -7,7 +7,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
     getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-    signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut
+    signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut,
+    verifyPasswordResetCode, confirmPasswordReset
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
     getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, query
@@ -22,7 +23,8 @@ window.Firebase = {
     app, auth, db,
     authFns: {
         onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-        signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut
+        signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut,
+        verifyPasswordResetCode, confirmPasswordReset
     },
     dbFns: { doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, query }
 };
