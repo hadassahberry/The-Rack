@@ -5,6 +5,12 @@ let viewYear, viewMonthJs; // viewMonthJs is 0-indexed (JS Date convention)
 let selectedDateKey;
 let planningActiveCategory = 'tops';
 
+// Kept in sync by Firestore's live listeners (see initLiveData) so render
+// functions can read synchronously instead of awaiting Store on every call.
+let plannerCloset = [];
+let plannerSchedule = {};
+let plannerSavedOutfits = [];
+
 function isoDateKey(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
@@ -34,12 +40,16 @@ document.addEventListener('DOMContentLoaded', () => {
         await refreshLocationData(resolved);
     });
 
-    ['rack:closet-changed', 'rack:schedule-changed', 'rack:outfits-changed'].forEach(evt => {
-        window.addEventListener(evt, renderCalendar);
-    });
+    window.waitForAuth().then(initCalendarLiveData);
 
     renderCalendar();
 });
+
+function initCalendarLiveData() {
+    Store.onClosetChange((closet) => { plannerCloset = closet; renderCalendar(); });
+    Store.onScheduleChange((schedule) => { plannerSchedule = schedule; renderCalendar(); });
+    Store.onSavedOutfitsChange((outfits) => { plannerSavedOutfits = outfits; renderCalendar(); });
+}
 
 function formatLocationLabel(location) {
     if (!location) return '';
@@ -74,8 +84,6 @@ function renderMonthGrid() {
 
     document.getElementById('month-label').textContent = `${MONTH_NAMES[viewMonthJs]} ${viewYear}`;
 
-    const closet = Store.getCloset();
-    const schedule = Store.getSchedule();
     const location = Location.get();
     const weatherMap = Weather.getForecastMap(location);
     const holidaysMap = Holidays.getMap(viewYear, viewMonthJs + 1, location);
@@ -96,7 +104,7 @@ function renderMonthGrid() {
             ...((holidayInfo && holidayInfo.holidays) ? holidayInfo.holidays.map(h => h.title) : [])
         ];
         const weather = weatherMap[dateKey];
-        const assignedIds = schedule[dateKey] || [];
+        const assignedIds = plannerSchedule[dateKey] || [];
 
         const cell = document.createElement('div');
         cell.className = 'month-cell';
@@ -115,7 +123,7 @@ function renderMonthGrid() {
         const weatherBadge = weather
             ? `<span class="cell-weather">${weatherInfo(weather.code).icon} ${weather.high}°</span>` : '';
         const itemsList = assignedIds
-            .map(id => closet.find(i => i.id === id))
+            .map(id => plannerCloset.find(i => i.id === id))
             .filter(Boolean)
             .map(item => `<div class="cell-item-row"><span class="color-dot" style="background:${item.color || '#ccc'}"></span>${item.name}</div>`)
             .join('');
@@ -134,13 +142,12 @@ function renderMonthGrid() {
 }
 
 function computeGapDays(itemId, excludeDateKey) {
-    const schedule = Store.getSchedule();
     const selected = new Date(excludeDateKey);
     let nearest = null;
 
-    Object.keys(schedule).forEach(dateKey => {
+    Object.keys(plannerSchedule).forEach(dateKey => {
         if (dateKey === excludeDateKey) return;
-        if (!schedule[dateKey].includes(itemId)) return;
+        if (!plannerSchedule[dateKey].includes(itemId)) return;
         const diffDays = Math.round((new Date(dateKey) - selected) / 86400000);
         if (nearest === null || Math.abs(diffDays) < Math.abs(nearest)) nearest = diffDays;
     });
@@ -157,8 +164,6 @@ function renderPlanningPanel() {
     const pieceGrid = document.getElementById('planning-piece-grid');
     if (!dateHeading) return;
 
-    const closet = Store.getCloset();
-    const schedule = Store.getSchedule();
     const location = Location.get();
     const weatherMap = Weather.getForecastMap(location);
     const selectedDate = new Date(selectedDateKey + 'T00:00:00');
@@ -169,13 +174,13 @@ function renderPlanningPanel() {
     weatherLine.textContent = weather ? `${weatherInfo(weather.code).icon} ${weather.high}° · ${weatherInfo(weather.code).label}` : '';
     weatherLine.classList.toggle('hidden', !weather);
 
-    const assignedIds = schedule[selectedDateKey] || [];
+    const assignedIds = plannerSchedule[selectedDateKey] || [];
     itemsBox.innerHTML = '';
     if (assignedIds.length === 0) {
         itemsBox.innerHTML = '<p class="planning-empty">No items planned yet — add one below.</p>';
     }
     assignedIds.forEach(id => {
-        const item = closet.find(i => i.id === id);
+        const item = plannerCloset.find(i => i.id === id);
         if (!item) return;
         const gap = computeGapDays(id, selectedDateKey);
         const gapTag = (gap !== null && Math.abs(gap) <= 3)
@@ -189,30 +194,23 @@ function renderPlanningPanel() {
             <button class="remove-item-btn" aria-label="Remove">&times;</button>
         `;
         row.querySelector('.remove-item-btn').addEventListener('click', () => {
-            let s = Store.getSchedule();
-            s[selectedDateKey] = (s[selectedDateKey] || []).filter(x => x !== id);
-            if (s[selectedDateKey].length === 0) delete s[selectedDateKey];
-            Store.saveSchedule(s);
-            renderCalendar();
+            const list = (plannerSchedule[selectedDateKey] || []).filter(x => x !== id);
+            Store.setScheduleDay(selectedDateKey, list).catch(console.error);
         });
         itemsBox.appendChild(row);
     });
 
     // Saved outfits
     outfitsRow.innerHTML = '';
-    const outfits = Store.getSavedOutfits();
-    if (outfits.length === 0) {
+    if (plannerSavedOutfits.length === 0) {
         outfitsRow.innerHTML = '<p class="planning-empty">No saved outfits yet.</p>';
     }
-    outfits.forEach(outfit => {
+    plannerSavedOutfits.forEach(outfit => {
         const pill = document.createElement('button');
         pill.className = 'outfit-pill';
         pill.textContent = outfit.name;
         pill.addEventListener('click', () => {
-            let s = Store.getSchedule();
-            s[selectedDateKey] = [...outfit.itemIds];
-            Store.saveSchedule(s);
-            renderCalendar();
+            Store.setScheduleDay(selectedDateKey, [...outfit.itemIds]).catch(console.error);
         });
         outfitsRow.appendChild(pill);
     });
@@ -232,8 +230,8 @@ function renderPlanningPanel() {
 
     // Piece grid
     pieceGrid.innerHTML = '';
-    const anyPlannedIds = new Set(Object.values(schedule).flat());
-    const pieces = closet.filter(i => i.category === planningActiveCategory);
+    const anyPlannedIds = new Set(Object.values(plannerSchedule).flat());
+    const pieces = plannerCloset.filter(i => i.category === planningActiveCategory);
     if (pieces.length === 0) {
         pieceGrid.innerHTML = '<p class="planning-empty">No items in this category yet.</p>';
     }
@@ -248,16 +246,9 @@ function renderPlanningPanel() {
             <span class="piece-card-status">${status}</span>
         `;
         card.addEventListener('click', () => {
-            let s = Store.getSchedule();
-            const list = s[selectedDateKey] || [];
-            if (list.includes(item.id)) {
-                s[selectedDateKey] = list.filter(x => x !== item.id);
-                if (s[selectedDateKey].length === 0) delete s[selectedDateKey];
-            } else {
-                s[selectedDateKey] = [...list, item.id];
-            }
-            Store.saveSchedule(s);
-            renderCalendar();
+            const list = plannerSchedule[selectedDateKey] || [];
+            const next = list.includes(item.id) ? list.filter(x => x !== item.id) : [...list, item.id];
+            Store.setScheduleDay(selectedDateKey, next).catch(console.error);
         });
         pieceGrid.appendChild(card);
     });

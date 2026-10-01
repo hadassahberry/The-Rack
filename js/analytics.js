@@ -7,9 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-function renderAnalytics() {
-    const closet = Store.getCloset();
-    const schedule = Store.getSchedule();
+async function renderAnalytics() {
+    const closet = await Store.getCloset();
+    const schedule = await Store.getSchedule();
 
     document.getElementById('stat-total-items').textContent = closet.length;
 
