@@ -4,6 +4,42 @@ let activeCategory = 'all';
 let activeSeason = 'all';
 let currentEditingItemId = null;
 let editFromTagQueue = false;
+let outfitBuilderSelectedIds = [];
+
+// Kept in sync by Firestore's live listeners (see initLiveData below) so
+// render functions can stay synchronous and read from here instead of
+// re-fetching after every mutation.
+let liveCloset = [];
+let liveSavedOutfits = [];
+
+function compressImage(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                const maxDim = 500;
+                let { width, height } = img;
+                if (width > height && width > maxDim) {
+                    height = Math.round(height * maxDim / width);
+                    width = maxDim;
+                } else if (height > maxDim) {
+                    width = Math.round(width * maxDim / height);
+                    height = maxDim;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', 0.6));
+            };
+            img.onerror = () => reject(new Error('Could not read image'));
+            img.src = ev.target.result;
+        };
+        reader.onerror = () => reject(new Error('Could not read file'));
+        reader.readAsDataURL(file);
+    });
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     const itemUpload = document.getElementById('item-upload');
@@ -25,31 +61,28 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCloset();
     });
 
-    itemUpload.addEventListener('change', (e) => {
-        for (let file of e.target.files) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                let closet = Store.getCloset();
-                closet.push({
+    itemUpload.addEventListener('change', async (e) => {
+        const files = [...e.target.files];
+        itemUpload.value = '';
+        for (const file of files) {
+            try {
+                const image = await compressImage(file);
+                await Store.addClosetItem({
                     id: 'item_' + Date.now() + Math.random().toString(36).substr(2, 5),
                     name: file.name.replace(/\.[^.]+$/, '').substring(0, 20) || 'Item',
                     category: 'tops', occasion: 'casual', season: 'all-season',
                     color: '#cccccc', tagged: false,
-                    image: ev.target.result
+                    image
                 });
-                Store.saveCloset(closet);
-                renderCloset();
-                updateTagQueueUI();
-                window.dispatchEvent(new Event('rack:closet-changed'));
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+                console.error('Failed to add item', err);
+            }
         }
-        itemUpload.value = '';
     });
 
     tagQueueBtn.addEventListener('click', () => {
         document.querySelector('.nav-btn[data-tab="closet-view"]').click();
-        openNextUntaggedItem(true);
+        openNextUntaggedItem();
     });
 
     document.getElementById('close-edit-btn').addEventListener('click', closeEditModal);
@@ -58,19 +91,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('save-outfit-btn').addEventListener('click', saveOutfitFromBuilder);
 
-    renderCloset();
-    renderOutfitPickerGrid();
-    renderSavedOutfitsList();
-    updateTagQueueUI();
+    window.waitForAuth().then(initClosetLiveData);
 });
+
+function initClosetLiveData() {
+    Store.onClosetChange((closet) => {
+        liveCloset = closet;
+        renderCloset();
+        renderOutfitPickerGrid();
+        updateTagQueueUI();
+    });
+    Store.onSavedOutfitsChange((outfits) => {
+        liveSavedOutfits = outfits;
+        renderSavedOutfitsList();
+    });
+}
 
 function renderCloset() {
     const grid = document.getElementById('full-closet-grid');
     if (!grid) return;
     grid.innerHTML = '';
 
-    let closet = Store.getCloset();
-    let filtered = activeCategory === 'all' ? closet : closet.filter(i => i.category === activeCategory);
+    let filtered = activeCategory === 'all' ? liveCloset : liveCloset.filter(i => i.category === activeCategory);
     if (activeSeason !== 'all') filtered = filtered.filter(i => i.season === activeSeason || i.season === 'all-season');
 
     if (filtered.length === 0) {
@@ -103,13 +145,13 @@ function renderCloset() {
 function updateTagQueueUI() {
     const btn = document.getElementById('tag-queue-btn');
     if (!btn) return;
-    const count = Store.getCloset().filter(i => !i.tagged).length;
+    const count = liveCloset.filter(i => !i.tagged).length;
     btn.textContent = `${count} to tag`;
     btn.classList.toggle('hidden', count === 0);
 }
 
 function openNextUntaggedItem() {
-    const next = Store.getCloset().find(i => !i.tagged);
+    const next = liveCloset.find(i => !i.tagged);
     if (next) {
         editFromTagQueue = true;
         openEditModal(next.id);
@@ -117,7 +159,7 @@ function openNextUntaggedItem() {
 }
 
 function openEditModal(itemId) {
-    const item = Store.getCloset().find(i => i.id === itemId);
+    const item = liveCloset.find(i => i.id === itemId);
     if (!item) return;
     currentEditingItemId = itemId;
 
@@ -137,67 +179,59 @@ function closeEditModal() {
     editFromTagQueue = false;
 }
 
-function saveEditModal() {
+async function saveEditModal() {
     if (!currentEditingItemId) return;
-    let closet = Store.getCloset();
-    const item = closet.find(i => i.id === currentEditingItemId);
-    if (!item) return;
+    const existing = liveCloset.find(i => i.id === currentEditingItemId);
+    if (!existing) return;
 
-    item.name = document.getElementById('modal-name').value.trim() || item.name;
-    item.category = document.getElementById('modal-category').value;
-    item.occasion = document.getElementById('modal-occasion').value;
-    item.season = document.getElementById('modal-season').value;
-    item.color = document.getElementById('modal-color').value;
-    item.tagged = true;
+    const patch = {
+        name: document.getElementById('modal-name').value.trim() || existing.name,
+        category: document.getElementById('modal-category').value,
+        occasion: document.getElementById('modal-occasion').value,
+        season: document.getElementById('modal-season').value,
+        color: document.getElementById('modal-color').value,
+        tagged: true
+    };
 
-    Store.saveCloset(closet);
-    renderCloset();
-    renderOutfitPickerGrid();
-    updateTagQueueUI();
-    window.dispatchEvent(new Event('rack:closet-changed'));
-
+    const id = currentEditingItemId;
     const wasTagQueue = editFromTagQueue;
     closeEditModal();
+    await Store.updateClosetItem(id, patch);
     if (wasTagQueue) openNextUntaggedItem();
 }
 
-function deleteEditingItem() {
+async function deleteEditingItem() {
     if (!currentEditingItemId) return;
-    let closet = Store.getCloset().filter(i => i.id !== currentEditingItemId);
-    Store.saveCloset(closet);
-
-    let schedule = Store.getSchedule();
-    Object.keys(schedule).forEach(date => {
-        schedule[date] = schedule[date].filter(id => id !== currentEditingItemId);
-        if (schedule[date].length === 0) delete schedule[date];
-    });
-    Store.saveSchedule(schedule);
-
-    let outfits = Store.getSavedOutfits();
-    outfits.forEach(o => { o.itemIds = o.itemIds.filter(id => id !== currentEditingItemId); });
-    Store.saveSavedOutfits(outfits);
-
-    renderCloset();
-    renderOutfitPickerGrid();
-    renderSavedOutfitsList();
-    updateTagQueueUI();
-    window.dispatchEvent(new Event('rack:closet-changed'));
-    window.dispatchEvent(new Event('rack:schedule-changed'));
-    window.dispatchEvent(new Event('rack:outfits-changed'));
-
+    const id = currentEditingItemId;
     closeEditModal();
+
+    await Store.deleteClosetItem(id);
+
+    const schedule = await Store.getSchedule();
+    for (const dateKey of Object.keys(schedule)) {
+        if (schedule[dateKey].includes(id)) {
+            await Store.setScheduleDay(dateKey, schedule[dateKey].filter(x => x !== id));
+        }
+    }
+
+    const outfits = await Store.getSavedOutfits();
+    for (const outfit of outfits) {
+        if (outfit.itemIds.includes(id)) {
+            const itemIds = outfit.itemIds.filter(x => x !== id);
+            if (itemIds.length === 0) await Store.deleteSavedOutfit(outfit.id);
+            else await Store.addSavedOutfit({ ...outfit, itemIds });
+        }
+    }
 }
 
 // --- Saved Outfits builder (Closet tab) ---
-
-let outfitBuilderSelectedIds = [];
 
 function renderOutfitPickerGrid() {
     const grid = document.getElementById('outfit-picker-grid');
     if (!grid) return;
     grid.innerHTML = '';
 
-    Store.getCloset().forEach(item => {
+    liveCloset.forEach(item => {
         const p = document.createElement('div');
         p.className = `picker-item ${outfitBuilderSelectedIds.includes(item.id) ? 'selected' : ''}`;
         p.innerHTML = `<img src="${item.image}">`;
@@ -213,20 +247,17 @@ function renderOutfitPickerGrid() {
     });
 }
 
-function saveOutfitFromBuilder() {
+async function saveOutfitFromBuilder() {
     const nameInput = document.getElementById('outfit-name-input');
     const name = nameInput.value.trim();
     if (!name || outfitBuilderSelectedIds.length === 0) return;
 
-    let outfits = Store.getSavedOutfits();
-    outfits.push({ id: 'outfit_' + Date.now(), name, itemIds: [...outfitBuilderSelectedIds] });
-    Store.saveSavedOutfits(outfits);
-
+    const itemIds = [...outfitBuilderSelectedIds];
     nameInput.value = '';
     outfitBuilderSelectedIds = [];
     renderOutfitPickerGrid();
-    renderSavedOutfitsList();
-    window.dispatchEvent(new Event('rack:outfits-changed'));
+
+    await Store.addSavedOutfit({ id: 'outfit_' + Date.now(), name, itemIds });
 }
 
 function renderSavedOutfitsList() {
@@ -234,19 +265,16 @@ function renderSavedOutfitsList() {
     if (!list) return;
     list.innerHTML = '';
 
-    const outfits = Store.getSavedOutfits();
-    const closet = Store.getCloset();
-
-    if (outfits.length === 0) {
+    if (liveSavedOutfits.length === 0) {
         list.innerHTML = '<p style="color:#888; font-size:0.85rem;">No saved outfits yet — select items above and name them to save one.</p>';
         return;
     }
 
-    outfits.forEach(outfit => {
+    liveSavedOutfits.forEach(outfit => {
         const card = document.createElement('div');
         card.className = 'saved-outfit-card';
         const thumbs = outfit.itemIds
-            .map(id => closet.find(i => i.id === id))
+            .map(id => liveCloset.find(i => i.id === id))
             .filter(Boolean)
             .map(i => `<img src="${i.image}">`)
             .join('');
@@ -255,14 +283,7 @@ function renderSavedOutfitsList() {
             <div class="saved-outfit-name">${outfit.name}</div>
             <button class="edit-icon-btn" data-outfit-id="${outfit.id}">🗑️</button>
         `;
-        card.querySelector('button').addEventListener('click', () => deleteSavedOutfit(outfit.id));
+        card.querySelector('button').addEventListener('click', () => Store.deleteSavedOutfit(outfit.id));
         list.appendChild(card);
     });
-}
-
-function deleteSavedOutfit(outfitId) {
-    let outfits = Store.getSavedOutfits().filter(o => o.id !== outfitId);
-    Store.saveSavedOutfits(outfits);
-    renderSavedOutfitsList();
-    window.dispatchEvent(new Event('rack:outfits-changed'));
 }
