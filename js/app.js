@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await Weather.refresh(location);
     const withTzid = Store.getLocation() || location;
-    await Holidays.refresh(viewYear, viewMonthJs + 1, withTzid);
+    await refreshHolidaysForView(withTzid);
 
     renderCalendar();
 });

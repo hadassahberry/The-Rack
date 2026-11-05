@@ -7,7 +7,7 @@
 ## ✨ Features
 
 - **Digital Closet:** Upload photos of your tops, bottoms, outerwear, shoes, dresses, and accessories, and tag each with a category, occasion, season, and color.
-- **Monthly Planner:** A full month calendar (not just one week) where each day shows its assigned outfit, the day's forecast (within the ~16-day forecast window), and any Jewish holiday — including Shabbat candle-lighting times.
+- **Planner with Week / 2 Weeks / Month views:** A calendar (month by default) where each day shows its assigned outfit, the day's forecast (within the ~16-day forecast window), and any Jewish holiday — including Shabbat candle-lighting times.
 - **Planning Panel:** Pick a day to see its outfit, a rewear "gap" warning when an item was recently worn nearby, saved outfits you can apply in one click, and a quick single-item picker filtered by category.
 - **Saved Outfits:** Build and name reusable outfit combinations from the Closet tab.
 - **Rested vs. Planned:** Items already assigned to a day are marked "planned"; everything else is "rested" and ready to wear.

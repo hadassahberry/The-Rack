@@ -137,10 +137,14 @@
     color: var(--text-main);
 }
 
-.notif-note {
-    font-size: 0.8rem;
-    color: var(--text-muted);
+.view-switcher {
+    display: flex;
+    gap: 6px;
 }
+
+/* Week / 2-week views have fewer cells, so give each one more room. */
+.month-grid.view-week .month-cell { min-height: 230px; }
+.month-grid.view-2weeks .month-cell { min-height: 140px; }
 
 .location-pill {
     display: flex;

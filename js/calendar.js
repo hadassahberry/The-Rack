@@ -1,7 +1,11 @@
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-let viewYear, viewMonthJs; // viewMonthJs is 0-indexed (JS Date convention)
+// Which range the calendar shows: 'week', '2weeks' or 'month' (the default,
+// every time the page opens). anchorDate is the date the range is built
+// around: its month for 'month', its Sunday-start week for the others.
+let viewMode = 'month';
+let anchorDate;
 let selectedDateKey;
 let planningActiveCategory = 'tops';
 
@@ -17,15 +21,18 @@ function isoDateKey(date) {
 
 document.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
-    viewYear = today.getFullYear();
-    viewMonthJs = today.getMonth();
+    anchorDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     selectedDateKey = isoDateKey(today);
 
     const location = Location.get();
     document.getElementById('city-input').value = formatLocationLabel(location);
 
-    document.getElementById('prev-month-btn').addEventListener('click', () => changeMonth(-1));
-    document.getElementById('next-month-btn').addEventListener('click', () => changeMonth(1));
+    document.getElementById('prev-month-btn').addEventListener('click', () => stepView(-1));
+    document.getElementById('next-month-btn').addEventListener('click', () => stepView(1));
+    document.getElementById('view-switcher').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-view]');
+        if (btn) setViewMode(btn.dataset.view);
+    });
 
     const cityInput = document.getElementById('city-input');
     cityInput.addEventListener('keydown', (e) => {
@@ -58,47 +65,99 @@ function formatLocationLabel(location) {
 
 async function refreshLocationData(location) {
     await Weather.refresh(location);
-    const withTzid = Store.getLocation() || location;
-    await Holidays.refresh(viewYear, viewMonthJs + 1, withTzid);
+    await refreshHolidaysForView(Store.getLocation() || location);
     renderCalendar();
 }
 
-async function changeMonth(delta) {
-    viewMonthJs += delta;
-    if (viewMonthJs < 0) { viewMonthJs = 11; viewYear--; }
-    if (viewMonthJs > 11) { viewMonthJs = 0; viewYear++; }
+// Every date shown in the current view. Month view fills out whole weeks, so
+// it includes a few days from the neighboring months; the week views start on
+// the Sunday of the anchor date's week.
+function visibleDates() {
+    const a = anchorDate;
+    if (viewMode === 'month') {
+        const y = a.getFullYear(), m = a.getMonth();
+        const startDay = new Date(y, m, 1).getDay();
+        const daysInMonth = new Date(y, m + 1, 0).getDate();
+        const total = Math.ceil((startDay + daysInMonth) / 7) * 7;
+        return Array.from({ length: total }, (_, i) => new Date(y, m, 1 + i - startDay));
+    }
+    const count = viewMode === 'week' ? 7 : 14;
+    return Array.from({ length: count }, (_, i) => new Date(a.getFullYear(), a.getMonth(), a.getDate() - a.getDay() + i));
+}
+
+// Holidays come from Hebcal one month at a time, and a week or 2-week view
+// can straddle two months — fetch each month that appears on screen.
+async function refreshHolidaysForView(location) {
+    const months = new Map();
+    visibleDates().forEach(d => months.set(`${d.getFullYear()}-${d.getMonth()}`, d));
+    await Promise.all([...months.values()].map(d => Holidays.refresh(d.getFullYear(), d.getMonth() + 1, location)));
+}
+
+function viewLabel(dates) {
+    if (viewMode === 'month') return `${MONTH_NAMES[anchorDate.getMonth()]} ${anchorDate.getFullYear()}`;
+    const first = dates[0], last = dates[dates.length - 1];
+    const short = (d) => `${MONTH_NAMES[d.getMonth()].slice(0, 3)} ${d.getDate()}`;
+    return first.getFullYear() === last.getFullYear()
+        ? `${short(first)} – ${short(last)}, ${last.getFullYear()}`
+        : `${short(first)}, ${first.getFullYear()} – ${short(last)}, ${last.getFullYear()}`;
+}
+
+async function stepView(direction) {
+    const a = anchorDate;
+    anchorDate = viewMode === 'month'
+        ? new Date(a.getFullYear(), a.getMonth() + direction, 1)
+        : new Date(a.getFullYear(), a.getMonth(), a.getDate() + direction * (viewMode === 'week' ? 7 : 14));
     renderCalendar();
-    await Holidays.refresh(viewYear, viewMonthJs + 1, Store.getLocation());
+    await refreshHolidaysForView(Store.getLocation());
+    renderCalendar();
+}
+
+async function setViewMode(mode) {
+    if (mode === viewMode || !['week', '2weeks', 'month'].includes(mode)) return;
+    viewMode = mode;
+    // Keep the selected day on screen when switching views.
+    anchorDate = new Date(selectedDateKey + 'T00:00:00');
+    renderCalendar();
+    await refreshHolidaysForView(Store.getLocation());
     renderCalendar();
 }
 
 function renderCalendar() {
-    renderMonthGrid();
+    renderCalendarGrid();
     renderPlanningPanel();
 }
 
-function renderMonthGrid() {
+function renderCalendarGrid() {
     const grid = document.getElementById('month-grid');
     if (!grid) return;
     grid.innerHTML = '';
+    grid.className = `month-grid view-${viewMode}`;
 
-    document.getElementById('month-label').textContent = `${MONTH_NAMES[viewMonthJs]} ${viewYear}`;
+    const dates = visibleDates();
+    document.getElementById('month-label').textContent = viewLabel(dates);
+    const unit = viewMode === 'month' ? 'month' : viewMode === 'week' ? 'week' : '2 weeks';
+    document.getElementById('prev-month-btn').setAttribute('aria-label', `Previous ${unit}`);
+    document.getElementById('next-month-btn').setAttribute('aria-label', `Next ${unit}`);
+    document.querySelectorAll('#view-switcher [data-view]').forEach(btn => {
+        const active = btn.dataset.view === viewMode;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', String(active));
+    });
 
     const location = Location.get();
     const weatherMap = Weather.getForecastMap(location);
-    const holidaysMap = Holidays.getMap(viewYear, viewMonthJs + 1, location);
+    const holidayMaps = {};
+    const holidayInfoFor = (date) => {
+        const k = `${date.getFullYear()}-${date.getMonth() + 1}`;
+        holidayMaps[k] = holidayMaps[k] || Holidays.getMap(date.getFullYear(), date.getMonth() + 1, location);
+        return holidayMaps[k][isoDateKey(date)];
+    };
 
-    const firstOfMonth = new Date(viewYear, viewMonthJs, 1);
-    const startDay = firstOfMonth.getDay();
-    const daysInMonth = new Date(viewYear, viewMonthJs + 1, 0).getDate();
-    const totalCells = Math.ceil((startDay + daysInMonth) / 7) * 7;
-
-    for (let i = 0; i < totalCells; i++) {
-        const cellDate = new Date(viewYear, viewMonthJs, 1 + (i - startDay));
+    for (const cellDate of dates) {
         const dateKey = isoDateKey(cellDate);
-        const isCurrentMonth = cellDate.getMonth() === viewMonthJs;
+        const isCurrentMonth = viewMode !== 'month' || cellDate.getMonth() === anchorDate.getMonth();
         const isShabbat = cellDate.getDay() === 6;
-        const holidayInfo = holidaysMap[dateKey];
+        const holidayInfo = holidayInfoFor(cellDate);
         const holidayTitles = [
             ...(isShabbat ? ['Shabbos'] : []),
             ...((holidayInfo && holidayInfo.holidays) ? holidayInfo.holidays.map(h => h.title) : [])

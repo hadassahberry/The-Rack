@@ -185,7 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!document.getElementById('camera-modal').classList.contains('hidden')) closeWebcam();
     });
 
-    document.getElementById('close-edit-btn').addEventListener('click', closeEditModal);
     document.getElementById('save-item-btn').addEventListener('click', saveEditModal);
     document.getElementById('delete-item-btn').addEventListener('click', deleteEditingItem);
 

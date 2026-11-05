@@ -62,7 +62,11 @@
                             <button id="next-month-btn" class="month-arrow" aria-label="Next month">&rsaquo;</button>
                             <h2 id="month-label">Month Year</h2>
                         </div>
-                        <p class="notif-note">Notifications pause on Shabbos &amp; Yom Tov.</p>
+                        <div id="view-switcher" class="view-switcher" role="group" aria-label="Calendar view">
+                            <button class="tab-btn" data-view="week" aria-pressed="false">Week</button>
+                            <button class="tab-btn" data-view="2weeks" aria-pressed="false">2 weeks</button>
+                            <button class="tab-btn active" data-view="month" aria-pressed="true">Month</button>
+                        </div>
                         <div class="location-pill">
                             <span class="pin-icon" aria-hidden="true">📍</span>
                             <input type="text" id="city-input" placeholder="Search city..." />
@@ -196,7 +200,6 @@
             <div class="modal-actions">
                 <button id="save-item-btn" class="primary-btn">Save</button>
                 <button id="delete-item-btn" class="danger-btn">Delete</button>
-                <button id="close-edit-btn" class="secondary-btn">Cancel</button>
             </div>
         </div>
     </div>
