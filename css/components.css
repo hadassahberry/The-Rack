@@ -16,6 +16,23 @@
     background: var(--primary-hover);
 }
 
+.camera-btn {
+    padding: 10px 20px;
+    background: var(--card-bg);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.camera-btn:hover {
+    background: var(--primary);
+    color: white;
+}
+
 .tag-pill {
     padding: 8px 16px;
     background: var(--card-bg);
@@ -630,6 +647,8 @@
     box-shadow: 0 15px 35px rgba(0,0,0,0.15);
 }
 
+.modal-content video { width: 100%; border-radius: 8px; background: #000; min-height: 120px; }
+.primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .modal-content img { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; }
 .modal-content input, .modal-content select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; }
 .modal-content input[type="color"] { padding: 4px; height: 40px; cursor: pointer; }

@@ -40,6 +40,8 @@
 
         <div class="header-actions">
             <button id="tag-queue-btn" class="tag-pill hidden">0 to tag</button>
+            <button id="take-photo-btn" class="camera-btn" type="button">Take photo</button>
+            <input type="file" id="item-camera" accept="image/*" capture="environment" style="display: none;">
             <label for="item-upload" class="upload-btn">+ Add clothes</label>
             <input type="file" id="item-upload" accept="image/*" multiple style="display: none;">
             <div id="account-menu" class="account-menu hidden">
@@ -145,6 +147,19 @@
             <div id="analytics-most-worn" class="analytics-worn-grid"></div>
         </section>
     </main>
+    </div>
+
+    <!-- Webcam Modal (laptops/desktops) -->
+    <div id="camera-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Take a photo</h3>
+            <div id="camera-error" class="auth-error hidden"></div>
+            <video id="camera-video" autoplay playsinline muted></video>
+            <div class="modal-actions">
+                <button id="camera-capture-btn" class="primary-btn" disabled>Capture</button>
+                <button id="camera-cancel-btn" class="secondary-btn">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <!-- Edit Modal -->

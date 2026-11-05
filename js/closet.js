@@ -41,6 +41,85 @@ function compressImage(file) {
     });
 }
 
+async function addImageFiles(files) {
+    for (const file of files) {
+        try {
+            const image = await compressImage(file);
+            await Store.addClosetItem({
+                id: 'item_' + Date.now() + Math.random().toString(36).substr(2, 5),
+                name: file.name.replace(/\.[^.]+$/, '').substring(0, 20) || 'Item',
+                category: 'tops', occasion: 'casual', season: 'all-season',
+                color: '#cccccc', tagged: false,
+                image
+            });
+        } catch (err) {
+            console.error('Failed to add item', err);
+        }
+    }
+}
+
+// --- In-page webcam capture (laptops/desktops) ---
+
+let webcamStream = null;
+
+async function openWebcam() {
+    const modal = document.getElementById('camera-modal');
+    const video = document.getElementById('camera-video');
+    const error = document.getElementById('camera-error');
+    const captureBtn = document.getElementById('camera-capture-btn');
+    error.classList.add('hidden');
+    captureBtn.disabled = true;
+    modal.classList.remove('hidden');
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showCameraError('Your browser doesn\'t support camera access here.');
+        return;
+    }
+    try {
+        webcamStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment', width: { ideal: 1280 } },
+            audio: false
+        });
+        video.srcObject = webcamStream;
+        captureBtn.disabled = false;
+    } catch (err) {
+        const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+        const missing = err && (err.name === 'NotFoundError' || err.name === 'OverconstrainedError');
+        showCameraError(denied
+            ? 'Camera access was blocked. Allow the camera for this site in your browser\'s address bar, then try again.'
+            : missing ? 'No camera was found on this device.'
+            : 'Couldn\'t start the camera. Make sure no other app is using it.');
+    }
+}
+
+function showCameraError(message) {
+    const error = document.getElementById('camera-error');
+    error.textContent = message;
+    error.classList.remove('hidden');
+}
+
+function closeWebcam() {
+    if (webcamStream) {
+        webcamStream.getTracks().forEach(t => t.stop());
+        webcamStream = null;
+    }
+    document.getElementById('camera-video').srcObject = null;
+    document.getElementById('camera-modal').classList.add('hidden');
+}
+
+function captureWebcamPhoto() {
+    const video = document.getElementById('camera-video');
+    if (!video.videoWidth) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(async (blob) => {
+        closeWebcam();
+        if (blob) await addImageFiles([new File([blob], 'New item.jpg', { type: 'image/jpeg' })]);
+    }, 'image/jpeg', 0.9);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const itemUpload = document.getElementById('item-upload');
     const categoryTabs = document.getElementById('category-tabs');
@@ -61,24 +140,22 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCloset();
     });
 
-    itemUpload.addEventListener('change', async (e) => {
+    // "+ Add clothes" (file picker) and phone camera (`capture` input) share
+    // one handler. On touch devices "Take photo" opens the native camera;
+    // on laptops/desktops it opens an in-page webcam preview instead.
+    const itemCamera = document.getElementById('item-camera');
+    [itemUpload, itemCamera].forEach(input => input.addEventListener('change', async (e) => {
         const files = [...e.target.files];
-        itemUpload.value = '';
-        for (const file of files) {
-            try {
-                const image = await compressImage(file);
-                await Store.addClosetItem({
-                    id: 'item_' + Date.now() + Math.random().toString(36).substr(2, 5),
-                    name: file.name.replace(/\.[^.]+$/, '').substring(0, 20) || 'Item',
-                    category: 'tops', occasion: 'casual', season: 'all-season',
-                    color: '#cccccc', tagged: false,
-                    image
-                });
-            } catch (err) {
-                console.error('Failed to add item', err);
-            }
-        }
+        e.target.value = '';
+        await addImageFiles(files);
+    }));
+
+    document.getElementById('take-photo-btn').addEventListener('click', () => {
+        if (window.matchMedia('(pointer: coarse)').matches) itemCamera.click();
+        else openWebcam();
     });
+    document.getElementById('camera-capture-btn').addEventListener('click', captureWebcamPhoto);
+    document.getElementById('camera-cancel-btn').addEventListener('click', closeWebcam);
 
     tagQueueBtn.addEventListener('click', () => {
         document.querySelector('.nav-btn[data-tab="closet-view"]').click();
