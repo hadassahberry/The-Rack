@@ -64,6 +64,7 @@ header {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 .app-container {
@@ -87,5 +88,43 @@ header {
     header {
         justify-content: center;
         text-align: center;
+    }
+}
+
+/* Phones: stack the header (logo, tabs, then actions) so nothing runs off-screen. */
+@media (max-width: 640px) {
+    body {
+        padding: 12px;
+    }
+
+    header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .brand {
+        justify-content: center;
+    }
+
+    .nav-tabs {
+        display: flex;
+    }
+
+    .nav-btn {
+        flex: 1;
+        padding: 9px 6px;
+        font-size: 0.85rem;
+    }
+
+    .header-actions {
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .header-actions .account-menu {
+        width: 100%;
+        justify-content: center;
     }
 }

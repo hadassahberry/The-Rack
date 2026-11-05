@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('prev-month-btn').addEventListener('click', () => stepView(-1));
     document.getElementById('next-month-btn').addEventListener('click', () => stepView(1));
+    document.getElementById('back-to-calendar-btn').addEventListener('click', () => {
+        document.querySelector('.calendar-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     document.getElementById('view-switcher').addEventListener('click', (e) => {
         const btn = e.target.closest('[data-view]');
         if (btn) setViewMode(btn.dataset.view);
@@ -127,11 +130,36 @@ function renderCalendar() {
     renderPlanningPanel();
 }
 
+// True when the planning panel sits below the calendar instead of beside it
+// (matches the 900px breakpoint in components.css).
+function isStackedLayout() {
+    return window.matchMedia('(max-width: 900px)').matches;
+}
+
+// Holiday data (and Friday candle-lighting) for one date. `cache` lets a
+// caller rendering many dates reuse each month's map instead of re-reading it.
+function getHolidayInfo(date, location, cache = {}) {
+    const k = `${date.getFullYear()}-${date.getMonth() + 1}`;
+    cache[k] = cache[k] || Holidays.getMap(date.getFullYear(), date.getMonth() + 1, location);
+    return cache[k][isoDateKey(date)];
+}
+
+// "Shabbos", "Rosh Hashana I", ... for one date.
+function holidayTitlesFor(date, holidayInfo) {
+    return [
+        ...(date.getDay() === 6 ? ['Shabbos'] : []),
+        ...((holidayInfo && holidayInfo.holidays) ? holidayInfo.holidays.map(h => h.title) : [])
+    ];
+}
+
 function renderCalendarGrid() {
     const grid = document.getElementById('month-grid');
     if (!grid) return;
     grid.innerHTML = '';
     grid.className = `month-grid view-${viewMode}`;
+    // Lets CSS treat the weekday header row differently per view (phones
+    // show week / 2-week views as a day-by-day list instead of a grid).
+    grid.closest('.calendar-panel').dataset.view = viewMode;
 
     const dates = visibleDates();
     document.getElementById('month-label').textContent = viewLabel(dates);
@@ -147,21 +175,12 @@ function renderCalendarGrid() {
     const location = Location.get();
     const weatherMap = Weather.getForecastMap(location);
     const holidayMaps = {};
-    const holidayInfoFor = (date) => {
-        const k = `${date.getFullYear()}-${date.getMonth() + 1}`;
-        holidayMaps[k] = holidayMaps[k] || Holidays.getMap(date.getFullYear(), date.getMonth() + 1, location);
-        return holidayMaps[k][isoDateKey(date)];
-    };
 
     for (const cellDate of dates) {
         const dateKey = isoDateKey(cellDate);
         const isCurrentMonth = viewMode !== 'month' || cellDate.getMonth() === anchorDate.getMonth();
-        const isShabbat = cellDate.getDay() === 6;
-        const holidayInfo = holidayInfoFor(cellDate);
-        const holidayTitles = [
-            ...(isShabbat ? ['Shabbos'] : []),
-            ...((holidayInfo && holidayInfo.holidays) ? holidayInfo.holidays.map(h => h.title) : [])
-        ];
+        const holidayInfo = getHolidayInfo(cellDate, location, holidayMaps);
+        const holidayTitles = holidayTitlesFor(cellDate, holidayInfo);
         const weather = weatherMap[dateKey];
         const assignedIds = plannerSchedule[dateKey] || [];
 
@@ -173,6 +192,11 @@ function renderCalendarGrid() {
         cell.addEventListener('click', () => {
             selectedDateKey = dateKey;
             renderCalendar();
+            // When the planning panel is stacked below the calendar (phones,
+            // small tablets), bring it into view so tapping a day visibly does something.
+            if (isStackedLayout()) {
+                document.querySelector('.planning-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         });
 
         const holidayLabel = holidayTitles.length > 0
@@ -190,6 +214,7 @@ function renderCalendarGrid() {
         cell.innerHTML = `
             ${holidayLabel}
             <div class="cell-top-row">
+                <span class="cell-weekday">${WEEKDAY_NAMES[cellDate.getDay()].slice(0, 3)}</span>
                 <span class="cell-date-num">${cellDate.getDate()}</span>
                 ${weatherBadge}
             </div>
@@ -232,6 +257,17 @@ function renderPlanningPanel() {
     const weather = weatherMap[selectedDateKey];
     weatherLine.textContent = weather ? `${weatherInfo(weather.code).icon} ${weather.high}° · ${weatherInfo(weather.code).label}` : '';
     weatherLine.classList.toggle('hidden', !weather);
+
+    // Holiday + candle-lighting for the selected day (the calendar cells
+    // are too small on phones to show them).
+    const holidayLine = document.getElementById('planning-holiday');
+    const holidayInfo = getHolidayInfo(selectedDate, location);
+    const holidayText = [
+        holidayTitlesFor(selectedDate, holidayInfo).join(' / '),
+        holidayInfo && holidayInfo.candleLighting ? `🕯 Candle lighting ${holidayInfo.candleLighting}` : ''
+    ].filter(Boolean).join(' · ');
+    holidayLine.textContent = holidayText;
+    holidayLine.classList.toggle('hidden', !holidayText);
 
     const assignedIds = plannerSchedule[selectedDateKey] || [];
     itemsBox.innerHTML = '';

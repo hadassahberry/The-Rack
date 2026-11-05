@@ -164,7 +164,25 @@ document.addEventListener('DOMContentLoaded', () => {
         await addImageFiles(files);
     }));
 
-    document.getElementById('take-photo-btn').addEventListener('click', () => {
+    // "+ Add clothes" dropdown: Upload a photo / Take a photo.
+    const addMenu = document.getElementById('add-menu');
+    const addBtn = document.getElementById('add-clothes-btn');
+    const addList = document.getElementById('add-menu-list');
+    const setAddMenuOpen = (open) => {
+        addList.classList.toggle('hidden', !open);
+        addBtn.setAttribute('aria-expanded', String(open));
+    };
+    addBtn.addEventListener('click', () => setAddMenuOpen(addList.classList.contains('hidden')));
+    document.addEventListener('click', (e) => { if (!addMenu.contains(e.target)) setAddMenuOpen(false); });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !addList.classList.contains('hidden')) { setAddMenuOpen(false); addBtn.focus(); }
+    });
+    document.getElementById('menu-upload-btn').addEventListener('click', () => {
+        setAddMenuOpen(false);
+        itemUpload.click();
+    });
+    document.getElementById('menu-camera-btn').addEventListener('click', () => {
+        setAddMenuOpen(false);
         if (window.matchMedia('(pointer: coarse)').matches) itemCamera.click();
         else openWebcam();
     });

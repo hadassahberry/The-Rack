@@ -40,10 +40,15 @@
 
         <div class="header-actions">
             <button id="tag-queue-btn" class="tag-pill hidden">0 to tag</button>
-            <button id="take-photo-btn" class="camera-btn" type="button">Take photo</button>
-            <input type="file" id="item-camera" accept="image/*" capture="environment" style="display: none;">
-            <label for="item-upload" class="upload-btn">+ Add clothes</label>
+            <div class="add-menu" id="add-menu">
+                <button id="add-clothes-btn" class="upload-btn" type="button" aria-haspopup="menu" aria-expanded="false">+ Add clothes &#9662;</button>
+                <div id="add-menu-list" class="add-menu-list hidden" role="menu">
+                    <button id="menu-upload-btn" type="button" role="menuitem">Upload a photo</button>
+                    <button id="menu-camera-btn" type="button" role="menuitem">Take a photo</button>
+                </div>
+            </div>
             <input type="file" id="item-upload" accept="image/*" multiple style="display: none;">
+            <input type="file" id="item-camera" accept="image/*" capture="environment" style="display: none;">
             <div id="account-menu" class="account-menu hidden">
                 <span id="account-email" class="account-email"></span>
                 <button id="sign-out-btn" class="secondary-btn">Sign out</button>
@@ -80,9 +85,11 @@
                 </div>
 
                 <aside class="planning-panel">
+                    <button id="back-to-calendar-btn" class="link-btn back-to-calendar" type="button">&uarr; Back to calendar</button>
                     <p class="eyebrow">PLANNING</p>
                     <h2 id="planning-date">&mdash;</h2>
                     <p id="planning-weather" class="planning-weather"></p>
+                    <p id="planning-holiday" class="planning-holiday hidden"></p>
 
                     <div id="planning-items" class="planning-items"></div>
 

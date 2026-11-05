@@ -16,21 +16,43 @@
     background: var(--primary-hover);
 }
 
-.camera-btn {
-    padding: 10px 20px;
-    background: var(--card-bg);
-    color: var(--primary);
-    border: 1px solid var(--primary);
-    border-radius: 20px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    font-weight: 600;
-    white-space: nowrap;
+/* "+ Add clothes" dropdown: Upload a photo / Take a photo */
+.add-menu {
+    position: relative;
 }
 
-.camera-btn:hover {
-    background: var(--primary);
-    color: white;
+.add-menu-list {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 50;
+    min-width: 180px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+}
+
+.add-menu-list button {
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+.add-menu-list button:hover,
+.add-menu-list button:focus-visible {
+    background: #faf3ee;
+    color: var(--primary);
+    outline: none;
 }
 
 .tag-pill {
@@ -769,9 +791,98 @@
     white-space: nowrap;
 }
 
+.cell-weekday { display: none; }
+
+.back-to-calendar { display: none; margin-bottom: 8px; }
+
+.planning-holiday {
+    font-size: 0.8rem;
+    color: var(--lavender-text);
+    font-weight: 600;
+    margin: -8px 0 14px;
+}
+
 /* ---------- Responsive ---------- */
+
+/* Tablet and down: the planning panel stacks below the calendar. */
 @media (max-width: 900px) {
     .planner-layout {
         grid-template-columns: minmax(0, 1fr);
     }
+
+    .back-to-calendar { display: block; }
+}
+
+/* Phones */
+@media (max-width: 640px) {
+    /* 16px inputs stop iPhones from zooming in when a field is tapped. */
+    input, select,
+    .modal-content input, .modal-content select,
+    .auth-card input, .saved-outfit-builder input,
+    .location-pill input, .filter-dropdown { font-size: 16px; }
+    .location-pill input { width: 100%; min-width: 0; }
+
+    .calendar-panel, .planning-panel { padding: 14px; }
+
+    .calendar-top-row { gap: 10px; }
+    .view-switcher, .location-pill { width: 100%; }
+    .view-switcher .tab-btn { flex: 1; }
+    .month-nav h2 { font-size: 1.15rem; }
+
+    /* Month view: compact cells — day number plus a dot per planned item.
+       Holiday names, candle times, weather and outfit names move to the
+       planning panel (tap a day), where there's room to read them. */
+    .month-grid.view-month { gap: 4px; }
+    .month-grid.view-month .month-cell { min-height: 58px; padding: 4px 2px; gap: 3px; border-radius: 8px; align-items: center; }
+    .month-grid.view-month .month-cell.selected { padding: 3px 1px; }
+    .month-grid.view-month .cell-top-row { justify-content: center; }
+    .month-grid.view-month .cell-date-num { font-size: 0.85rem; }
+    .month-grid.view-month .cell-weather,
+    .month-grid.view-month .cell-holiday-label,
+    .month-grid.view-month .cell-candle-label { display: none; }
+    .month-grid.view-month .cell-items { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 2px; }
+    .month-grid.view-month .cell-item-row { font-size: 0; gap: 0; }
+    .month-grid.view-month .color-dot { width: 8px; height: 8px; }
+    .weekday-row span { font-size: 0.6rem; }
+
+    /* Week / 2-week views: a day-by-day list, one full-width row per day. */
+    .calendar-panel[data-view="week"] .weekday-row,
+    .calendar-panel[data-view="2weeks"] .weekday-row { display: none; }
+    .month-grid.view-week,
+    .month-grid.view-2weeks { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .month-grid.view-week .month-cell,
+    .month-grid.view-2weeks .month-cell { min-height: 0; padding: 12px; }
+    .month-grid.view-week .cell-top-row,
+    .month-grid.view-2weeks .cell-top-row { justify-content: flex-start; gap: 8px; }
+    .month-grid.view-week .cell-weekday,
+    .month-grid.view-2weeks .cell-weekday { display: inline; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; min-width: 2.2em; }
+    .month-grid.view-week .cell-weather,
+    .month-grid.view-2weeks .cell-weather { margin-left: auto; font-size: 0.8rem; }
+    .month-grid.view-week .cell-date-num,
+    .month-grid.view-2weeks .cell-date-num { font-size: 1.05rem; }
+    .month-grid.view-week .cell-item-row,
+    .month-grid.view-2weeks .cell-item-row { font-size: 0.8rem; }
+    .month-grid.view-week .cell-holiday-label,
+    .month-grid.view-2weeks .cell-holiday-label { font-size: 0.7rem; }
+
+    /* Closet: two cards per row instead of one giant one. */
+    .full-closet-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .closet-card img { height: 150px; }
+    .saved-outfits-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    /* Popups fit the screen and scroll if they're taller than it. */
+    .modal { padding: 12px; }
+    .modal-content { width: min(340px, 100%); max-height: 92vh; overflow-y: auto; }
+
+    .auth-card { padding: 24px 20px; }
+    .piece-grid { gap: 6px; }
+}
+
+/* Touch screens: bigger tap targets. */
+@media (pointer: coarse) {
+    .tab-btn { padding: 9px 14px; }
+    .month-arrow { width: 38px; height: 38px; }
+    .remove-item-btn { padding: 6px 10px; font-size: 1.4rem; }
+    .outfit-pill { padding: 10px 16px; }
+    .piece-card { padding: 12px; }
 }

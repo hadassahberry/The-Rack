@@ -37,6 +37,6 @@
 
 1. Open `index.html` locally in any modern browser, or serve the folder with any static file server (e.g. `npx serve .`).
 2. Allow (or deny) the location prompt, or type a city into the search pill on the Planner tab.
-3. Click **"+ Add clothes"** to upload photos, then tag each one (category, occasion, season, color) — the header's "N to tag" pill tracks what's left.
+3. Click **"+ Add clothes"** and choose **Upload a photo** or **Take a photo** (phone camera, or webcam on a laptop), then tag each one (category, occasion, season, color) — the header's "N to tag" pill tracks what's left.
 4. Click any day on the calendar and use the Planning panel to apply a saved outfit or add single pieces.
 5. Build reusable outfits in the Closet tab's "Saved Outfits" section.
