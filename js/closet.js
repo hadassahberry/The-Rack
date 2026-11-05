@@ -60,6 +60,18 @@ async function addImageFiles(files) {
     }
 }
 
+// Closes a popup when the dark backdrop itself is clicked. Requires the press
+// to start AND end on the backdrop, so selecting text inside the popup and
+// releasing the mouse outside it doesn't close it by accident.
+function closeOnBackdrop(modalEl, closeFn) {
+    let pressedOnBackdrop = false;
+    modalEl.addEventListener('mousedown', (e) => { pressedOnBackdrop = e.target === modalEl; });
+    modalEl.addEventListener('click', (e) => {
+        if (pressedOnBackdrop && e.target === modalEl) closeFn();
+        pressedOnBackdrop = false;
+    });
+}
+
 // --- In-page webcam capture (laptops/desktops) ---
 
 let webcamStream = null;
@@ -164,6 +176,15 @@ document.addEventListener('DOMContentLoaded', () => {
         openNextUntaggedItem();
     });
 
+    // Click the dark area around a popup (or press Esc) to close it without saving.
+    closeOnBackdrop(document.getElementById('edit-modal'), closeEditModal);
+    closeOnBackdrop(document.getElementById('camera-modal'), closeWebcam);
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        if (!document.getElementById('edit-modal').classList.contains('hidden')) closeEditModal();
+        if (!document.getElementById('camera-modal').classList.contains('hidden')) closeWebcam();
+    });
+
     document.getElementById('close-edit-btn').addEventListener('click', closeEditModal);
     document.getElementById('save-item-btn').addEventListener('click', saveEditModal);
     document.getElementById('delete-item-btn').addEventListener('click', deleteEditingItem);
@@ -208,7 +229,6 @@ function renderCloset() {
                 <div class="closet-card-header-row">
                     <span class="color-dot" style="background:${item.color || '#ccc'}"></span>
                     <span class="closet-card-name">${item.name}</span>
-                    <button class="edit-icon-btn" onclick="openEditModal('${item.id}')">⚙️</button>
                 </div>
                 <div class="tags-row">
                     <span class="badge">${item.occasion}</span>
@@ -217,6 +237,14 @@ function renderCloset() {
                 </div>
             </div>
         `;
+        // The whole card opens the item's details (no gear icon needed).
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', `Open details for ${item.name}`);
+        card.addEventListener('click', () => openEditModal(item.id));
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEditModal(item.id); }
+        });
         grid.appendChild(card);
     });
 }
