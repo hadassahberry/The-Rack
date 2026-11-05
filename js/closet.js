@@ -46,8 +46,7 @@ async function addImageFiles(files) {
         try {
             const image = await compressImage(file);
             const fullName = file.name.replace(/\.[^.]+$/, '');
-            // Color: a color word in the name wins; otherwise the photo's main color.
-            const color = colorFromName(fullName) || await detectDominantColor(image) || '#cccccc';
+            const color = await pickItemColor(fullName, image);
             await Store.addClosetItem({
                 id: 'item_' + Date.now() + Math.random().toString(36).substr(2, 5),
                 name: fullName.substring(0, 20) || 'Item',
