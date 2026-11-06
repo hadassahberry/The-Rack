@@ -181,6 +181,49 @@
                     <p id="location-status" class="setting-hint" role="status"></p>
                 </div>
 
+                <div class="settings-card" id="calendars-card">
+                    <h3>Calendars</h3>
+                    <p class="setting-hint">Choose which holidays and dates appear on your calendar. Anything switched off is hidden everywhere.</p>
+                    <label class="setting-row" for="pref-hebrew">
+                        <span class="setting-text">
+                            <strong>Hebrew calendar</strong>
+                            <small>Everything Jewish, automatically: Shabbos, Yomim Tovim and holidays, candle-lighting times, and Shabbos / Yom Tov as automatic activities.</small>
+                        </span>
+                        <input type="checkbox" id="pref-hebrew" class="switch" role="switch">
+                    </label>
+                    <label class="setting-row" for="pref-public">
+                        <span class="setting-text">
+                            <strong>Public holidays</strong>
+                            <small id="public-hint">The days off in your country, based on your location.</small>
+                        </span>
+                        <input type="checkbox" id="pref-public" class="switch" role="switch">
+                    </label>
+                    <label class="setting-row" for="pref-christian">
+                        <span class="setting-text">
+                            <strong>Christian holidays</strong>
+                            <small>Christmas, Easter, Lent, Advent and more.</small>
+                        </span>
+                        <input type="checkbox" id="pref-christian" class="switch" role="switch">
+                    </label>
+                    <div class="setting-row">
+                        <label class="setting-text" for="pref-christian-style">
+                            <strong>Easter dates</strong>
+                            <small>Western churches and Orthodox churches celebrate Easter on different days.</small>
+                        </label>
+                        <select id="pref-christian-style" class="filter-dropdown">
+                            <option value="western">Western</option>
+                            <option value="orthodox">Orthodox</option>
+                        </select>
+                    </div>
+                    <label class="setting-row" for="pref-hijri">
+                        <span class="setting-text">
+                            <strong>Islamic (Hijri) calendar</strong>
+                            <small id="hijri-hint">The Hijri date on each day, plus Ramadan, Eid and other important dates. A date can differ by a day depending on moon sighting.</small>
+                        </span>
+                        <input type="checkbox" id="pref-hijri" class="switch" role="switch">
+                    </label>
+                </div>
+
                 <div class="settings-card">
                     <h3>Calendar</h3>
                     <label class="setting-row" for="pref-weather">
@@ -189,13 +232,6 @@
                             <small>Show the forecast on each day and in a day's details.</small>
                         </span>
                         <input type="checkbox" id="pref-weather" class="switch" role="switch">
-                    </label>
-                    <label class="setting-row" for="pref-hebrew">
-                        <span class="setting-text">
-                            <strong>Hebrew calendar</strong>
-                            <small>Everything Jewish, automatically: Shabbos, Yomim Tovim and holidays, candle-lighting times, and Shabbos / Yom Tov as automatic activities. Off hides all of it.</small>
-                        </span>
-                        <input type="checkbox" id="pref-hebrew" class="switch" role="switch">
                     </label>
                     <div class="setting-row">
                         <label class="setting-text" for="pref-temp">
@@ -384,6 +420,7 @@
     <script src="js/geolocation.js"></script>
     <script src="js/weather.js"></script>
     <script src="js/holidays.js"></script>
+    <script src="js/calendars.js"></script>
     <script src="js/colors.js"></script>
     <script src="js/repeats.js"></script>
     <script src="js/closet.js"></script>

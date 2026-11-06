@@ -96,13 +96,25 @@ function weekStartIndex() {
     return Store.getPrefs().weekStart === 'mon' ? 1 : 0;
 }
 
-// Holidays come from Hebcal one month at a time, and a week or 2-week view
-// can straddle two months — fetch each month that appears on screen.
+// Holiday data comes from the network for two calendars, and only for the ones
+// switched on: Hebcal (Jewish) one month at a time, and Nager.Date (public
+// holidays) one year at a time. A week or 2-week view can straddle two months
+// (or two years), so fetch each one that appears on screen. The Christian and
+// Hijri calendars are worked out on the device and need nothing fetched.
 async function refreshHolidaysForView(location) {
-    if (!Store.getPrefs().hebrewCalendarEnabled) return;
-    const months = new Map();
-    visibleDates().forEach(d => months.set(`${d.getFullYear()}-${d.getMonth()}`, d));
-    await Promise.all([...months.values()].map(d => Holidays.refresh(d.getFullYear(), d.getMonth() + 1, location)));
+    const prefs = Store.getPrefs();
+    const dates = visibleDates();
+    const jobs = [];
+    if (prefs.hebrewCalendarEnabled) {
+        const months = new Map();
+        dates.forEach(d => months.set(`${d.getFullYear()}-${d.getMonth()}`, d));
+        months.forEach(d => jobs.push(Holidays.refresh(d.getFullYear(), d.getMonth() + 1, location)));
+    }
+    if (prefs.publicHolidays) {
+        const country = publicHolidayCountry(location || Location.get());
+        new Set(dates.map(d => d.getFullYear())).forEach(y => jobs.push(PublicHolidays.refresh(y, country)));
+    }
+    await Promise.all(jobs);
 }
 
 function viewLabel(dates) {
@@ -297,11 +309,13 @@ function renderCalendarGrid() {
         const holidayInfo = prefs.hebrewCalendarEnabled ? getHolidayInfo(cellDate, location, holidayMaps) : undefined;
         const holidayTitles = prefs.hebrewCalendarEnabled ? holidayTitlesFor(cellDate, holidayInfo) : [];
         const weather = weatherMap[dateKey];
+        const extra = extraCalendarNotes(cellDate, prefs, location);   // public / Christian / Hijri
 
         const cell = document.createElement('div');
         cell.className = 'month-cell';
         if (!isCurrentMonth) cell.classList.add('not-current');
         if (holidayTitles.length > 0) cell.classList.add('holiday');
+        else if (extra.notes.some(n => n.kind === 'public')) cell.classList.add('public-holiday');
         if (dateKey === selectedDateKey) cell.classList.add('selected');
         cell.addEventListener('click', () => {
             selectedDateKey = dateKey;
@@ -324,6 +338,35 @@ function renderCalendarGrid() {
             </div>
             ${candleLabel}
         `;
+        // Holiday names from the other calendars (built as elements: some come
+        // from the network) and the Hijri date.
+        const topRow = cell.querySelector('.cell-top-row');
+        if (extra.notes.length) {
+            const box = document.createElement('div');
+            box.className = 'cell-notes';
+            extra.notes.forEach(n => {
+                const note = document.createElement('div');
+                note.className = `cell-note cell-note-${n.kind}`;
+                note.textContent = n.text;
+                note.title = n.text;
+                box.appendChild(note);
+            });
+            topRow.before(box);
+        }
+        if (extra.hijri) {
+            const h = extra.hijri;
+            const hijri = document.createElement('div');
+            hijri.className = 'cell-hijri';
+            hijri.title = `${h.day} ${h.monthName} ${h.year} AH`;
+            const full = document.createElement('span');
+            full.className = 'hijri-full';
+            full.textContent = h.day === 1 ? `1 ${h.monthName} ${h.year}` : `${h.day} ${h.monthName}`;
+            const short = document.createElement('span');          // phone month view: no room for words
+            short.className = 'hijri-short';
+            short.textContent = h.day === 1 ? `1 ${h.monthName.slice(0, 3)}` : String(h.day);
+            hijri.append(full, short);
+            topRow.after(hijri);
+        }
         // The planned pieces: little photos (Settings → Outfit photos) or names.
         // Built as elements, not HTML, so an item's name can't break the page.
         cell.appendChild(buildCellItems(plannerOutfits[dateKey] || [], closetById, prefs.showOutfitPhotos));
@@ -755,10 +798,15 @@ function renderPlanningPanel() {
     // are too small on phones to show them).
     const holidayLine = document.getElementById('planning-holiday');
     const holidayInfo = prefs.hebrewCalendarEnabled ? getHolidayInfo(selectedDate, location) : undefined;
-    const holidayText = !prefs.hebrewCalendarEnabled ? '' : [
-        holidayTitlesFor(selectedDate, holidayInfo).join(' / '),
-        holidayInfo && holidayInfo.candleLighting ? `🕯 Candle lighting ${holidayInfo.candleLighting}` : ''
-    ].filter(Boolean).join(' · ');
+    const extra = extraCalendarNotes(selectedDate, prefs, location);
+    const holidayText = [
+        !prefs.hebrewCalendarEnabled ? '' : [
+            holidayTitlesFor(selectedDate, holidayInfo).join(' / '),
+            holidayInfo && holidayInfo.candleLighting ? `🕯 Candle lighting ${holidayInfo.candleLighting}` : ''
+        ].filter(Boolean).join(' · '),
+        extra.notes.map(n => n.text).join(' · '),
+        extra.hijri ? `${extra.hijri.day} ${extra.hijri.monthName} ${extra.hijri.year} AH` : ''
+    ].filter(Boolean).join('\n');          // one line per calendar
     holidayLine.textContent = holidayText;
     holidayLine.classList.toggle('hidden', !holidayText);
 

@@ -173,6 +173,11 @@ const Store = {
     PREF_DEFAULTS: {
         weatherEnabled: true,
         hebrewCalendarEnabled: true,
+        // The other optional calendars (js/calendars.js) all start switched off.
+        publicHolidays: false,
+        christianHolidays: false,
+        christianStyle: 'western',   // 'western' | 'orthodox' (which Easter)
+        hijriCalendar: false,
         tempUnit: 'auto',      // 'auto' (by location) | 'F' | 'C'
         weekStart: 'sun',      // 'sun' | 'mon'
         showOutfitPhotos: true, // little photos of the planned pieces on each calendar day

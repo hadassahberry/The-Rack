@@ -19,6 +19,9 @@ function renderCredits(prefs) {
             '<a href="https://www.hebcal.com/" target="_blank" rel="noopener">Hebcal.com</a> with a ' +
             '<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0 International License</a>.');
     }
+    if (prefs.publicHolidays) {
+        parts.push('Public holidays from <a href="https://date.nager.at/" target="_blank" rel="noopener">Nager.Date</a>.');
+    }
     el.innerHTML = parts.join(' ');          // fixed strings above, no user input
     el.classList.toggle('hidden', parts.length === 0);
 }
@@ -30,6 +33,21 @@ function syncSettingsUI(prefs) {
     $('pref-temp').value = prefs.tempUnit;
     $('pref-weekstart').value = prefs.weekStart;
     $('pref-photos').checked = prefs.showOutfitPhotos;
+
+    // The other calendars. Public holidays follow the location's country.
+    $('pref-public').checked = prefs.publicHolidays;
+    $('pref-christian').checked = prefs.christianHolidays;
+    $('pref-christian-style').value = prefs.christianStyle;
+    $('pref-christian-style').disabled = !prefs.christianHolidays;
+    $('pref-hijri').checked = prefs.hijriCalendar;
+    const country = publicHolidayCountry(Location.get());
+    $('public-hint').textContent = country
+        ? `Days off for ${countryName(country)}, based on your location.`
+        : 'Set your location below and your country\'s days off will appear.';
+    if (!hijriSupported()) {
+        $('pref-hijri').disabled = true;
+        $('hijri-hint').textContent = 'This browser can\'t show the Hijri calendar. Try updating it.';
+    }
 
     // Say what "Automatic" currently means for the chosen location; units only matter with the weather on.
     $('pref-temp').options[0].textContent = `Automatic (${usesFahrenheit(Location.get()) ? '°F' : '°C'} here)`;
@@ -52,13 +70,17 @@ function syncSettingsUI(prefs) {
         : 'Only these kinds of pieces count.';
 
     // Location only matters to those two features.
-    const noneOn = !prefs.weatherEnabled && !prefs.hebrewCalendarEnabled;
+    const uses = [];
+    if (prefs.weatherEnabled) uses.push('the weather forecast');
+    if (prefs.hebrewCalendarEnabled) uses.push('the Hebrew calendar (candle-lighting times)');
+    if (prefs.publicHolidays) uses.push('your country\'s public holidays');
+    const noneOn = uses.length === 0;
     $('location-card').classList.toggle('is-disabled', noneOn);
     $('city-input').disabled = noneOn;
     $('use-location-btn').disabled = noneOn;
     $('location-hint').textContent = noneOn
-        ? 'Not needed while the weather and the Hebrew calendar are both off. Your location isn\'t used or sent anywhere.'
-        : 'Used for the weather forecast and the Hebrew calendar (candle-lighting times).';
+        ? 'Not needed while the weather, the Hebrew calendar and public holidays are all off. Your location isn\'t used or sent anywhere.'
+        : `Used for ${uses.length > 1 ? uses.slice(0, -1).join(', ') + ' and ' + uses[uses.length - 1] : uses[0]}.`;
     renderCredits(prefs);
 }
 
@@ -88,6 +110,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     $('pref-photos').addEventListener('change', (e) => {
         Store.savePrefs({ showOutfitPhotos: e.target.checked }).catch(console.error);
+    });
+    $('pref-public').addEventListener('change', (e) => {
+        Store.savePrefs({ publicHolidays: e.target.checked }).catch(console.error);
+    });
+    $('pref-christian').addEventListener('change', (e) => {
+        Store.savePrefs({ christianHolidays: e.target.checked }).catch(console.error);
+    });
+    $('pref-christian-style').addEventListener('change', (e) => {
+        Store.savePrefs({ christianStyle: e.target.value }).catch(console.error);
+    });
+    $('pref-hijri').addEventListener('change', (e) => {
+        Store.savePrefs({ hijriCalendar: e.target.checked }).catch(console.error);
     });
 
     // Repeat warnings: switch, how many past times, and which categories count.

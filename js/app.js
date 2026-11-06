@@ -1,8 +1,9 @@
 // Applies the user's Settings (js/settings.js draws the page itself).
 //
-// Weather and the Hebrew calendar are each optional. Anything switched off is
-// never requested, so the user's location is never sent to that service, and
-// the browser's location prompt only appears if at least one of them is on.
+// Weather, the Hebrew calendar and public holidays are each optional. Anything
+// switched off is never requested, so the user's location is never sent to
+// that service, and the browser's location prompt only appears if at least one
+// of them is on. (Christian and Hijri dates are worked out on the device.)
 // Nothing is fetched until the user is signed in and their saved settings
 // have arrived (they sync with the account).
 let appliedPrefs = null;
@@ -24,11 +25,12 @@ async function applyPrefs(prefs) {
     // after page load. (Saving a setting echoes back here; that must not refetch.)
     const needWeather = prefs.weatherEnabled && !(was && was.weatherEnabled);
     const needHebrew = prefs.hebrewCalendarEnabled && !(was && was.hebrewCalendarEnabled);
-    if (!needWeather && !needHebrew) return;
+    const needPublic = prefs.publicHolidays && !(was && was.publicHolidays);
+    if (!needWeather && !needHebrew && !needPublic) return;
 
     const location = Store.getLocation() || await Location.init();   // may ask the device for location
     setLocationField(location);
     if (needWeather) await Weather.refresh(location);
-    if (needHebrew) await refreshHolidaysForView(Store.getLocation() || location);
+    if (needHebrew || needPublic) await refreshHolidaysForView(Store.getLocation() || location);
     renderCalendar();
 }

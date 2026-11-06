@@ -266,6 +266,33 @@
     color: var(--lavender-text);
 }
 
+/* The other calendars: public holidays (green), Christian (warm brown),
+   Islamic (teal), plus the Hijri date under the day number. */
+.month-cell.public-holiday { background: #e4f0e3; }
+
+.cell-notes { display: flex; flex-direction: column; gap: 1px; }
+
+.cell-note {
+    font-size: 0.6rem;
+    font-weight: 700;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cell-note-public { color: #2f6b3b; }
+.cell-note-christian { color: #9a5a22; }
+.cell-note-islamic { color: #1f6f78; }
+
+.cell-hijri {
+    font-size: 0.65rem;
+    color: #1f6f78;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.hijri-short { display: none; }
+
 .cell-items {
     display: flex;
     flex-direction: column;
@@ -288,9 +315,9 @@
    Each outfit (activity) is ONE column with its pieces stacked head to toe, a
    top directly above its bottom. Several outfits on a day stand side by side,
    so different activities never mix. Photo size depends on the view. */
-.month-grid { --thumb: 42px; }
-.month-grid.view-2weeks { --thumb: 60px; }
-.month-grid.view-week { --thumb: 76px; }
+.month-grid { --thumb: 50px; }
+.month-grid.view-2weeks { --thumb: 70px; }
+.month-grid.view-week { --thumb: 88px; }
 
 /* The outfits share the day's width equally and never wrap under each other;
    a photo is as big as its size for the view allows, or smaller if it must fit. */
@@ -305,6 +332,7 @@
 .cell-photos {
     display: flex;
     flex-direction: column;
+    align-items: center;      /* photos sit in the middle of their activity */
     gap: 4px;
 }
 
@@ -314,6 +342,7 @@
     text-transform: uppercase;
     letter-spacing: 0.03em;
     color: var(--text-muted);
+    text-align: center;
     margin-bottom: 3px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1017,6 +1046,7 @@
     color: var(--lavender-text);
     font-weight: 600;
     margin: -8px 0 14px;
+    white-space: pre-line;      /* one line per calendar */
 }
 
 /* Neutral notice (reset email sent, account deleted) in the sign-in card. */
@@ -1295,7 +1325,13 @@ body.planning-open .planning-panel {
     .month-grid.view-month .cell-date-num { font-size: 0.85rem; }
     .month-grid.view-month .cell-weather,
     .month-grid.view-month .cell-holiday-label,
+    .month-grid.view-month .cell-notes,
     .month-grid.view-month .cell-candle-label { display: none; }
+    .month-grid.view-month .hijri-full { display: none; }
+    .month-grid.view-month .hijri-short { display: inline; }
+    .month-grid.view-month .cell-hijri { font-size: 0.55rem; text-align: center; }
+    .month-grid.view-week .cell-note,
+    .month-grid.view-2weeks .cell-note { white-space: normal; font-size: 0.7rem; }
     .month-grid.view-month .cell-items { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 2px; }
     .month-grid.view-month .cell-item-row { font-size: 0; gap: 0; }
     .month-grid.view-month .color-dot { width: 8px; height: 8px; }
