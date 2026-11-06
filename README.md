@@ -8,7 +8,7 @@
 
 - **Digital Closet:** Upload photos of your tops, bottoms, outerwear, shoes, dresses, and accessories, and tag each with a category, occasion, season, and color.
 - **Planner with Week / 2 Weeks / Month views:** A calendar (month by default) where each day shows its assigned outfit, the day's forecast (within the ~16-day forecast window), and any Jewish holiday — including Shabbat candle-lighting times.
-- **Photos on the calendar:** each day shows small photos of the pieces planned for it (with a "+N" when there are more than fit). Settings → Outfit photos switches this off to show names instead.
+- **Photos on the calendar:** each day shows small photos of what's planned. Each outfit (activity) is its own stack, a top directly above its bottom above its shoes, and several outfits on one day stand side by side with their activity names, so different activities never mix. Settings → Outfit photos switches this off to show names instead.
 - **Head to toe:** an outfit's pieces always show in the same order, with a top above a bottom (outerwear, tops, dresses, bottoms, shoes, accessories), wherever they appear.
 - **Planning popup:** click any day and a popup opens over the calendar (a dialog on a computer, a sheet from the bottom on a phone); close it with ✕, Esc, or a click outside. It shows the day's outfit, a rewear "gap" warning when an item was recently worn nearby, saved outfits you can apply in one click, and a photo picker filtered by category, so you choose by sight, not just by name.
 - **Saved Outfits:** Build and name reusable outfit combinations from the Closet tab.

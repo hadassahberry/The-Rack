@@ -284,25 +284,59 @@
     text-overflow: ellipsis;
 }
 
-/* Photos of the planned pieces (Settings → Outfit photos). */
+/* Photos of the planned pieces (Settings → Outfit photos).
+   Each outfit (activity) is ONE column with its pieces stacked head to toe, a
+   top directly above its bottom. Several outfits on a day stand side by side,
+   so different activities never mix. Photo size depends on the view. */
+.month-grid { --thumb: 42px; }
+.month-grid.view-2weeks { --thumb: 60px; }
+.month-grid.view-week { --thumb: 76px; }
+
+/* The outfits share the day's width equally and never wrap under each other;
+   a photo is as big as its size for the view allows, or smaller if it must fit. */
+.cell-groups {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 6px;
+}
+.cell-groups > .cell-group { flex: 1 1 0; min-width: 0; }
+
 .cell-photos {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 4px;
 }
 
-/* Columns are fixed so each photo is as wide as the day allows. */
-.month-grid.view-month .cell-photos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.month-grid.view-2weeks .cell-photos,
-.month-grid.view-week .cell-photos { gap: 5px; }
-@media (max-width: 900px) {
-    .month-grid.view-month .cell-photos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cell-group-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    margin-bottom: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* Two or more outfits: each in its own little box so they read as separate. */
+.cell-groups.multi > .cell-group {
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+}
+
+.cell-thumb,
+.cell-more {
+    width: 100%;
+    max-width: var(--thumb);
+    aspect-ratio: 1;
+    flex: none;
 }
 
 .cell-thumb {
     display: block;
-    width: 100%;
-    aspect-ratio: 1;
     object-fit: contain;      /* the whole piece, not a crop of it */
     border-radius: 8px;
     border: 1px solid var(--border);
@@ -313,7 +347,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    aspect-ratio: 1;
     font-size: 0.7rem;
     font-weight: 700;
     color: var(--text-muted);
@@ -1266,6 +1299,19 @@ body.planning-open .planning-panel {
     .month-grid.view-month .cell-items { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 2px; }
     .month-grid.view-month .cell-item-row { font-size: 0; gap: 0; }
     .month-grid.view-month .color-dot { width: 8px; height: 8px; }
+    /* several outfits on one day: tiny stacks side by side, no boxes or labels
+       (the popup has those) */
+    .month-grid.view-month { --thumb: 18px; }
+    .month-grid.view-week,
+    .month-grid.view-2weeks { --thumb: 44px; }
+    .month-grid.view-month .cell-items { width: 100%; }
+    .month-grid.view-month .cell-groups { gap: 3px; flex-wrap: wrap; }
+    .month-grid.view-month .cell-groups > .cell-group { flex: 1 1 calc(50% - 3px); }   /* two per row */
+    .month-grid.view-month .cell-photos { align-items: center; width: 100%; }
+    .month-grid.view-month .cell-groups.multi > .cell-group { padding: 0; border: none; background: none; }
+    .month-grid.view-month .cell-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; }
+    .month-grid.view-month .cell-group-label { display: none; }
+    .month-grid.view-month .cell-photos { gap: 2px; }
     .weekday-row span { font-size: 0.6rem; }
 
     /* Week / 2-week views: a day-by-day list, one full-width row per day. */
@@ -1285,12 +1331,15 @@ body.planning-open .planning-panel {
     .month-grid.view-2weeks .cell-date-num { font-size: 1.05rem; }
     .month-grid.view-week .cell-item-row,
     .month-grid.view-2weeks .cell-item-row { font-size: 0.8rem; }
-    /* photos: a tight 2 x 2 in the month, a row of larger ones in the day list */
-    .month-grid.view-month .cell-photos { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 2px; }
     .month-grid.view-month .cell-thumb,
     .month-grid.view-month .cell-more { border-radius: 4px; font-size: 0.6rem; }
-    .month-grid.view-week .cell-photos,
-    .month-grid.view-2weeks .cell-photos { grid-template-columns: repeat(auto-fill, 44px); gap: 6px; }
+    /* the day list has the whole row: outfits are as wide as their photos */
+    .month-grid.view-week .cell-groups,
+    .month-grid.view-2weeks .cell-groups { flex-wrap: wrap; gap: 8px; }
+    .month-grid.view-week .cell-groups > .cell-group,
+    .month-grid.view-2weeks .cell-groups > .cell-group { flex: 0 1 auto; }
+    .month-grid.view-week .cell-thumb, .month-grid.view-week .cell-more,
+    .month-grid.view-2weeks .cell-thumb, .month-grid.view-2weeks .cell-more { width: var(--thumb); }
     .month-grid.view-week .cell-holiday-label,
     .month-grid.view-2weeks .cell-holiday-label { font-size: 0.7rem; }
 

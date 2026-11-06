@@ -177,39 +177,66 @@ phoneQuery.addEventListener('change', () => renderCalendarGrid());
 
 // How many photos fit in one calendar day before it says "+N".
 function cellPhotoLimit() {
-    if (viewMode === 'month') return phoneQuery.matches ? 4 : 6;
-    return phoneQuery.matches ? 6 : (viewMode === 'week' ? 8 : 6);
+    if (phoneQuery.matches) return viewMode === 'month' ? 3 : 5;
+    return viewMode === 'week' ? 5 : 4;
 }
 
-// The pieces planned for one calendar day.
-function buildCellItems(items, showPhotos) {
+// The pieces planned for one calendar day: one group per outfit (activity),
+// side by side, so two activities never blend together. Inside a group the
+// pieces run head to toe, a top above a bottom.
+function buildCellItems(outfits, closetById, showPhotos) {
+    const groups = outfits
+        .map(o => ({
+            label: o.label || '',
+            items: sortHeadToToe(o.itemIds.map(id => closetById[id]).filter(Boolean))
+        }))
+        .filter(g => g.items.length > 0);
+
     const box = document.createElement('div');
-    box.className = showPhotos ? 'cell-items cell-photos' : 'cell-items';
-    if (!showPhotos) {
-        items.forEach(item => {
-            const row = document.createElement('div');
-            row.className = 'cell-item-row';
-            const dot = document.createElement('span');
-            dot.className = 'color-dot';
-            dot.style.background = item.color || '#ccc';
-            row.append(dot, document.createTextNode(item.name));
-            box.appendChild(row);
-        });
-        return box;
-    }
-    const limit = cellPhotoLimit();
-    const shown = items.length > limit ? items.slice(0, limit - 1) : items;
-    shown.forEach(item => {
-        const thumb = itemThumb(item, 'cell-thumb');
-        thumb.title = item.name;
-        box.appendChild(thumb);
+    box.className = showPhotos ? 'cell-items cell-groups' : 'cell-items';
+    if (groups.length > 1) box.classList.add('multi');
+    const limit = cellPhotoLimit();       // pieces per outfit before "+N"
+
+    groups.forEach(group => {
+        const groupEl = document.createElement('div');
+        groupEl.className = 'cell-group';
+        if (group.label) {
+            const label = document.createElement('div');
+            label.className = 'cell-group-label';
+            label.textContent = group.label;
+            label.title = group.label;
+            groupEl.appendChild(label);
+        }
+
+        if (!showPhotos) {
+            group.items.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'cell-item-row';
+                const dot = document.createElement('span');
+                dot.className = 'color-dot';
+                dot.style.background = item.color || '#ccc';
+                row.append(dot, document.createTextNode(item.name));
+                groupEl.appendChild(row);
+            });
+        } else {
+            const photos = document.createElement('div');
+            photos.className = 'cell-photos';
+            const shown = group.items.length > limit ? group.items.slice(0, limit - 1) : group.items;
+            shown.forEach(item => {
+                const thumb = itemThumb(item, 'cell-thumb');
+                thumb.title = item.name;
+                photos.appendChild(thumb);
+            });
+            if (shown.length < group.items.length) {
+                const more = document.createElement('span');
+                more.className = 'cell-more';
+                more.textContent = `+${group.items.length - shown.length}`;
+                photos.appendChild(more);
+            }
+            groupEl.appendChild(photos);
+        }
+        box.appendChild(groupEl);
     });
-    if (shown.length < items.length) {
-        const more = document.createElement('span');
-        more.className = 'cell-more';
-        more.textContent = `+${items.length - shown.length}`;
-        box.appendChild(more);
-    }
     return box;
 }
 
@@ -270,7 +297,6 @@ function renderCalendarGrid() {
         const holidayInfo = prefs.hebrewCalendarEnabled ? getHolidayInfo(cellDate, location, holidayMaps) : undefined;
         const holidayTitles = prefs.hebrewCalendarEnabled ? holidayTitlesFor(cellDate, holidayInfo) : [];
         const weather = weatherMap[dateKey];
-        const assignedIds = plannerSchedule[dateKey] || [];
 
         const cell = document.createElement('div');
         cell.className = 'month-cell';
@@ -300,8 +326,7 @@ function renderCalendarGrid() {
         `;
         // The planned pieces: little photos (Settings → Outfit photos) or names.
         // Built as elements, not HTML, so an item's name can't break the page.
-        const assigned = sortHeadToToe(assignedIds.map(id => closetById[id]).filter(Boolean));
-        cell.appendChild(buildCellItems(assigned, prefs.showOutfitPhotos));
+        cell.appendChild(buildCellItems(plannerOutfits[dateKey] || [], closetById, prefs.showOutfitPhotos));
         grid.appendChild(cell);
     }
 }
