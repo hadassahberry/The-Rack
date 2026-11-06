@@ -208,6 +208,7 @@ function buildCellItems(outfits, closetById, showPhotos) {
     box.className = showPhotos ? 'cell-items cell-groups' : 'cell-items';
     if (groups.length > 1) box.classList.add('multi');
     const limit = cellPhotoLimit();       // pieces per outfit before "+N"
+    let tallestStack = 1;                 // most photos in any one outfit's column (drives their size in CSS)
 
     groups.forEach(group => {
         const groupEl = document.createElement('div');
@@ -246,9 +247,16 @@ function buildCellItems(outfits, closetById, showPhotos) {
                 photos.appendChild(more);
             }
             groupEl.appendChild(photos);
+            tallestStack = Math.max(tallestStack, photos.children.length);
         }
         box.appendChild(groupEl);
     });
+    // CSS sizes the photos from these: as big as the day's width and height allow,
+    // smaller with more pieces or more outfits.
+    if (showPhotos) {
+        box.style.setProperty('--per-row', String(Math.min(2, Math.max(1, groups.length))));   // outfits beyond two wrap underneath
+        box.style.setProperty('--n', String(tallestStack));
+    }
     return box;
 }
 

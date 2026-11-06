@@ -385,6 +385,37 @@
 }
 
 
+/* Computers and tablets: photos as big as the day allows. A day is a container,
+   so a photo can be sized from its real width: the day's width shared between
+   the outfits on it, and its height budget shared between the pieces in the
+   tallest outfit (JS sets --groups and --n). One outfit with a few pieces
+   gets big photos; more outfits or pieces make them smaller. Outfits start at
+   the left of the day; the photos are centered inside their own outfit. */
+@media (min-width: 641px) {
+    .month-cell { container-type: inline-size; }
+    .month-grid { --stack: 230px; --thumb-max: 120px; }
+    .month-grid.view-2weeks { --stack: 290px; --thumb-max: 150px; }
+    .month-grid.view-week { --stack: 380px; --thumb-max: 190px; }
+
+    .cell-groups { justify-content: flex-start; flex-wrap: wrap; }   /* a third outfit wraps underneath */
+    .cell-groups > .cell-group { flex: 0 0 auto; }
+    .cell-groups.multi { --box-pad: 10px; }          /* the little box's padding + border */
+
+    /* Never smaller than 28px: past that a photo can't be told apart. */
+    .cell-thumb,
+    .cell-more {
+        width: 56px;                                   /* for a browser without container units */
+        width: max(28px, min(
+            calc((100cqw - 1px - (var(--per-row, 1) - 1) * 6px) / var(--per-row, 1) - var(--box-pad, 0px)),
+            calc((var(--stack) - (var(--n, 1) - 1) * 4px) / var(--n, 1)),
+            var(--thumb-max)));
+        max-width: none;
+    }
+
+    /* The label must not widen the outfit: it takes the photos' width and shortens. */
+    .cell-group-label { width: 0; min-width: 100%; }
+}
+
 /* ---------- Planning panel ---------- */
 .eyebrow {
     font-size: 0.7rem;
@@ -1339,7 +1370,7 @@ body.planning-open .planning-panel {
        (the popup has those) */
     .month-grid.view-month { --thumb: 18px; }
     .month-grid.view-week,
-    .month-grid.view-2weeks { --thumb: 44px; }
+    .month-grid.view-2weeks { --thumb: 64px; }
     .month-grid.view-month .cell-items { width: 100%; }
     .month-grid.view-month .cell-groups { gap: 3px; flex-wrap: wrap; }
     .month-grid.view-month .cell-groups > .cell-group { flex: 1 1 calc(50% - 3px); }   /* two per row */
