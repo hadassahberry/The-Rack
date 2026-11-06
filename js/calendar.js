@@ -24,9 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     anchorDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     selectedDateKey = isoDateKey(today);
 
-    const location = Location.get();
-    document.getElementById('city-input').value = formatLocationLabel(location);
-
     document.getElementById('prev-month-btn').addEventListener('click', () => stepView(-1));
     document.getElementById('next-month-btn').addEventListener('click', () => stepView(1));
     document.getElementById('back-to-calendar-btn').addEventListener('click', () => {
@@ -35,19 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('view-switcher').addEventListener('click', (e) => {
         const btn = e.target.closest('[data-view]');
         if (btn) setViewMode(btn.dataset.view);
-    });
-
-    const cityInput = document.getElementById('city-input');
-    cityInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); cityInput.blur(); }
-    });
-    cityInput.addEventListener('blur', async () => {
-        const value = cityInput.value.trim();
-        if (!value) return;
-        const resolved = await Location.searchCity(value);
-        if (!resolved) return;
-        cityInput.value = formatLocationLabel(resolved);
-        await refreshLocationData(resolved);
     });
 
     window.waitForAuth().then(initCalendarLiveData);
@@ -66,8 +50,12 @@ function formatLocationLabel(location) {
     return location.region ? `${location.city}, ${location.region}` : location.city;
 }
 
+// Fetches whatever the user has switched on (Settings) for this location, then
+// redraws. Anything switched off is never requested, so no location is sent
+// to that service.
 async function refreshLocationData(location) {
-    await Weather.refresh(location);
+    const prefs = Store.getPrefs();
+    if (prefs.weatherEnabled) await Weather.refresh(location);
     await refreshHolidaysForView(Store.getLocation() || location);
     renderCalendar();
 }
@@ -77,20 +65,28 @@ async function refreshLocationData(location) {
 // the Sunday of the anchor date's week.
 function visibleDates() {
     const a = anchorDate;
+    const weekStart = weekStartIndex();
     if (viewMode === 'month') {
         const y = a.getFullYear(), m = a.getMonth();
-        const startDay = new Date(y, m, 1).getDay();
+        const startDay = (new Date(y, m, 1).getDay() - weekStart + 7) % 7;   // blank days before the 1st
         const daysInMonth = new Date(y, m + 1, 0).getDate();
         const total = Math.ceil((startDay + daysInMonth) / 7) * 7;
         return Array.from({ length: total }, (_, i) => new Date(y, m, 1 + i - startDay));
     }
     const count = viewMode === 'week' ? 7 : 14;
-    return Array.from({ length: count }, (_, i) => new Date(a.getFullYear(), a.getMonth(), a.getDate() - a.getDay() + i));
+    const daysIntoWeek = (a.getDay() - weekStart + 7) % 7;
+    return Array.from({ length: count }, (_, i) => new Date(a.getFullYear(), a.getMonth(), a.getDate() - daysIntoWeek + i));
+}
+
+// Which weekday the calendar's week begins on (Settings): 0 = Sunday, 1 = Monday.
+function weekStartIndex() {
+    return Store.getPrefs().weekStart === 'mon' ? 1 : 0;
 }
 
 // Holidays come from Hebcal one month at a time, and a week or 2-week view
 // can straddle two months — fetch each month that appears on screen.
 async function refreshHolidaysForView(location) {
+    if (!Store.getPrefs().hebrewCalendarEnabled) return;
     const months = new Map();
     visibleDates().forEach(d => months.set(`${d.getFullYear()}-${d.getMonth()}`, d));
     await Promise.all([...months.values()].map(d => Holidays.refresh(d.getFullYear(), d.getMonth() + 1, location)));
@@ -163,6 +159,11 @@ function renderCalendarGrid() {
 
     const dates = visibleDates();
     document.getElementById('month-label').textContent = viewLabel(dates);
+
+    // Weekday header row follows the chosen first day of the week.
+    const weekStart = weekStartIndex();
+    document.querySelector('.weekday-row').innerHTML = Array.from({ length: 7 }, (_, i) =>
+        `<span>${WEEKDAY_NAMES[(weekStart + i) % 7].slice(0, 3).toUpperCase()}</span>`).join('');
     const unit = viewMode === 'month' ? 'month' : viewMode === 'week' ? 'week' : '2 weeks';
     document.getElementById('prev-month-btn').setAttribute('aria-label', `Previous ${unit}`);
     document.getElementById('next-month-btn').setAttribute('aria-label', `Next ${unit}`);
@@ -173,14 +174,15 @@ function renderCalendarGrid() {
     });
 
     const location = Location.get();
-    const weatherMap = Weather.getForecastMap(location);
+    const prefs = Store.getPrefs();                    // Settings: weather / Hebrew calendar on or off
+    const weatherMap = prefs.weatherEnabled ? Weather.getForecastMap(location) : {};
     const holidayMaps = {};
 
     for (const cellDate of dates) {
         const dateKey = isoDateKey(cellDate);
         const isCurrentMonth = viewMode !== 'month' || cellDate.getMonth() === anchorDate.getMonth();
-        const holidayInfo = getHolidayInfo(cellDate, location, holidayMaps);
-        const holidayTitles = holidayTitlesFor(cellDate, holidayInfo);
+        const holidayInfo = prefs.hebrewCalendarEnabled ? getHolidayInfo(cellDate, location, holidayMaps) : undefined;
+        const holidayTitles = prefs.hebrewCalendarEnabled ? holidayTitlesFor(cellDate, holidayInfo) : [];
         const weather = weatherMap[dateKey];
         const assignedIds = plannerSchedule[dateKey] || [];
 
@@ -204,7 +206,7 @@ function renderCalendarGrid() {
         const candleLabel = (holidayInfo && holidayInfo.candleLighting)
             ? `<div class="cell-candle-label">🕯 ${holidayInfo.candleLighting}</div>` : '';
         const weatherBadge = weather
-            ? `<span class="cell-weather">${weatherInfo(weather.code).icon} ${weather.high}°</span>` : '';
+            ? `<span class="cell-weather">${weatherInfo(weather.code).icon} ${formatTemp(weather.high)}</span>` : '';
         const itemsList = assignedIds
             .map(id => plannerCloset.find(i => i.id === id))
             .filter(Boolean)
@@ -249,20 +251,21 @@ function renderPlanningPanel() {
     if (!dateHeading) return;
 
     const location = Location.get();
-    const weatherMap = Weather.getForecastMap(location);
+    const prefs = Store.getPrefs();
+    const weatherMap = prefs.weatherEnabled ? Weather.getForecastMap(location) : {};
     const selectedDate = new Date(selectedDateKey + 'T00:00:00');
 
     dateHeading.textContent = `${WEEKDAY_NAMES[selectedDate.getDay()]}, ${MONTH_NAMES[selectedDate.getMonth()]} ${selectedDate.getDate()}`;
 
     const weather = weatherMap[selectedDateKey];
-    weatherLine.textContent = weather ? `${weatherInfo(weather.code).icon} ${weather.high}° · ${weatherInfo(weather.code).label}` : '';
+    weatherLine.textContent = weather ? `${weatherInfo(weather.code).icon} ${formatTemp(weather.high, true)} · ${weatherInfo(weather.code).label}` : '';
     weatherLine.classList.toggle('hidden', !weather);
 
     // Holiday + candle-lighting for the selected day (the calendar cells
     // are too small on phones to show them).
     const holidayLine = document.getElementById('planning-holiday');
-    const holidayInfo = getHolidayInfo(selectedDate, location);
-    const holidayText = [
+    const holidayInfo = prefs.hebrewCalendarEnabled ? getHolidayInfo(selectedDate, location) : undefined;
+    const holidayText = !prefs.hebrewCalendarEnabled ? '' : [
         holidayTitlesFor(selectedDate, holidayInfo).join(' / '),
         holidayInfo && holidayInfo.candleLighting ? `🕯 Candle lighting ${holidayInfo.candleLighting}` : ''
     ].filter(Boolean).join(' · ');

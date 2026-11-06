@@ -20,17 +20,32 @@ function formatCandleTime(isoDateTime) {
     return `${hours}:${minutes} ${ampm}`;
 }
 
+// Candle lighting is 18 minutes before sunset, everywhere.
+const CANDLE_LIGHTING_MINUTES = 18;
+
+// Inside Israel the holiday schedule differs (e.g. no second day of Yom Tov),
+// so it's inferred from the location: no setting needed. The time zone is the
+// most reliable signal because every saved location carries one.
+function isIsraelLocation(loc) {
+    return !!loc && (loc.country === 'IL' || loc.tzid === 'Asia/Jerusalem' || loc.tzid === 'Asia/Tel_Aviv');
+}
+
+// The Israel and outside-Israel schedules are cached separately.
+function holidaysCacheKey(year, month, loc) {
+    return `holidays_${year}-${month}_${loc.lat}_${loc.lon}${isIsraelLocation(loc) ? '_il' : ''}`;
+}
+
 const Holidays = {
     getMap(year, month, location) {
         const loc = location || Location.get();
-        return Store.getCache(`holidays_${year}-${month}_${loc.lat}_${loc.lon}`) || {};
+        return Store.getCache(holidaysCacheKey(year, month, loc)) || {};
     },
 
     async refresh(year, month, location) {
         if (!location || !location.tzid) return this.getMap(year, month, location);
 
         try {
-            const url = `https://www.hebcal.com/hebcal?v=1&cfg=json&year=${year}&month=${month}&maj=on&min=on&mod=on&s=on&c=on&geo=pos&latitude=${location.lat}&longitude=${location.lon}&tzid=${encodeURIComponent(location.tzid)}&m=18`;
+            const url = `https://www.hebcal.com/hebcal?v=1&cfg=json&year=${year}&month=${month}&maj=on&min=on&mod=on&s=on&c=on&geo=pos&latitude=${location.lat}&longitude=${location.lon}&tzid=${encodeURIComponent(location.tzid)}&b=${CANDLE_LIGHTING_MINUTES}${isIsraelLocation(location) ? '&i=on' : ''}`;
             const res = await fetch(url);
             const data = await res.json();
 
@@ -46,7 +61,7 @@ const Holidays = {
                 }
             });
 
-            Store.saveCache(`holidays_${year}-${month}_${location.lat}_${location.lon}`, map);
+            Store.saveCache(holidaysCacheKey(year, month, location), map);
             return map;
         } catch {
             return this.getMap(year, month, location);

@@ -47,6 +47,7 @@
             <button class="nav-btn active" data-tab="calendar-view">Planner</button>
             <button class="nav-btn" data-tab="closet-view">Closet</button>
             <button class="nav-btn" data-tab="analytics-view">Wear stats</button>
+            <button class="nav-btn" data-tab="settings-view">Settings</button>
         </nav>
 
         <div class="header-actions">
@@ -60,10 +61,6 @@
             </div>
             <input type="file" id="item-upload" accept="image/*" multiple style="display: none;">
             <input type="file" id="item-camera" accept="image/*" capture="environment" style="display: none;">
-            <div id="account-menu" class="account-menu hidden">
-                <span id="account-email" class="account-email"></span>
-                <button id="sign-out-btn" class="secondary-btn">Sign out</button>
-            </div>
         </div>
     </header>
 
@@ -82,10 +79,6 @@
                             <button class="tab-btn" data-view="week" aria-pressed="false">Week</button>
                             <button class="tab-btn" data-view="2weeks" aria-pressed="false">2 weeks</button>
                             <button class="tab-btn active" data-view="month" aria-pressed="true">Month</button>
-                        </div>
-                        <div class="location-pill">
-                            <span class="pin-icon" aria-hidden="true">📍</span>
-                            <input type="text" id="city-input" placeholder="Search city..." />
                         </div>
                     </div>
 
@@ -168,21 +161,109 @@
             <h3 class="section-subhead">Most Worn Pieces</h3>
             <div id="analytics-most-worn" class="analytics-worn-grid"></div>
         </section>
+
+        <!-- Settings View -->
+        <section id="settings-view" class="view-section">
+            <div class="settings-page">
+                <h2>Settings</h2>
+
+                <div class="settings-card" id="location-card">
+                    <h3>Location</h3>
+                    <p id="location-hint" class="setting-hint"></p>
+                    <div class="location-pill">
+                        <span class="pin-icon" aria-hidden="true">📍</span>
+                        <input type="text" id="city-input" placeholder="Search city..." aria-label="City">
+                    </div>
+                    <button id="use-location-btn" class="secondary-btn" type="button">Use my current location</button>
+                    <p id="location-status" class="setting-hint" role="status"></p>
+                </div>
+
+                <div class="settings-card">
+                    <h3>Calendar</h3>
+                    <label class="setting-row" for="pref-weather">
+                        <span class="setting-text">
+                            <strong>Weather forecast</strong>
+                            <small>Show the forecast on each day and in a day's details.</small>
+                        </span>
+                        <input type="checkbox" id="pref-weather" class="switch" role="switch">
+                    </label>
+                    <label class="setting-row" for="pref-hebrew">
+                        <span class="setting-text">
+                            <strong>Hebrew calendar</strong>
+                            <small>Show Shabbos, Yomim Tovim and Friday candle-lighting times.</small>
+                        </span>
+                        <input type="checkbox" id="pref-hebrew" class="switch" role="switch">
+                    </label>
+                    <div class="setting-row">
+                        <label class="setting-text" for="pref-temp">
+                            <strong>Temperature</strong>
+                            <small>Automatic picks &deg;F or &deg;C for your location.</small>
+                        </label>
+                        <select id="pref-temp" class="filter-dropdown">
+                            <option value="auto">Automatic</option>
+                            <option value="F">&deg;F</option>
+                            <option value="C">&deg;C</option>
+                        </select>
+                    </div>
+                    <div class="setting-row">
+                        <label class="setting-text" for="pref-weekstart">
+                            <strong>Week starts on</strong>
+                        </label>
+                        <select id="pref-weekstart" class="filter-dropdown">
+                            <option value="sun">Sunday</option>
+                            <option value="mon">Monday</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <h3>Your data</h3>
+                    <p class="setting-hint">Download a copy of everything in your closet, or clear it and start fresh. Your account stays either way.</p>
+                    <div class="data-actions">
+                        <button id="export-data-btn" class="secondary-btn" type="button">Export my closet</button>
+                        <button id="clear-data-btn" class="link-btn danger-link" type="button">Clear my closet</button>
+                    </div>
+                    <p id="data-status" class="setting-hint" role="status"></p>
+                </div>
+
+                <div class="settings-card">
+                    <h3>Account</h3>
+                    <div id="account-menu" class="account-menu hidden">
+                        <span id="account-email" class="account-email"></span>
+                        <button id="sign-out-btn" class="secondary-btn" type="button">Sign out</button>
+                    </div>
+                    <button id="delete-account-btn" class="link-btn danger-link" type="button">Delete account</button>
+                </div>
+
+                <div class="settings-card">
+                    <h3>About</h3>
+                    <p class="setting-links">
+                        <a href="privacy.html">Privacy Policy</a>
+                        <span aria-hidden="true">&middot;</span>
+                        <a href="delete-account.html">How to delete your account</a>
+                    </p>
+                </div>
+            </div>
+        </section>
     </main>
 
     <footer class="app-footer">
-        <div class="app-footer-links">
-            <a href="privacy.html">Privacy Policy</a>
-            <span aria-hidden="true">&middot;</span>
-            <button id="delete-account-btn" class="link-btn" type="button">Delete account</button>
-        </div>
-        <p class="app-credits">
-            Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>.
-            Jewish holidays and candle-lighting times are provided by
-            <a href="https://www.hebcal.com/" target="_blank" rel="noopener">Hebcal.com</a>
-            with a <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0 International License</a>.
-        </p>
+        <p id="app-credits" class="app-credits"></p>
     </footer>
+    </div>
+
+    <!-- Clear Closet Modal -->
+    <div id="clear-data-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Clear your closet?</h3>
+            <p id="clear-data-summary" class="delete-warning"></p>
+            <p class="delete-note">This can't be undone. Your account and settings stay. Tip: use &ldquo;Export my closet&rdquo; first if you want a backup.</p>
+            <div id="clear-data-error" class="auth-error hidden"></div>
+            <div class="modal-actions">
+                <button id="clear-data-confirm-btn" class="danger-btn" type="button">Clear everything</button>
+                <button id="clear-data-cancel-btn" class="secondary-btn" type="button">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <!-- Delete Account Modal -->
@@ -268,6 +349,7 @@
     <script src="js/analytics.js"></script>
     <script src="js/calendar.js"></script>
     <script src="js/navigation.js"></script>
+    <script src="js/settings.js"></script>
     <script src="js/account.js"></script>
     <script src="js/pwa.js"></script>
     <script src="js/app.js"></script>

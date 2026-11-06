@@ -114,4 +114,88 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
     });
+
+    // ---- Your data: export a copy, or clear the closet (account and settings stay) ----
+    const dataStatus = $('data-status');
+    const setDataStatus = (text, isError = false) => {
+        dataStatus.textContent = text;
+        dataStatus.classList.toggle('is-error', isError);
+    };
+    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+    $('export-data-btn').addEventListener('click', async () => {
+        setDataStatus('Preparing your download…');
+        try {
+            const { auth } = await waitForFirebase();
+            const data = await Store.exportAllUserData(auth.currentUser && auth.currentUser.email);
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `the-rack-export-${isoDateKey(new Date())}.json`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+            setDataStatus(`Downloaded ${plural(data.closet.length, 'item')}, ${plural(Object.keys(data.schedule).length, 'planned day')} and ${plural(data.savedOutfits.length, 'saved outfit')}.`);
+        } catch (err) {
+            console.error(err);
+            setDataStatus('Couldn\'t prepare the download. Please try again.', true);
+        }
+    });
+
+    const clearModal = $('clear-data-modal');
+    const clearError = $('clear-data-error');
+    const clearConfirmBtn = $('clear-data-confirm-btn');
+    const clearCancelBtn = $('clear-data-cancel-btn');
+    let clearBusy = false;
+
+    function openClearModal() {
+        // Counts come from the live data the app already has on screen.
+        const items = liveCloset.length, days = Object.keys(plannerSchedule).length, outfits = plannerSavedOutfits.length;
+        const empty = items + days + outfits === 0;
+        $('clear-data-summary').textContent = empty
+            ? 'Your closet is already empty.'
+            : `This permanently removes ${plural(items, 'item')}, ${plural(days, 'planned day')} and ${plural(outfits, 'saved outfit')}.`;
+        clearConfirmBtn.disabled = empty;
+        clearError.classList.add('hidden');
+        clearModal.classList.remove('hidden');
+    }
+
+    function closeClearModal() {
+        if (clearBusy) return;
+        clearModal.classList.add('hidden');
+    }
+
+    async function confirmClear() {
+        if (clearBusy) return;
+        clearBusy = true;
+        clearConfirmBtn.disabled = true;
+        clearCancelBtn.disabled = true;
+        clearConfirmBtn.textContent = 'Clearing…';
+        clearError.classList.add('hidden');
+        try {
+            await Store.clearClosetData();
+            clearBusy = false;
+            clearModal.classList.add('hidden');
+            setDataStatus('Your closet has been cleared.');
+        } catch (err) {
+            console.error(err);
+            clearBusy = false;
+            clearError.textContent = 'Something went wrong. Please try again.';
+            clearError.classList.remove('hidden');
+            clearConfirmBtn.disabled = false;
+        } finally {
+            clearCancelBtn.disabled = false;
+            clearConfirmBtn.textContent = 'Clear everything';
+        }
+    }
+
+    $('clear-data-btn').addEventListener('click', openClearModal);
+    clearCancelBtn.addEventListener('click', closeClearModal);
+    clearConfirmBtn.addEventListener('click', confirmClear);
+    closeOnBackdrop(clearModal, closeClearModal);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !clearModal.classList.contains('hidden')) closeClearModal();
+    });
 });

@@ -12,7 +12,8 @@
 - **Saved Outfits:** Build and name reusable outfit combinations from the Closet tab.
 - **Rested vs. Planned:** Items already assigned to a day are marked "planned"; everything else is "rested" and ready to wear.
 - **Wear Stats:** Totals, top category, and your most-worn pieces.
-- **Location-aware:** Tries browser geolocation on first load (falls back to manual city search) to drive both weather and holiday/candle-lighting data.
+- **Settings page:** Set your location (device location or a typed city), and turn the **weather** and the **Hebrew calendar** (Shabbos, Yomim Tovim, candle-lighting) on or off. Choose **°F / °C** (automatic by country by default) and whether the **week starts on Sunday or Monday**. Settings sync with your account; anything switched off is never requested, so your location isn't sent to that service. Locations in Israel automatically get the Israel holiday schedule. Candle lighting is 18 minutes before sunset.
+- **Your data:** export a copy of your whole closet as a file, clear your closet, sign out, or delete your account, all from Settings.
 - **Local Persistence:** Everything — closet, schedule, saved outfits, location — is saved in the browser's local storage. No account or server needed.
 
 ---
@@ -29,14 +30,15 @@
 - `js/calendar.js` — month grid + planning panel rendering and interactions.
 - `js/analytics.js` — Wear Stats view.
 - `js/navigation.js` — tab switching.
-- `js/app.js` — bootstraps location → weather → holidays after the initial paint.
+- `js/app.js` — applies your settings once you're signed in: fetches location → weather / holidays only for what's switched on.
+- `js/settings.js` — the Settings page (location, switches, credits).
 
 ---
 
 ## 🚀 Getting Started
 
 1. Open `index.html` locally in any modern browser, or serve the folder with any static file server (e.g. `npx serve .`).
-2. Allow (or deny) the location prompt, or type a city into the search pill on the Planner tab.
+2. Allow (or deny) the location prompt after you sign in, or open **Settings** and type a city.
 3. Click **"+ Add clothes"** and choose **Upload a photo** or **Take a photo** (phone camera, or webcam on a laptop), then tag each one (category, occasion, season, color) — the header's "N to tag" pill tracks what's left.
 4. Click any day on the calendar and use the Planning panel to apply a saved outfit or add single pieces.
 5. Build reusable outfits in the Closet tab's "Saved Outfits" section.

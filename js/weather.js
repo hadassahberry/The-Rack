@@ -26,6 +26,40 @@ function weatherInfo(code) {
     return WEATHER_CODES[code] || { icon: '🌡️', label: 'unknown conditions' };
 }
 
+// ---- Temperature units ----
+// Forecasts are stored in °F and converted when shown. "Automatic" picks °F in
+// the few countries that use it and °C everywhere else, based on the location;
+// the Settings page can override it.
+const FAHRENHEIT_COUNTRIES = new Set([
+    'US', 'PR', 'GU', 'VI', 'AS', 'MP', 'UM',   // United States and its territories
+    'BS', 'BZ', 'KY', 'PW', 'LR', 'MH', 'FM'    // Bahamas, Belize, Cayman Is., Palau, Liberia, Marshall Is., Micronesia
+]);
+
+// Older saved locations have no country; fall back to the device's language region.
+function countryOfLocation(location) {
+    if (location && location.country) return String(location.country).toUpperCase();
+    try { return (new Intl.Locale(navigator.language).region || '').toUpperCase(); } catch { return ''; }
+}
+
+function usesFahrenheit(location) {
+    const country = countryOfLocation(location);
+    return country ? FAHRENHEIT_COUNTRIES.has(country) : true;   // unknown: °F
+}
+
+// 'F' or 'C' — the user's choice, or automatic from the location.
+function currentTempUnit() {
+    const choice = Store.getPrefs().tempUnit;
+    if (choice === 'F' || choice === 'C') return choice;
+    return usesFahrenheit(Location.get()) ? 'F' : 'C';
+}
+
+// Forecast temperatures are stored in °F; this shows them in the chosen unit.
+function formatTemp(valueF, withUnit = false) {
+    const unit = currentTempUnit();
+    const value = unit === 'C' ? Math.round((valueF - 32) * 5 / 9) : Math.round(valueF);
+    return `${value}°${withUnit ? unit : ''}`;
+}
+
 const Weather = {
     getForecastMap(location) {
         const loc = location || Location.get();

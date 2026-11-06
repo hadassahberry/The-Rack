@@ -111,13 +111,47 @@ const Store = {
         this._subscribe('savedOutfits', (snap) => snap.docs.map(d => ({ id: d.id, ...d.data() })), callback);
     },
 
-    // ---- Account deletion ----
-    // Removes everything stored for the signed-in user (closet, schedule and
-    // saved outfits). Deletes in batches so a big closet stays under
-    // Firestore's per-batch limit. The login itself is deleted separately.
-    async deleteAllUserData() {
+    // ---- Preferences (Settings page) ----
+    // Synced with the account (users/{uid}/settings/prefs) so they follow you
+    // between devices; a local copy makes the first paint instant. Location is
+    // deliberately NOT in here — it stays on the device.
+    PREF_DEFAULTS: {
+        weatherEnabled: true,
+        hebrewCalendarEnabled: true,
+        tempUnit: 'auto',      // 'auto' (by location) | 'F' | 'C'
+        weekStart: 'sun'       // 'sun' | 'mon'
+    },
+
+    getPrefs() {
+        try {
+            return { ...this.PREF_DEFAULTS, ...(JSON.parse(localStorage.getItem('rack_prefs')) || {}) };
+        } catch {
+            return { ...this.PREF_DEFAULTS };
+        }
+    },
+    async savePrefs(patch) {
+        const next = { ...this.getPrefs(), ...patch };
+        localStorage.setItem('rack_prefs', JSON.stringify(next));
+        const { dbFns } = await waitForFirebase();
+        await dbFns.setDoc(await this._doc('settings', 'prefs'), next);
+        return next;
+    },
+    onPrefsChange(callback) {
+        this._subscribe('settings', (snap) => {
+            const doc = snap.docs.find(d => d.id === 'prefs');
+            return { ...this.PREF_DEFAULTS, ...(doc ? doc.data() : {}) };
+        }, (prefs) => {
+            localStorage.setItem('rack_prefs', JSON.stringify(prefs));
+            callback(prefs);
+        });
+    },
+
+    // ---- Clearing and deleting data ----
+    // Deletes every document in the named collections. Batches of 400 keep a
+    // big closet under Firestore's per-batch limit.
+    async _deleteCollections(names) {
         const { db, dbFns } = await waitForFirebase();
-        for (const name of ['closet', 'schedule', 'savedOutfits']) {
+        for (const name of names) {
             const snap = await dbFns.getDocs(await this._collection(name));
             for (let i = 0; i < snap.docs.length; i += 400) {
                 const batch = dbFns.writeBatch(db);
@@ -125,6 +159,31 @@ const Store = {
                 await batch.commit();
             }
         }
+    },
+
+    // "Clear my closet" (Settings): empties the closet, planner and saved
+    // outfits but keeps the account and the user's settings.
+    clearClosetData() {
+        return this._deleteCollections(['closet', 'schedule', 'savedOutfits']);
+    },
+
+    // "Delete account": everything stored for the signed-in user, settings
+    // included. The login itself is deleted separately (js/account.js).
+    deleteAllUserData() {
+        return this._deleteCollections(['closet', 'schedule', 'savedOutfits', 'settings']);
+    },
+
+    // "Export my closet" (Settings): everything the user has stored, in one object.
+    async exportAllUserData(accountEmail) {
+        return {
+            app: 'The Rack',
+            exportedAt: new Date().toISOString(),
+            account: accountEmail || null,
+            settings: this.getPrefs(),
+            closet: await this.getCloset(),          // each item's photo is included as base64 text
+            schedule: await this.getSchedule(),      // { 'YYYY-MM-DD': [item ids] }
+            savedOutfits: await this.getSavedOutfits()
+        };
     },
 
     // ---- Device-local only (not synced: inherently per-device) ----
