@@ -35,6 +35,10 @@ function syncSettingsUI(prefs) {
     $('pref-temp').options[0].textContent = `Automatic (${usesFahrenheit(Location.get()) ? '°F' : '°C'} here)`;
     $('pref-temp').disabled = !prefs.weatherEnabled;
 
+    // Nothing Jewish is mentioned unless the Hebrew calendar is on.
+    $('repeat-jewish-note').textContent = prefs.hebrewCalendarEnabled
+        ? ' Shabbos and Yom Tov count as activities automatically.' : '';
+
     // Repeat warnings: the details only matter while the switch is on.
     $('pref-repeat').checked = prefs.repeatWarnings;
     $('pref-lookback').value = String(prefs.repeatLookBack);
