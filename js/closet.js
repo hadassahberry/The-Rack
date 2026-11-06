@@ -1,5 +1,12 @@
 const CATEGORIES = ['tops', 'bottoms', 'outerwear', 'shoes', 'dresses', 'accessories'];
 
+// The picture to show for an item: the square the owner framed (js/photo-frame.js)
+// if there is one, otherwise the whole photo. The edit popup always uses the
+// original photo, so the framing can be changed any time.
+function itemPhoto(item) {
+    return item.thumb || item.image;
+}
+
 // Pieces of an outfit are always shown head to toe: a top above a bottom,
 // shoes last. Only the display is sorted; the saved order never changes, and
 // pieces of the same kind stay in the order they were added.
@@ -255,7 +262,7 @@ function renderCloset() {
         const card = document.createElement('div');
         card.className = 'closet-card';
         card.innerHTML = `
-            <img src="${item.image}">
+            <img src="${itemPhoto(item)}" alt="">
             <div class="closet-card-info">
                 <div class="closet-card-header-row">
                     <span class="color-dot" style="background:${item.color || '#ccc'}"></span>
@@ -301,7 +308,6 @@ function openEditModal(itemId) {
     if (!item) return;
     currentEditingItemId = itemId;
 
-    document.getElementById('modal-img').src = item.image;
     document.getElementById('modal-name').value = item.name;
     document.getElementById('modal-category').value = item.category;
     document.getElementById('modal-occasion').value = item.occasion;
@@ -309,9 +315,11 @@ function openEditModal(itemId) {
     document.getElementById('modal-color').value = item.color || '#cccccc';
 
     document.getElementById('edit-modal').classList.remove('hidden');
+    PhotoFrame.load(item);          // after the popup is visible: the frame needs a size
 }
 
 function closeEditModal() {
+    PhotoFrame.unload();
     document.getElementById('edit-modal').classList.add('hidden');
     currentEditingItemId = null;
     editFromTagQueue = false;
@@ -328,7 +336,8 @@ async function saveEditModal() {
         occasion: document.getElementById('modal-occasion').value,
         season: document.getElementById('modal-season').value,
         color: document.getElementById('modal-color').value,
-        tagged: true
+        tagged: true,
+        ...PhotoFrame.buildPatch()      // the framed picture, only if it was changed
     };
 
     const id = currentEditingItemId;
@@ -367,7 +376,7 @@ function renderOutfitPickerGrid() {
     liveCloset.forEach(item => {
         const p = document.createElement('div');
         p.className = `picker-item ${outfitBuilderSelectedIds.includes(item.id) ? 'selected' : ''}`;
-        p.innerHTML = `<img src="${item.image}">`;
+        p.innerHTML = `<img src="${itemPhoto(item)}" alt="">`;
         p.addEventListener('click', () => {
             if (outfitBuilderSelectedIds.includes(item.id)) {
                 outfitBuilderSelectedIds = outfitBuilderSelectedIds.filter(id => id !== item.id);
@@ -409,7 +418,7 @@ function renderSavedOutfitsList() {
         const thumbs = sortHeadToToe(outfit.itemIds
             .map(id => liveCloset.find(i => i.id === id))
             .filter(Boolean))
-            .map(i => `<img src="${i.image}">`)
+            .map(i => `<img src="${itemPhoto(i)}" alt="">`)
             .join('');
         card.innerHTML = `
             <div class="saved-outfit-thumbs">${thumbs}</div>

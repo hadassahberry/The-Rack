@@ -36,7 +36,7 @@ async function renderAnalytics() {
     [...closet].sort((a, b) => wearCounts[b.id] - wearCounts[a.id]).slice(0, 4).forEach(item => {
         wornGrid.innerHTML += `
             <div class="worn-card">
-                <img src="${item.image}">
+                <img src="${itemPhoto(item)}">
                 <span>${item.name}</span>
                 <span style="font-size:0.7rem; color:#888;">Worn ${wearCounts[item.id]}x</span>
             </div>

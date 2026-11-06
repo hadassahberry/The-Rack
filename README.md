@@ -11,6 +11,7 @@
 - **Photos on the calendar:** each day shows small photos of what's planned. Each outfit (activity) is its own stack, a top directly above its bottom above its shoes, and several outfits on one day stand side by side with their activity names, so different activities never mix. Settings → Outfit photos switches this off to show names instead.
 - **Head to toe:** an outfit's pieces always show in the same order, with a top above a bottom (outerwear, tops, dresses, bottoms, shoes, accessories), wherever they appear.
 - **Planning popup:** click any day and a popup opens over the calendar (a dialog on a computer, a sheet from the bottom on a phone); close it with ✕, Esc, or a click outside. It shows the day's outfit, a rewear "gap" warning when an item was recently worn nearby, saved outfits you can apply in one click, and a photo picker filtered by category, so you choose by sight, not just by name.
+- **Photo framing:** open any item (or tag a new one) and choose what part of its photo shows. Drag to move it, zoom with the slider, mouse wheel or a two-finger pinch, or use the Whole photo / Top / Bottom buttons (Left / Right for a wide photo), for example to focus on the shirt and not the pants. The original photo is never changed; the framed square is saved next to it and used on the calendar, in the closet and everywhere else, and you can change the framing again any time.
 - **Saved Outfits:** Build and name reusable outfit combinations from the Closet tab.
 - **Rested vs. Planned:** Items already assigned to a day are marked "planned"; everything else is "rested" and ready to wear.
 - **Wear Stats:** Totals, top category, and your most-worn pieces.
@@ -30,6 +31,7 @@
 - `js/geolocation.js` — resolves and persists the location used for weather/holidays (browser geolocation → manual search → default).
 - `js/weather.js` — Open-Meteo daily forecast (up to 16 days out).
 - `js/holidays.js` — Hebcal Jewish calendar/candle-lighting lookup for the visible month.
+- `js/photo-frame.js` — the move-and-zoom photo framing editor and its geometry.
 - `js/closet.js` — closet CRUD, tagging queue, saved-outfit builder.
 - `js/calendar.js` — month grid + planning panel rendering and interactions.
 - `js/analytics.js` — Wear Stats view.

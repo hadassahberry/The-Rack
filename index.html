@@ -377,7 +377,21 @@
     <div id="edit-modal" class="modal hidden">
         <div class="modal-content">
             <h3>Edit Item Details</h3>
-            <img id="modal-img" src="" alt="Item preview">
+            <!-- Choose what part of the photo shows: drag to move, zoom to focus on one piece. -->
+            <div id="crop-frame" class="crop-frame" tabindex="0" role="group"
+                 aria-label="Photo framing. Drag the photo to move it. Plus and minus keys zoom.">
+                <img id="modal-img" src="" alt="Item preview" draggable="false">
+            </div>
+            <div class="crop-controls">
+                <label for="crop-zoom">Zoom</label>
+                <input type="range" id="crop-zoom" min="100" max="400" value="100" step="1">
+            </div>
+            <div class="crop-presets">
+                <button type="button" id="crop-fit-all" class="crop-preset">Whole photo</button>
+                <button type="button" id="crop-fill-start" class="crop-preset">Top</button>
+                <button type="button" id="crop-fill-end" class="crop-preset">Bottom</button>
+            </div>
+            <p class="setting-hint crop-hint">Drag the photo to choose what shows. Zoom in to focus on one piece, like just the shirt.</p>
             <label for="modal-name">Item Name:</label>
             <input type="text" id="modal-name">
             <label for="modal-category">Category:</label>
@@ -423,6 +437,7 @@
     <script src="js/calendars.js"></script>
     <script src="js/colors.js"></script>
     <script src="js/repeats.js"></script>
+    <script src="js/photo-frame.js"></script>
     <script src="js/closet.js"></script>
     <script src="js/analytics.js"></script>
     <script src="js/calendar.js"></script>

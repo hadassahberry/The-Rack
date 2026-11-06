@@ -743,10 +743,13 @@
     outline-offset: 2px;
 }
 
+/* A square window onto the item: its framed picture, or the whole photo. */
 .closet-card img {
     width: 100%;
-    height: 130px;
-    object-fit: cover;
+    aspect-ratio: 1;
+    height: auto;
+    object-fit: contain;
+    background: #fff;
 }
 
 .closet-card-info {
@@ -839,7 +842,7 @@
     height: 80px;
 }
 
-.picker-item img { width: 100%; height: 100%; object-fit: cover; }
+.picker-item img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
 .picker-item.selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
 
 .saved-outfits-list {
@@ -932,7 +935,7 @@
 }
 
 .worn-card img {
-    width: 100%; height: 90px; object-fit: cover; border-radius: 6px; margin-bottom: 6px;
+    width: 100%; height: 90px; object-fit: contain; background: #fff; border-radius: 6px; margin-bottom: 6px;
 }
 
 .worn-card span { font-size: 0.8rem; font-weight: 500; display: block; }
@@ -953,6 +956,8 @@
     padding: 24px;
     border-radius: 16px;
     width: 340px;
+    max-height: 92vh;            /* taller than the window? scroll inside the popup */
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -964,6 +969,48 @@
 .modal-content img { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; }
 .modal-content input, .modal-content select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; }
 .modal-content input[type="color"] { padding: 4px; height: 40px; cursor: pointer; }
+
+/* Photo framing in the edit popup: a square window onto the photo. */
+.crop-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: #fff;
+    cursor: grab;
+    touch-action: none;          /* dragging moves the photo, not the page */
+    user-select: none;
+    flex-shrink: 0;
+}
+.crop-frame.dragging { cursor: grabbing; }
+.crop-frame:focus-visible { outline: 2px solid var(--accent-pink); outline-offset: 2px; }
+.modal-content .crop-frame img {
+    position: absolute;
+    max-width: none;
+    height: auto;
+    object-fit: fill;
+    border-radius: 0;
+    pointer-events: none;
+    -webkit-user-drag: none;
+}
+.crop-controls { display: flex; align-items: center; gap: 10px; }
+.crop-controls label { flex: none; }
+.modal-content .crop-controls input[type="range"] { flex: 1; min-width: 0; padding: 0; border: none; height: 28px; accent-color: var(--primary); }
+.crop-presets { display: flex; gap: 6px; }
+.crop-preset {
+    flex: 1;
+    padding: 7px 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    cursor: pointer;
+}
+.crop-preset:hover { border-color: var(--primary); }
+.crop-hint { margin-top: -2px; }
 
 .modal-actions { display: flex; gap: 8px; margin-top: 8px; }
 
@@ -1412,7 +1459,6 @@ body.planning-open .planning-panel {
 
     /* Closet: two cards per row instead of one giant one. */
     .full-closet-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .closet-card img { height: 150px; }
     .saved-outfits-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
     /* Popups fit the screen and scroll if they're taller than it. */

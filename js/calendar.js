@@ -170,7 +170,7 @@ function holidayTitlesFor(date, holidayInfo) {
 // A small photo of a piece (its color dot if it somehow has no photo).
 // `alt` is '' where the piece's name is already written next to the photo.
 function itemThumb(item, className, alt = item.name) {
-    if (!item.image) {
+    if (!itemPhoto(item)) {
         const dot = document.createElement('span');
         dot.className = 'color-dot';
         dot.style.background = item.color || '#ccc';
@@ -178,7 +178,7 @@ function itemThumb(item, className, alt = item.name) {
     }
     const img = document.createElement('img');
     img.className = className;
-    img.src = item.image;
+    img.src = itemPhoto(item);
     img.alt = alt;
     return img;
 }
