@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Same icon with the mark sized to fit inside the central circle that Android may crop to (the "maskable" safe zone). -->
+  <rect width="512" height="512" fill="#7d2a44"/>
+  <g transform="translate(3.3 22.3) scale(0.26)">
+    <path d="M793 637 A167 167 0 1 1 960 804 H867 V1040 L415 1290 Q385 1305 392 1335 Q400 1375 440 1375 H1510 Q1550 1375 1553 1335 Q1558 1305 1528 1290 L1165 1058 L995 818"
+          fill="none" stroke="#ffffff" stroke-width="80" stroke-linejoin="round" stroke-linecap="butt"/>
+  </g>
+</svg>

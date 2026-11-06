@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Rack - Digital Closet & Planner</title>
+    <meta name="description" content="Your digital closet and outfit planner: organize your wardrobe, plan outfits on a calendar, and check the weather.">
+    <meta name="theme-color" content="#7d2a44">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="The Rack">
     <link rel="stylesheet" href="css/variables.css">
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/components.css">
@@ -13,6 +21,7 @@
     <div id="auth-screen" class="auth-screen">
         <div class="auth-card">
             <div class="brand">
+                <img class="brand-logo" src="icons/logo.svg" alt="">
                 <h1>The Rack</h1>
             </div>
             <p class="auth-subtitle">Sign in to your wardrobe</p>
@@ -23,12 +32,14 @@
             <button id="auth-signup-btn" class="secondary-btn">Create Account</button>
             <button id="auth-google-btn" class="google-btn">Sign in with Google</button>
             <button id="auth-reset-btn" class="link-btn">Forgot password?</button>
+            <p class="auth-legal"><a href="privacy.html">Privacy Policy</a></p>
         </div>
     </div>
 
     <div id="app-shell" class="hidden">
     <header>
         <div class="brand">
+            <img class="brand-logo" src="icons/logo.svg" alt="">
             <h1>The Rack</h1>
         </div>
 
@@ -158,6 +169,38 @@
             <div id="analytics-most-worn" class="analytics-worn-grid"></div>
         </section>
     </main>
+
+    <footer class="app-footer">
+        <div class="app-footer-links">
+            <a href="privacy.html">Privacy Policy</a>
+            <span aria-hidden="true">&middot;</span>
+            <button id="delete-account-btn" class="link-btn" type="button">Delete account</button>
+        </div>
+        <p class="app-credits">
+            Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>.
+            Jewish holidays and candle-lighting times are provided by
+            <a href="https://www.hebcal.com/" target="_blank" rel="noopener">Hebcal.com</a>
+            with a <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0 International License</a>.
+        </p>
+    </footer>
+    </div>
+
+    <!-- Delete Account Modal -->
+    <div id="delete-account-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Delete your account?</h3>
+            <p class="delete-warning">This permanently deletes your login and everything in your closet &mdash; photos, outfits and your planner. This can't be undone.</p>
+            <div id="delete-account-error" class="auth-error hidden"></div>
+            <div id="delete-password-section" class="hidden">
+                <label for="delete-password">Enter your password to confirm:</label>
+                <input type="password" id="delete-password" autocomplete="current-password">
+            </div>
+            <p id="delete-google-note" class="delete-note hidden">You'll be asked to sign in with Google again to confirm.</p>
+            <div class="modal-actions">
+                <button id="delete-account-confirm-btn" class="danger-btn" type="button">Delete my account</button>
+                <button id="delete-account-cancel-btn" class="secondary-btn" type="button">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <!-- Webcam Modal (laptops/desktops) -->
@@ -225,6 +268,8 @@
     <script src="js/analytics.js"></script>
     <script src="js/calendar.js"></script>
     <script src="js/navigation.js"></script>
+    <script src="js/account.js"></script>
+    <script src="js/pwa.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="340 420 1260 1010" width="630" height="505">
+  <!-- The Rack logo: a hanger whose hook is also the letter R.
+       Clean vector redraw of the supplied artwork (single continuous line). -->
+  <path d="M793 637 A167 167 0 1 1 960 804 H867 V1040 L415 1290 Q385 1305 392 1335 Q400 1375 440 1375 H1510 Q1550 1375 1553 1335 Q1558 1305 1528 1290 L1165 1058 L995 818"
+        fill="none" stroke="#5b0011" stroke-width="36" stroke-linejoin="round" stroke-linecap="butt"/>
+</svg>

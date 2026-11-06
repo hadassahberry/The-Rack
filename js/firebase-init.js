@@ -8,10 +8,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import {
     getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
     signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut,
-    verifyPasswordResetCode, confirmPasswordReset
+    verifyPasswordResetCode, confirmPasswordReset,
+    deleteUser, reauthenticateWithCredential, reauthenticateWithPopup, EmailAuthProvider
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
-    getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, query
+    getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, query, writeBatch
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
@@ -24,8 +25,9 @@ window.Firebase = {
     authFns: {
         onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
         signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut,
-        verifyPasswordResetCode, confirmPasswordReset
+        verifyPasswordResetCode, confirmPasswordReset,
+        deleteUser, reauthenticateWithCredential, reauthenticateWithPopup, EmailAuthProvider
     },
-    dbFns: { doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, query }
+    dbFns: { doc, getDoc, getDocs, setDoc, deleteDoc, collection, onSnapshot, query, writeBatch }
 };
 window.dispatchEvent(new Event('firebase-ready'));

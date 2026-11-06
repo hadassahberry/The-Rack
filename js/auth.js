@@ -10,9 +10,11 @@ window.waitForAuth = function () {
     return new Promise((resolve) => authReadyResolvers.push(resolve));
 };
 
-function showAuthError(message) {
+// isInfo = a neutral notice (e.g. "reset email sent") rather than an error.
+function showAuthError(message, isInfo = false) {
     const el = document.getElementById('auth-error');
     el.textContent = message;
+    el.classList.toggle('is-info', isInfo);
     el.classList.toggle('hidden', !message);
 }
 
@@ -30,6 +32,14 @@ function friendlyAuthError(err) {
 document.addEventListener('DOMContentLoaded', () => {
     const emailInput = document.getElementById('auth-email');
     const passwordInput = document.getElementById('auth-password');
+
+    // Set by js/account.js just before the page reloads after account deletion.
+    try {
+        if (sessionStorage.getItem('rack_account_deleted')) {
+            sessionStorage.removeItem('rack_account_deleted');
+            showAuthError('Your account and all of its data have been deleted.', true);
+        }
+    } catch (e) { /* sessionStorage unavailable: just skip the notice */ }
 
     waitForFirebase().then(({ auth, authFns }) => {
         authFns.onAuthStateChanged(auth, (user) => {
@@ -95,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const { auth, authFns } = await waitForFirebase();
             await authFns.sendPasswordResetEmail(auth, emailInput.value.trim());
-            showAuthError('Password reset email sent — check your inbox.');
+            showAuthError('Password reset email sent — check your inbox (and your spam folder).', true);
         } catch (err) {
             showAuthError(friendlyAuthError(err));
         }

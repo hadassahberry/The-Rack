@@ -27,6 +27,11 @@ header {
     gap: 8px;
 }
 
+.brand-logo {
+    height: 30px;
+    width: auto;
+}
+
 .brand h1 {
     font-size: 1.5rem;
     font-weight: 700;

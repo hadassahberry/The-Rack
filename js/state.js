@@ -111,6 +111,22 @@ const Store = {
         this._subscribe('savedOutfits', (snap) => snap.docs.map(d => ({ id: d.id, ...d.data() })), callback);
     },
 
+    // ---- Account deletion ----
+    // Removes everything stored for the signed-in user (closet, schedule and
+    // saved outfits). Deletes in batches so a big closet stays under
+    // Firestore's per-batch limit. The login itself is deleted separately.
+    async deleteAllUserData() {
+        const { db, dbFns } = await waitForFirebase();
+        for (const name of ['closet', 'schedule', 'savedOutfits']) {
+            const snap = await dbFns.getDocs(await this._collection(name));
+            for (let i = 0; i < snap.docs.length; i += 400) {
+                const batch = dbFns.writeBatch(db);
+                snap.docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+                await batch.commit();
+            }
+        }
+    },
+
     // ---- Device-local only (not synced: inherently per-device) ----
     getLocation() {
         return JSON.parse(localStorage.getItem('rack_location')) || null;
