@@ -34,6 +34,18 @@ function syncSettingsUI(prefs) {
     $('pref-temp').options[0].textContent = `Automatic (${usesFahrenheit(Location.get()) ? '°F' : '°C'} here)`;
     $('pref-temp').disabled = !prefs.weatherEnabled;
 
+    // Repeat warnings: the details only matter while the switch is on.
+    $('pref-repeat').checked = prefs.repeatWarnings;
+    $('pref-lookback').value = String(prefs.repeatLookBack);
+    $('pref-lookback').disabled = !prefs.repeatWarnings;
+    document.querySelectorAll('#repeat-categories input').forEach(box => {
+        box.checked = prefs.repeatCategories.includes(box.value);
+        box.disabled = !prefs.repeatWarnings;
+    });
+    $('repeat-categories-hint').textContent = prefs.repeatWarnings && prefs.repeatCategories.length === 0
+        ? 'Nothing selected, so there are no warnings. Pick at least one.'
+        : 'Only these kinds of pieces count.';
+
     // Location only matters to those two features.
     const noneOn = !prefs.weatherEnabled && !prefs.hebrewCalendarEnabled;
     $('location-card').classList.toggle('is-disabled', noneOn);
@@ -69,6 +81,31 @@ document.addEventListener('DOMContentLoaded', () => {
     $('pref-weekstart').addEventListener('change', (e) => {
         Store.savePrefs({ weekStart: e.target.value }).catch(console.error);
     });
+
+    // Repeat warnings: switch, how many past times, and which categories count.
+    $('pref-repeat').addEventListener('change', (e) => {
+        Store.savePrefs({ repeatWarnings: e.target.checked }).catch(console.error);
+    });
+    $('pref-lookback').addEventListener('change', (e) => {
+        Store.savePrefs({ repeatLookBack: Number(e.target.value) }).catch(console.error);
+    });
+    const categoryBoxes = $('repeat-categories');
+    CATEGORIES.forEach(cat => {
+        const label = document.createElement('label');
+        label.className = 'chip-check';
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.value = cat;
+        const text = document.createElement('span');
+        text.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+        label.append(box, text);
+        categoryBoxes.appendChild(label);
+    });
+    categoryBoxes.addEventListener('change', () => {
+        const chosen = [...categoryBoxes.querySelectorAll('input:checked')].map(b => b.value);
+        Store.savePrefs({ repeatCategories: chosen }).catch(console.error);
+    });
+    syncSettingsUI(Store.getPrefs());          // the category boxes now exist, so tick them
 
     // Typing a city: press Enter or click away.
     const cityInput = $('city-input');

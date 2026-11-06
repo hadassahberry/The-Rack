@@ -320,6 +320,90 @@
     margin-bottom: 16px;
 }
 
+/* ---------- Outfit cards (a day can hold several) ---------- */
+.outfit-card {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px;
+    background: #fffdfb;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.outfit-card.active {
+    border: 2px solid var(--accent-pink);
+    padding: 9px;
+    background: #fff;
+}
+
+.outfit-card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.outfit-label {
+    flex: 1;
+    min-width: 160px;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: #faf3ee;
+    outline: none;
+}
+
+.outfit-label:focus { border-color: var(--primary); background: #fff; }
+
+.outfit-auto-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--lavender-text);
+    background: var(--lavender);
+    padding: 3px 10px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.outfit-delete { background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 4px; opacity: 0.6; }
+.outfit-delete:hover { opacity: 1; }
+
+.label-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.label-chip {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+
+.label-chip:hover { border-color: var(--primary); color: var(--primary); }
+
+.repeat-banner {
+    background: #fbe6ea;
+    color: var(--accent-pink);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 8px 10px;
+    border-radius: 10px;
+}
+
+.repeat-tag {
+    font-size: 0.65rem;
+    background: #fff1d6;
+    color: #9a5b00;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.flag-toggle { font-size: 0.75rem; text-align: left; padding: 0; }
+.add-outfit-btn { font-size: 0.85rem; padding: 0; margin: -4px 0 14px; text-align: left; }
+.piece-card.is-repeat .piece-card-status { color: #9a5b00; font-weight: 600; }
+
 .planning-item-row {
     display: flex;
     align-items: center;
@@ -921,6 +1005,27 @@ input.switch:checked::after { transform: translateX(20px); }
 input.switch:focus-visible { outline: 2px solid var(--accent-pink); outline-offset: 2px; }
 
 .setting-row .filter-dropdown { flex-shrink: 0; min-width: 130px; }
+
+.setting-block { padding: 12px 0 2px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px; }
+.setting-block strong { font-size: 0.95rem; }
+.setting-block small { font-size: 0.8rem; color: var(--text-muted); }
+
+/* Category checkboxes shown as tappable chips. */
+.chip-checks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.chip-check { cursor: pointer; }
+.chip-check input { position: absolute; opacity: 0; pointer-events: none; }
+.chip-check span {
+    display: inline-block;
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    background: var(--card-bg);
+}
+.chip-check input:checked + span { background: var(--primary); color: #fff; border-color: var(--primary); }
+.chip-check input:focus-visible + span { outline: 2px solid var(--accent-pink); outline-offset: 2px; }
+.chip-check input:disabled + span { opacity: 0.45; cursor: not-allowed; }
 .filter-dropdown:disabled { opacity: 0.5; cursor: not-allowed; }
 .data-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 #data-status:empty { display: none; }
@@ -987,7 +1092,7 @@ input.switch:focus-visible { outline: 2px solid var(--accent-pink); outline-offs
     input, select,
     .modal-content input, .modal-content select,
     .auth-card input, .saved-outfit-builder input,
-    .location-pill input, .filter-dropdown { font-size: 16px; }
+    .location-pill input, .filter-dropdown, .outfit-label { font-size: 16px; }
     .location-pill input { width: 100%; min-width: 0; }
 
     .calendar-panel, .planning-panel { padding: 14px; }

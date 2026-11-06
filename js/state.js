@@ -70,27 +70,82 @@ const Store = {
     },
 
     // ---- Schedule (keyed by ISO date) ----
-    async getSchedule() {
-        const { dbFns } = await waitForFirebase();
-        const snap = await dbFns.getDocs(await this._collection('schedule'));
-        const schedule = {};
-        snap.docs.forEach(d => { schedule[d.id] = d.data().itemIds || []; });
-        return schedule;
+    // A day holds a list of outfits: [{ id, label, itemIds, flagsOff? }].
+    // `label` is the activity ("Class"); `flagsOff` hides repeat warnings for
+    // that outfit. Days saved before outfits existed hold only { itemIds };
+    // they're read as one unlabeled outfit, so nothing needs migrating.
+    // Each day's document also keeps a flat `itemIds` (every item across its
+    // outfits) so older copies of the app still show the right items.
+    _outfitsFromDoc(data) {
+        if (Array.isArray(data.outfits)) {
+            return data.outfits.map(o => ({
+                id: o.id || 'main',
+                label: o.label || '',
+                itemIds: Array.isArray(o.itemIds) ? o.itemIds : [],
+                flagsOff: !!o.flagsOff
+            }));
+        }
+        if (Array.isArray(data.itemIds) && data.itemIds.length) {
+            return [{ id: 'main', label: '', itemIds: data.itemIds, flagsOff: false }];
+        }
+        return [];
     },
-    async setScheduleDay(dateKey, itemIds) {
+    _scheduleDetailFromSnap(snap) {
+        const byDate = {};
+        snap.docs.forEach(d => {
+            const outfits = this._outfitsFromDoc(d.data());
+            if (outfits.length) byDate[d.id] = outfits;
+        });
+        return byDate;
+    },
+    // { 'YYYY-MM-DD': [itemId, ...] } — every item planned that day, across its outfits.
+    flattenSchedule(byDate) {
+        const flat = {};
+        for (const [date, outfits] of Object.entries(byDate)) {
+            const ids = [...new Set(outfits.flatMap(o => o.itemIds))];
+            if (ids.length) flat[date] = ids;
+        }
+        return flat;
+    },
+    async getScheduleDetail() {
         const { dbFns } = await waitForFirebase();
-        if (itemIds.length === 0) {
+        return this._scheduleDetailFromSnap(await dbFns.getDocs(await this._collection('schedule')));
+    },
+    async getSchedule() {
+        return this.flattenSchedule(await this.getScheduleDetail());
+    },
+    // Replaces a day's outfits. An empty list removes the day.
+    async setScheduleOutfits(dateKey, outfits) {
+        const { dbFns } = await waitForFirebase();
+        if (outfits.length === 0) {
             await dbFns.deleteDoc(await this._doc('schedule', dateKey));
-        } else {
-            await dbFns.setDoc(await this._doc('schedule', dateKey), { itemIds });
+            return;
+        }
+        const clean = outfits.map(o => ({
+            id: o.id,
+            label: String(o.label || '').trim().slice(0, 40),
+            itemIds: [...new Set(o.itemIds)],
+            ...(o.flagsOff ? { flagsOff: true } : {})
+        }));
+        await dbFns.setDoc(await this._doc('schedule', dateKey), {
+            outfits: clean,
+            itemIds: [...new Set(clean.flatMap(o => o.itemIds))]
+        });
+    },
+    // Used when an item is deleted from the closet: take it out of every planned outfit.
+    async removeItemFromSchedule(itemId) {
+        const byDate = await this.getScheduleDetail();
+        for (const [date, outfits] of Object.entries(byDate)) {
+            if (!outfits.some(o => o.itemIds.includes(itemId))) continue;
+            const next = outfits
+                .map(o => ({ ...o, itemIds: o.itemIds.filter(id => id !== itemId) }))
+                .filter(o => o.itemIds.length > 0 || o.label);     // drop outfits left empty and unlabeled
+            await this.setScheduleOutfits(date, next);
         }
     },
+    // Live updates: callback receives { 'YYYY-MM-DD': [outfit, ...] }.
     onScheduleChange(callback) {
-        this._subscribe('schedule', (snap) => {
-            const schedule = {};
-            snap.docs.forEach(d => { schedule[d.id] = d.data().itemIds || []; });
-            return schedule;
-        }, callback);
+        this._subscribe('schedule', (snap) => this._scheduleDetailFromSnap(snap), callback);
     },
 
     // ---- Saved outfits ----
@@ -119,7 +174,13 @@ const Store = {
         weatherEnabled: true,
         hebrewCalendarEnabled: true,
         tempUnit: 'auto',      // 'auto' (by location) | 'F' | 'C'
-        weekStart: 'sun'       // 'sun' | 'mon'
+        weekStart: 'sun',      // 'sun' | 'mon'
+        // Repeat warnings (js/repeats.js): on/off, how many past times to check,
+        // and which categories count. Shoes, accessories and coats repeat
+        // constantly, so they start switched off.
+        repeatWarnings: true,
+        repeatLookBack: 3,
+        repeatCategories: ['tops', 'bottoms', 'dresses']
     },
 
     getPrefs() {
@@ -181,7 +242,7 @@ const Store = {
             account: accountEmail || null,
             settings: this.getPrefs(),
             closet: await this.getCloset(),          // each item's photo is included as base64 text
-            schedule: await this.getSchedule(),      // { 'YYYY-MM-DD': [item ids] }
+            schedule: await this.getScheduleDetail(),  // { 'YYYY-MM-DD': [{ id, label, itemIds }] }
             savedOutfits: await this.getSavedOutfits()
         };
     },

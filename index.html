@@ -96,6 +96,8 @@
                     <p id="planning-holiday" class="planning-holiday hidden"></p>
 
                     <div id="planning-items" class="planning-items"></div>
+                    <button id="add-outfit-btn" class="link-btn add-outfit-btn" type="button">+ Add an outfit</button>
+                    <datalist id="activity-suggestions"></datalist>
 
                     <h3 class="panel-subhead">Saved outfits</h3>
                     <div id="planning-saved-outfits" class="pill-row"></div>
@@ -213,6 +215,36 @@
                             <option value="sun">Sunday</option>
                             <option value="mon">Monday</option>
                         </select>
+                    </div>
+                </div>
+
+                <div class="settings-card" id="repeat-card">
+                    <h3>Repeat warnings</h3>
+                    <label class="setting-row" for="pref-repeat">
+                        <span class="setting-text">
+                            <strong>Warn me about repeats</strong>
+                            <small>Give an outfit an activity (like Class) and you'll be warned if you wore the same thing to it recently. Shabbos and Yom Tov count as activities automatically.</small>
+                        </span>
+                        <input type="checkbox" id="pref-repeat" class="switch" role="switch">
+                    </label>
+                    <div class="setting-row">
+                        <label class="setting-text" for="pref-lookback">
+                            <strong>Look back</strong>
+                            <small>How many past times to check.</small>
+                        </label>
+                        <select id="pref-lookback" class="filter-dropdown">
+                            <option value="1">Last time</option>
+                            <option value="2">Last 2 times</option>
+                            <option value="3">Last 3 times</option>
+                            <option value="4">Last 4 times</option>
+                            <option value="5">Last 5 times</option>
+                            <option value="6">Last 6 times</option>
+                        </select>
+                    </div>
+                    <div class="setting-block">
+                        <strong>Warn about</strong>
+                        <small id="repeat-categories-hint">Only these kinds of pieces count.</small>
+                        <div id="repeat-categories" class="chip-checks"></div>
                     </div>
                 </div>
 
@@ -345,6 +377,7 @@
     <script src="js/weather.js"></script>
     <script src="js/holidays.js"></script>
     <script src="js/colors.js"></script>
+    <script src="js/repeats.js"></script>
     <script src="js/closet.js"></script>
     <script src="js/analytics.js"></script>
     <script src="js/calendar.js"></script>

@@ -13,6 +13,7 @@
 - **Rested vs. Planned:** Items already assigned to a day are marked "planned"; everything else is "rested" and ready to wear.
 - **Wear Stats:** Totals, top category, and your most-worn pieces.
 - **Settings page:** Set your location (device location or a typed city), and turn the **weather** and the **Hebrew calendar** (Shabbos, Yomim Tovim, candle-lighting) on or off. Choose **°F / °C** (automatic by country by default) and whether the **week starts on Sunday or Monday**. Settings sync with your account; anything switched off is never requested, so your location isn't sent to that service. Locations in Israel automatically get the Israel holiday schedule. Candle lighting is 18 minutes before sunset.
+- **Repeat warnings:** give an outfit an activity (like "Class") and the app flags it if you wore the same item, or the same whole outfit, to that activity in the last few times. Shabbos and Yom Tov count as activities automatically. A day can hold several outfits. In Settings you choose how many past times to check and which categories count (e.g. tops, bottoms, dresses).
 - **Your data:** export a copy of your whole closet as a file, clear your closet, sign out, or delete your account, all from Settings.
 - **Local Persistence:** Everything — closet, schedule, saved outfits, location — is saved in the browser's local storage. No account or server needed.
 
@@ -32,6 +33,7 @@
 - `js/navigation.js` — tab switching.
 - `js/app.js` — applies your settings once you're signed in: fetches location → weather / holidays only for what's switched on.
 - `js/settings.js` — the Settings page (location, switches, credits).
+- `js/repeats.js` — the repeat-warning logic (pure functions, no page access).
 
 ---
 

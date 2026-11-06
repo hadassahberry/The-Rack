@@ -331,12 +331,7 @@ async function deleteEditingItem() {
 
     await Store.deleteClosetItem(id);
 
-    const schedule = await Store.getSchedule();
-    for (const dateKey of Object.keys(schedule)) {
-        if (schedule[dateKey].includes(id)) {
-            await Store.setScheduleDay(dateKey, schedule[dateKey].filter(x => x !== id));
-        }
-    }
+    await Store.removeItemFromSchedule(id);
 
     const outfits = await Store.getSavedOutfits();
     for (const outfit of outfits) {

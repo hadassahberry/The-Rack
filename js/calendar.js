@@ -12,7 +12,8 @@ let planningActiveCategory = 'tops';
 // Kept in sync by Firestore's live listeners (see initLiveData) so render
 // functions can read synchronously instead of awaiting Store on every call.
 let plannerCloset = [];
-let plannerSchedule = {};
+let plannerOutfits = {};     // { 'YYYY-MM-DD': [{ id, label, itemIds, flagsOff }] } — what's planned each day
+let plannerSchedule = {};    // { 'YYYY-MM-DD': [itemIds] } — the same days flattened (calendar cells, gap tags, "planned")
 let plannerSavedOutfits = [];
 
 function isoDateKey(date) {
@@ -33,6 +34,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = e.target.closest('[data-view]');
         if (btn) setViewMode(btn.dataset.view);
     });
+    document.getElementById('add-outfit-btn').addEventListener('click', () => {
+        const id = newOutfitId();
+        activeOutfitId = id;
+        updateDay(selectedDateKey, outfits => [...outfits, { id, label: '', itemIds: [], flagsOff: false }]);
+    });
 
     window.waitForAuth().then(initCalendarLiveData);
 
@@ -41,7 +47,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initCalendarLiveData() {
     Store.onClosetChange((closet) => { plannerCloset = closet; renderCalendar(); });
-    Store.onScheduleChange((schedule) => { plannerSchedule = schedule; renderCalendar(); });
+    Store.onScheduleChange((byDate) => {
+        plannerOutfits = byDate;
+        plannerSchedule = Store.flattenSchedule(byDate);
+        renderCalendar();
+    });
     Store.onSavedOutfitsChange((outfits) => { plannerSavedOutfits = outfits; renderCalendar(); });
 }
 
@@ -241,13 +251,389 @@ function computeGapDays(itemId, excludeDateKey) {
     return nearest;
 }
 
-function renderPlanningPanel() {
-    const dateHeading = document.getElementById('planning-date');
-    const weatherLine = document.getElementById('planning-weather');
-    const itemsBox = document.getElementById('planning-items');
+// ---------------------------------------------------------------------------
+// Outfits on the selected day
+//
+// A day can hold several outfits ("Friday night", "Class"...), each with an
+// optional activity label. The piece picker and saved outfits act on the
+// ACTIVE outfit (the highlighted card). Repeat warnings come from js/repeats.js.
+// ---------------------------------------------------------------------------
+
+let activeOutfitId = null;
+
+function newOutfitId() {
+    return 'out_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+// Edits one day's outfits and saves. `mutate` gets a copy of the list and
+// returns the new list (an empty list removes the day).
+function updateDay(dateKey, mutate) {
+    const copy = (plannerOutfits[dateKey] || []).map(o => ({ ...o, itemIds: [...o.itemIds] }));
+    const next = mutate(copy);
+    // Apply it locally straight away. A second tap before the save comes back
+    // from the server then builds on this change instead of overwriting it.
+    if (next.length) plannerOutfits[dateKey] = next; else delete plannerOutfits[dateKey];
+    plannerSchedule = Store.flattenSchedule(plannerOutfits);
+    return Store.setScheduleOutfits(dateKey, next).catch(console.error);
+}
+
+// Shabbos (Saturdays) and Yom Tov count as activities on their own when the
+// Hebrew calendar is on, so repeats are caught without any typing. Yom Tov
+// needs that month's holiday data to be on this device, which it is for any
+// month that's been viewed.
+function autoActivityLabel(dateKey, prefs, location, cache) {
+    if (!prefs.hebrewCalendarEnabled) return '';
+    const date = new Date(dateKey + 'T00:00:00');
+    const info = getHolidayInfo(date, location, cache);
+    if (info && info.holidays && info.holidays.some(h => h.yomtov)) return 'Yom Tov';
+    return date.getDay() === 6 ? 'Shabbos' : '';
+}
+
+// An outfit's activity: what the user typed, otherwise the automatic one.
+function makeLabelOf(prefs, location) {
+    const cache = {};
+    return (dateKey, outfit) => (outfit.label || '').trim() || autoActivityLabel(dateKey, prefs, location, cache);
+}
+
+// Activities used before, most recent first (for the quick-pick chips and the typing suggestions).
+function knownActivityLabels() {
+    const latest = new Map();
+    for (const [date, outfits] of Object.entries(plannerOutfits)) {
+        for (const o of outfits) {
+            const text = (o.label || '').trim();
+            if (!text) continue;
+            const key = normalizeActivity(text);
+            const seen = latest.get(key);
+            if (!seen || date > seen.date) latest.set(key, { text, date });
+        }
+    }
+    return [...latest.values()].sort((a, b) => (a.date < b.date ? 1 : -1)).map(v => v.text);
+}
+
+function repeatContextFor(dateKey, outfit, prefs, labelOf) {
+    return repeatContext({ dateKey, label: labelOf(dateKey, outfit), outfitsByDate: plannerOutfits, labelOf, prefs });
+}
+
+// "Worn to Class · 2 weeks ago"
+function repeatTagText(ctx, occurrence) {
+    return `Worn to ${ctx.label} · ${describeWhen(occurrence.daysAway)}`;
+}
+
+function setActiveOutfit(id) {
+    if (activeOutfitId === id) return;
+    activeOutfitId = id;
+    document.querySelectorAll('#planning-items .outfit-card').forEach(card => {
+        card.classList.toggle('active', card.dataset.outfitId === id);
+    });
+    renderPicker();   // the picker's highlights and warnings depend on the active outfit
+}
+
+function buildOutfitCard({ outfit, isActive, ctx, autoLabel, catById, chips }) {
+    const card = document.createElement('div');
+    card.className = 'outfit-card' + (isActive ? ' active' : '');
+    card.dataset.outfitId = outfit.id;
+    card.addEventListener('click', (e) => {
+        if (!e.target.closest('input, button')) setActiveOutfit(outfit.id);
+    });
+
+    // --- header: activity label + remove ---
+    const head = document.createElement('div');
+    head.className = 'outfit-card-head';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'outfit-label';
+    input.maxLength = 40;
+    input.value = outfit.label || '';
+    input.placeholder = 'Activity (optional)';
+    input.setAttribute('list', 'activity-suggestions');
+    input.setAttribute('aria-label', 'Activity for this outfit');
+    input.addEventListener('focus', () => setActiveOutfit(outfit.id));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+    input.addEventListener('change', () => {
+        let value = input.value.trim().replace(/\s+/g, ' ');
+        // "class" adopts the spelling already in use ("Class") so the same activity looks the same everywhere
+        const existing = knownActivityLabels().find(l => normalizeActivity(l) === normalizeActivity(value));
+        if (existing) value = existing;
+        updateDay(selectedDateKey, outfits => {
+            const o = outfits.find(x => x.id === outfit.id);
+            if (o) o.label = value;
+            return outfits;
+        });
+    });
+    head.appendChild(input);
+
+    if (!outfit.label && autoLabel) {
+        const pill = document.createElement('span');
+        pill.className = 'outfit-auto-label';
+        pill.textContent = `${autoLabel} (automatic)`;
+        head.appendChild(pill);
+    }
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'outfit-delete';
+    remove.setAttribute('aria-label', 'Remove this outfit');
+    remove.textContent = '🗑️';
+    remove.addEventListener('click', () => {
+        if (activeOutfitId === outfit.id) activeOutfitId = null;
+        updateDay(selectedDateKey, outfits => outfits.filter(x => x.id !== outfit.id));
+    });
+    head.appendChild(remove);
+    card.appendChild(head);
+
+    // --- quick-pick activities for an outfit with no label yet ---
+    if (!outfit.label && chips.length) {
+        const row = document.createElement('div');
+        row.className = 'label-chips';
+        chips.forEach(text => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'label-chip';
+            chip.textContent = text;
+            chip.addEventListener('click', () => {
+                activeOutfitId = outfit.id;
+                updateDay(selectedDateKey, outfits => {
+                    const o = outfits.find(x => x.id === outfit.id);
+                    if (o) o.label = text;
+                    return outfits;
+                });
+            });
+            row.appendChild(chip);
+        });
+        card.appendChild(row);
+    }
+
+    // --- repeat warnings ---
+    const flagsOn = !!ctx && !outfit.flagsOff;
+    const same = flagsOn ? sameOutfitRepeat(ctx, outfit.itemIds, id => catById[id]) : null;
+    const itemFlags = {};
+    if (flagsOn) {
+        outfit.itemIds.forEach(id => {
+            const item = plannerCloset.find(i => i.id === id);
+            const rep = item ? itemRepeat(ctx, id, item.category) : null;
+            if (rep) itemFlags[id] = rep;
+        });
+    }
+    const anyFlag = !!same || Object.keys(itemFlags).length > 0;
+
+    if (same) {
+        const banner = document.createElement('div');
+        banner.className = 'repeat-banner';
+        banner.textContent = `⚠ Same outfit as ${ctx.label} ${describeWhen(same.daysAway)}`;
+        card.appendChild(banner);
+    }
+
+    // --- items ---
+    if (outfit.itemIds.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'planning-empty';
+        empty.textContent = 'No pieces yet — pick some below.';
+        card.appendChild(empty);
+    }
+    outfit.itemIds.forEach(id => {
+        const item = plannerCloset.find(i => i.id === id);
+        if (!item) return;
+        const row = document.createElement('div');
+        row.className = 'planning-item-row';
+
+        const dot = document.createElement('span');
+        dot.className = 'color-dot';
+        dot.style.background = item.color || '#ccc';
+        row.appendChild(dot);
+
+        const name = document.createElement('span');
+        name.className = 'planning-item-name';
+        name.textContent = item.name;
+        row.appendChild(name);
+
+        if (itemFlags[id]) {
+            const tag = document.createElement('span');
+            tag.className = 'repeat-tag';
+            tag.textContent = repeatTagText(ctx, itemFlags[id]);
+            row.appendChild(tag);
+        }
+        const gap = computeGapDays(id, selectedDateKey);
+        if (gap !== null && Math.abs(gap) <= 3) {
+            const gapTag = document.createElement('span');
+            gapTag.className = 'gap-tag';
+            gapTag.textContent = `${Math.abs(gap)}d gap`;
+            row.appendChild(gapTag);
+        }
+
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'remove-item-btn';
+        x.setAttribute('aria-label', 'Remove');
+        x.textContent = '×';
+        x.addEventListener('click', () => {
+            updateDay(selectedDateKey, outfits => {
+                const o = outfits.find(y => y.id === outfit.id);
+                if (!o) return outfits;
+                o.itemIds = o.itemIds.filter(y => y !== id);
+                // an outfit emptied of everything (and with no activity) just goes away
+                return (!o.itemIds.length && !o.label) ? outfits.filter(y => y !== o) : outfits;
+            });
+        });
+        row.appendChild(x);
+        card.appendChild(row);
+    });
+
+    // --- dismissing / restoring the warnings ---
+    if (anyFlag || (outfit.flagsOff && ctx)) {
+        const link = document.createElement('button');
+        link.type = 'button';
+        link.className = 'link-btn flag-toggle';
+        link.textContent = outfit.flagsOff ? 'Repeat warnings are off for this outfit — turn them back on' : 'It\'s fine — hide warnings for this outfit';
+        link.addEventListener('click', () => {
+            updateDay(selectedDateKey, outfits => {
+                const o = outfits.find(y => y.id === outfit.id);
+                if (o) o.flagsOff = !o.flagsOff;
+                return outfits;
+            });
+        });
+        card.appendChild(link);
+    }
+    return card;
+}
+
+function renderOutfitCards(prefs, location, labelOf) {
+    const box = document.getElementById('planning-items');
+    const addBtn = document.getElementById('add-outfit-btn');
+    const outfits = plannerOutfits[selectedDateKey] || [];
+    if (!outfits.some(o => o.id === activeOutfitId)) activeOutfitId = outfits.length ? outfits[0].id : null;
+
+    const catById = Object.fromEntries(plannerCloset.map(i => [i.id, i.category]));
+    const known = knownActivityLabels();
+    const selectedDate = new Date(selectedDateKey + 'T00:00:00');
+    const suggestions = [...known];
+    if (prefs.hebrewCalendarEnabled && selectedDate.getDay() === 5 && !suggestions.some(s => normalizeActivity(s) === 'shabbos')) {
+        suggestions.unshift('Shabbos');                       // Friday night is Shabbos too
+    }
+
+    const list = document.getElementById('activity-suggestions');
+    if (list) {
+        list.innerHTML = '';
+        suggestions.forEach(text => { const o = document.createElement('option'); o.value = text; list.appendChild(o); });
+    }
+
+    box.innerHTML = '';
+    if (outfits.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'planning-empty';
+        empty.textContent = 'No outfit planned yet — add pieces below, or start an outfit to give it an activity.';
+        box.appendChild(empty);
+    }
+    outfits.forEach(outfit => {
+        box.appendChild(buildOutfitCard({
+            outfit,
+            isActive: outfit.id === activeOutfitId,
+            ctx: repeatContextFor(selectedDateKey, outfit, prefs, labelOf),
+            autoLabel: autoActivityLabel(selectedDateKey, prefs, location, {}),
+            catById,
+            chips: suggestions.slice(0, 5)
+        }));
+    });
+    addBtn.textContent = outfits.length ? '+ Add another outfit' : '+ Add an outfit';
+}
+
+// Saved outfits, the category tabs and the piece grid (all act on the active outfit).
+function renderPicker() {
     const outfitsRow = document.getElementById('planning-saved-outfits');
     const catTabs = document.getElementById('planning-category-tabs');
     const pieceGrid = document.getElementById('planning-piece-grid');
+    const prefs = Store.getPrefs();
+    const location = Location.get();
+    const labelOf = makeLabelOf(prefs, location);
+    const dayOutfits = plannerOutfits[selectedDateKey] || [];
+    const active = dayOutfits.find(o => o.id === activeOutfitId) || null;
+    const ctx = active && !active.flagsOff ? repeatContextFor(selectedDateKey, active, prefs, labelOf) : null;
+
+    // Saved outfits: replace the active outfit's pieces (or start a new outfit)
+    outfitsRow.innerHTML = '';
+    if (plannerSavedOutfits.length === 0) {
+        outfitsRow.innerHTML = '<p class="planning-empty">No saved outfits yet.</p>';
+    }
+    plannerSavedOutfits.forEach(saved => {
+        const pill = document.createElement('button');
+        pill.className = 'outfit-pill';
+        pill.textContent = saved.name;
+        pill.addEventListener('click', () => {
+            if (!active) {
+                const id = newOutfitId();
+                activeOutfitId = id;
+                updateDay(selectedDateKey, outfits => [...outfits, { id, label: '', itemIds: [...saved.itemIds], flagsOff: false }]);
+                return;
+            }
+            updateDay(selectedDateKey, outfits => {
+                const o = outfits.find(x => x.id === active.id);
+                if (o) o.itemIds = [...saved.itemIds];
+                return outfits;
+            });
+        });
+        outfitsRow.appendChild(pill);
+    });
+
+    // Add-a-single-piece category tabs
+    catTabs.innerHTML = '';
+    CATEGORIES.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = `tab-btn ${cat === planningActiveCategory ? 'active' : ''}`;
+        btn.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+        btn.addEventListener('click', () => {
+            planningActiveCategory = cat;
+            renderPicker();
+        });
+        catTabs.appendChild(btn);
+    });
+
+    // Piece grid
+    pieceGrid.innerHTML = '';
+    const anyPlannedIds = new Set(Object.values(plannerSchedule).flat());
+    const pieces = plannerCloset.filter(i => i.category === planningActiveCategory);
+    if (pieces.length === 0) {
+        pieceGrid.innerHTML = '<p class="planning-empty">No items in this category yet.</p>';
+    }
+    pieces.forEach(item => {
+        const inActive = !!active && active.itemIds.includes(item.id);
+        const rep = ctx ? itemRepeat(ctx, item.id, item.category) : null;
+        const status = rep ? repeatTagText(ctx, rep) : (anyPlannedIds.has(item.id) ? 'planned' : 'rested');
+
+        const card = document.createElement('div');
+        card.className = `piece-card ${inActive ? 'selected' : ''} ${rep ? 'is-repeat' : ''}`;
+
+        const dot = document.createElement('span');
+        dot.className = 'color-dot';
+        dot.style.background = item.color || '#ccc';
+        const name = document.createElement('span');
+        name.className = 'piece-card-name';
+        name.textContent = item.name;
+        const st = document.createElement('span');
+        st.className = 'piece-card-status';
+        st.textContent = status;
+        card.append(dot, name, st);
+
+        card.addEventListener('click', () => {
+            if (!active) {
+                const id = newOutfitId();
+                activeOutfitId = id;
+                updateDay(selectedDateKey, outfits => [...outfits, { id, label: '', itemIds: [item.id], flagsOff: false }]);
+                return;
+            }
+            updateDay(selectedDateKey, outfits => {
+                const o = outfits.find(x => x.id === active.id);
+                if (!o) return outfits;
+                o.itemIds = o.itemIds.includes(item.id) ? o.itemIds.filter(x => x !== item.id) : [...o.itemIds, item.id];
+                return (!o.itemIds.length && !o.label) ? outfits.filter(x => x !== o) : outfits;
+            });
+        });
+        pieceGrid.appendChild(card);
+    });
+}
+
+function renderPlanningPanel() {
+    const dateHeading = document.getElementById('planning-date');
+    const weatherLine = document.getElementById('planning-weather');
     if (!dateHeading) return;
 
     const location = Location.get();
@@ -272,82 +658,6 @@ function renderPlanningPanel() {
     holidayLine.textContent = holidayText;
     holidayLine.classList.toggle('hidden', !holidayText);
 
-    const assignedIds = plannerSchedule[selectedDateKey] || [];
-    itemsBox.innerHTML = '';
-    if (assignedIds.length === 0) {
-        itemsBox.innerHTML = '<p class="planning-empty">No items planned yet — add one below.</p>';
-    }
-    assignedIds.forEach(id => {
-        const item = plannerCloset.find(i => i.id === id);
-        if (!item) return;
-        const gap = computeGapDays(id, selectedDateKey);
-        const gapTag = (gap !== null && Math.abs(gap) <= 3)
-            ? `<span class="gap-tag">${Math.abs(gap)}d gap</span>` : '';
-        const row = document.createElement('div');
-        row.className = 'planning-item-row';
-        row.innerHTML = `
-            <span class="color-dot" style="background:${item.color || '#ccc'}"></span>
-            <span class="planning-item-name">${item.name}</span>
-            ${gapTag}
-            <button class="remove-item-btn" aria-label="Remove">&times;</button>
-        `;
-        row.querySelector('.remove-item-btn').addEventListener('click', () => {
-            const list = (plannerSchedule[selectedDateKey] || []).filter(x => x !== id);
-            Store.setScheduleDay(selectedDateKey, list).catch(console.error);
-        });
-        itemsBox.appendChild(row);
-    });
-
-    // Saved outfits
-    outfitsRow.innerHTML = '';
-    if (plannerSavedOutfits.length === 0) {
-        outfitsRow.innerHTML = '<p class="planning-empty">No saved outfits yet.</p>';
-    }
-    plannerSavedOutfits.forEach(outfit => {
-        const pill = document.createElement('button');
-        pill.className = 'outfit-pill';
-        pill.textContent = outfit.name;
-        pill.addEventListener('click', () => {
-            Store.setScheduleDay(selectedDateKey, [...outfit.itemIds]).catch(console.error);
-        });
-        outfitsRow.appendChild(pill);
-    });
-
-    // Add-a-single-piece category tabs
-    catTabs.innerHTML = '';
-    CATEGORIES.forEach(cat => {
-        const btn = document.createElement('button');
-        btn.className = `tab-btn ${cat === planningActiveCategory ? 'active' : ''}`;
-        btn.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
-        btn.addEventListener('click', () => {
-            planningActiveCategory = cat;
-            renderPlanningPanel();
-        });
-        catTabs.appendChild(btn);
-    });
-
-    // Piece grid
-    pieceGrid.innerHTML = '';
-    const anyPlannedIds = new Set(Object.values(plannerSchedule).flat());
-    const pieces = plannerCloset.filter(i => i.category === planningActiveCategory);
-    if (pieces.length === 0) {
-        pieceGrid.innerHTML = '<p class="planning-empty">No items in this category yet.</p>';
-    }
-    pieces.forEach(item => {
-        const isOnSelectedDay = assignedIds.includes(item.id);
-        const status = anyPlannedIds.has(item.id) ? 'planned' : 'rested';
-        const card = document.createElement('div');
-        card.className = `piece-card ${isOnSelectedDay ? 'selected' : ''}`;
-        card.innerHTML = `
-            <span class="color-dot" style="background:${item.color || '#ccc'}"></span>
-            <span class="piece-card-name">${item.name}</span>
-            <span class="piece-card-status">${status}</span>
-        `;
-        card.addEventListener('click', () => {
-            const list = plannerSchedule[selectedDateKey] || [];
-            const next = list.includes(item.id) ? list.filter(x => x !== item.id) : [...list, item.id];
-            Store.setScheduleDay(selectedDateKey, next).catch(console.error);
-        });
-        pieceGrid.appendChild(card);
-    });
+    renderOutfitCards(prefs, location, makeLabelOf(prefs, location));
+    renderPicker();
 }
