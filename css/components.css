@@ -162,8 +162,10 @@
 }
 
 /* Week / 2-week views have fewer cells, so give each one more room. */
-.month-grid.view-week .month-cell { min-height: 230px; }
-.month-grid.view-2weeks .month-cell { min-height: 140px; }
+/* Taller days leave room for bigger photos; the fewer days shown, the bigger. */
+.month-grid.view-month .month-cell { min-height: 150px; }
+.month-grid.view-2weeks .month-cell { min-height: 190px; }
+.month-grid.view-week .month-cell { min-height: 280px; }
 
 .location-pill {
     display: flex;
@@ -285,16 +287,24 @@
 /* Photos of the planned pieces (Settings → Outfit photos). */
 .cell-photos {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));   /* 2 per row even in the narrowest cell */
-    gap: 3px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+}
+
+/* Columns are fixed so each photo is as wide as the day allows. */
+.month-grid.view-month .cell-photos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.month-grid.view-2weeks .cell-photos,
+.month-grid.view-week .cell-photos { gap: 5px; }
+@media (max-width: 900px) {
+    .month-grid.view-month .cell-photos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .cell-thumb {
     display: block;
     width: 100%;
     aspect-ratio: 1;
-    object-fit: cover;
-    border-radius: 6px;
+    object-fit: contain;      /* the whole piece, not a crop of it */
+    border-radius: 8px;
     border: 1px solid var(--border);
     background: #fff;
 }
