@@ -964,6 +964,9 @@
     box-shadow: 0 15px 35px rgba(0,0,0,0.15);
 }
 
+/* In a scrolling popup nothing may be squashed to fit (that shrank the color picker). */
+.modal-content > * { flex-shrink: 0; }
+
 .modal-content video { width: 100%; border-radius: 8px; background: #000; min-height: 120px; }
 .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .modal-content img { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; }
@@ -998,18 +1001,6 @@
 .crop-controls { display: flex; align-items: center; gap: 10px; }
 .crop-controls label { flex: none; }
 .modal-content .crop-controls input[type="range"] { flex: 1; min-width: 0; padding: 0; border: none; height: 28px; accent-color: var(--primary); }
-.crop-presets { display: flex; gap: 6px; }
-.crop-preset {
-    flex: 1;
-    padding: 7px 8px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    cursor: pointer;
-}
-.crop-preset:hover { border-color: var(--primary); }
 .crop-hint { margin-top: -2px; }
 
 .modal-actions { display: flex; gap: 8px; margin-top: 8px; }

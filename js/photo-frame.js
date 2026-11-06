@@ -69,7 +69,7 @@ function isWholePhoto(state) {
 // The editor inside the edit-item popup.
 
 const PhotoFrame = (() => {
-    let img, frame, zoomInput, labelA, labelB;
+    let img, frame, zoomInput;
     let W = 0, H = 0, F = 0, maxZ = 4;
     let state = { z: 1, cx: 0, cy: 0 };
     let start = null;                    // the state when the popup opened (to tell if it changed)
@@ -111,27 +111,13 @@ const PhotoFrame = (() => {
         return { x: clientX - r.left, y: clientY - r.top };
     }
 
-    // "Top" / "Bottom" (or "Left" / "Right" for a wide photo): zoom to fill the frame and stick to that edge.
-    function fillTo(edge) {
-        const z = Math.min(maxZ, fillZoom(W, H));
-        const tall = H >= W;
-        const cx = tall ? W / 2 : (edge === 'start' ? 0 : W);
-        const cy = tall ? (edge === 'start' ? 0 : H) : H / 2;
-        set({ z, cx, cy });
-    }
-
     function init() {
         img = document.getElementById('modal-img');
         frame = document.getElementById('crop-frame');
         zoomInput = document.getElementById('crop-zoom');
-        labelA = document.getElementById('crop-fill-start');
-        labelB = document.getElementById('crop-fill-end');
         if (!img || !frame) return;
 
         zoomInput.addEventListener('input', () => zoomTo(Number(zoomInput.value) / 100));
-        document.getElementById('crop-fit-all').addEventListener('click', () => set({ z: 1, cx: W / 2, cy: H / 2 }));
-        labelA.addEventListener('click', () => fillTo('start'));
-        labelB.addEventListener('click', () => fillTo('end'));
 
         // Drag to move; two fingers to pinch-zoom.
         frame.addEventListener('pointerdown', (e) => {
@@ -204,9 +190,6 @@ const PhotoFrame = (() => {
             maxZ = Math.max(4, fillZoom(W, H) * 2);
             zoomInput.min = String(PHOTO_ZOOM_MIN * 100);
             zoomInput.max = String(Math.round(maxZ * 100));
-            const tall = H >= W;
-            labelA.textContent = tall ? 'Top' : 'Left';
-            labelB.textContent = tall ? 'Bottom' : 'Right';
             ready = true;
             const c = item.crop;
             const saved = c && Number.isFinite(c.z) && Number.isFinite(c.cx) && Number.isFinite(c.cy);
