@@ -285,6 +285,37 @@
     text-overflow: ellipsis;
 }
 
+/* Photos of the planned pieces (Settings → Outfit photos). */
+.cell-photos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));   /* 2 per row even in the narrowest cell */
+    gap: 3px;
+}
+
+.cell-thumb {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #fff;
+}
+
+.cell-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    background: #fff;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+}
+
+
 /* ---------- Planning panel ---------- */
 .eyebrow {
     font-size: 0.7rem;
@@ -414,6 +445,16 @@
     padding: 8px 12px;
 }
 
+.planning-item-thumb {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #fff;
+}
+
 .planning-item-name {
     flex-grow: 1;
     font-size: 0.85rem;
@@ -456,9 +497,12 @@
 }
 
 .outfit-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     background: var(--card-bg);
     border: 1px solid var(--border);
-    padding: 8px 16px;
+    padding: 6px 14px 6px 8px;
     border-radius: 20px;
     font-size: 0.8rem;
     font-weight: 600;
@@ -469,9 +513,19 @@
     border-color: var(--primary);
 }
 
+.outfit-pill-thumb {
+    width: 24px;
+    height: 24px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #fff;
+}
+
+/* The piece picker: photo cards, as many per row as fit. */
 .piece-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
     gap: 8px;
 }
 
@@ -479,30 +533,64 @@
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 10px 12px;
+    padding: 5px 5px 7px;
     cursor: pointer;
     display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
 }
+
+.piece-card:hover { border-color: var(--accent-pink); }
 
 .piece-card.selected {
     border: 2px solid var(--accent-pink);
-    padding: 9px 11px;
+    padding: 4px 4px 6px;
+}
+
+.piece-card-photo {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* contain, not cover: you see the whole piece, not a crop of it */
+.piece-card-img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+.piece-check {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent-pink);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .piece-card-name {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    flex-grow: 1;
+    padding: 0 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .piece-card-status {
     font-size: 0.65rem;
     color: var(--text-muted);
-    width: 100%;
-    padding-left: 16px;
+    padding: 0 3px;
 }
 
 /* ---------- Closet ---------- */
@@ -882,6 +970,7 @@
 .cell-weekday { display: none; }
 
 .back-to-calendar { display: none; margin-bottom: 8px; }
+.planning-backdrop { display: none; }
 
 .planning-holiday {
     font-size: 0.8rem;
@@ -1077,13 +1166,61 @@ input.switch:focus-visible { outline: 2px solid var(--accent-pink); outline-offs
 
 /* ---------- Responsive ---------- */
 
-/* Tablet and down: the planning panel stacks below the calendar. */
+/* Tablet and down: no room beside the calendar, so the planning panel is a
+   popup that opens when a day is tapped (js/calendar.js: openPlanningPopup). */
 @media (max-width: 900px) {
     .planner-layout {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .back-to-calendar { display: block; }
+    .planning-panel { display: none; }
+
+    body.planning-open { overflow: hidden; }
+
+    body.planning-open .planning-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(45, 20, 30, 0.45);
+        z-index: 900;
+    }
+
+    body.planning-open .planning-panel {
+        display: block;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        margin: 0 auto;
+        width: min(620px, 100%);
+        max-height: 90vh;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25);
+        z-index: 901;
+    }
+
+    /* Always reachable while the panel scrolls. */
+    .back-to-calendar {
+        display: block;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--card-bg);
+        margin: 0 0 8px;
+        padding: 4px 0 8px;
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 900px) and (prefers-reduced-motion: no-preference) {
+    body.planning-open .planning-panel { animation: sheet-up 0.2s ease-out; }
+}
+
+@keyframes sheet-up {
+    from { transform: translateY(24px); opacity: 0; }
+    to { transform: none; opacity: 1; }
 }
 
 /* Phones */
@@ -1136,6 +1273,12 @@ input.switch:focus-visible { outline: 2px solid var(--accent-pink); outline-offs
     .month-grid.view-2weeks .cell-date-num { font-size: 1.05rem; }
     .month-grid.view-week .cell-item-row,
     .month-grid.view-2weeks .cell-item-row { font-size: 0.8rem; }
+    /* photos: a tight 2 x 2 in the month, a row of larger ones in the day list */
+    .month-grid.view-month .cell-photos { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 2px; }
+    .month-grid.view-month .cell-thumb,
+    .month-grid.view-month .cell-more { border-radius: 4px; font-size: 0.6rem; }
+    .month-grid.view-week .cell-photos,
+    .month-grid.view-2weeks .cell-photos { grid-template-columns: repeat(auto-fill, 44px); gap: 6px; }
     .month-grid.view-week .cell-holiday-label,
     .month-grid.view-2weeks .cell-holiday-label { font-size: 0.7rem; }
 
@@ -1158,6 +1301,5 @@ input.switch:focus-visible { outline: 2px solid var(--accent-pink); outline-offs
     .tab-btn { padding: 9px 14px; }
     .month-arrow { width: 38px; height: 38px; }
     .remove-item-btn { padding: 6px 10px; font-size: 1.4rem; }
-    .outfit-pill { padding: 10px 16px; }
-    .piece-card { padding: 12px; }
+    .outfit-pill { padding: 8px 16px 8px 8px; }
 }

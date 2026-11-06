@@ -89,7 +89,7 @@
                 </div>
 
                 <aside class="planning-panel">
-                    <button id="back-to-calendar-btn" class="link-btn back-to-calendar" type="button">&uarr; Back to calendar</button>
+                    <button id="back-to-calendar-btn" class="link-btn back-to-calendar" type="button">&times; Close</button>
                     <p class="eyebrow">PLANNING</p>
                     <h2 id="planning-date">&mdash;</h2>
                     <p id="planning-weather" class="planning-weather"></p>
@@ -107,6 +107,7 @@
                     <div id="planning-piece-grid" class="piece-grid"></div>
                 </aside>
             </div>
+            <div id="planning-backdrop" class="planning-backdrop"></div>
         </section>
 
         <!-- Closet View -->
@@ -207,6 +208,13 @@
                             <option value="C">&deg;C</option>
                         </select>
                     </div>
+                    <label class="setting-row" for="pref-photos">
+                        <span class="setting-text">
+                            <strong>Outfit photos</strong>
+                            <small>Show small photos of the planned pieces on each calendar day. Off shows names instead.</small>
+                        </span>
+                        <input type="checkbox" id="pref-photos" class="switch" role="switch">
+                    </label>
                     <div class="setting-row">
                         <label class="setting-text" for="pref-weekstart">
                             <strong>Week starts on</strong>

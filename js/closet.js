@@ -1,5 +1,19 @@
 const CATEGORIES = ['tops', 'bottoms', 'outerwear', 'shoes', 'dresses', 'accessories'];
 
+// Pieces of an outfit are always shown head to toe: a top above a bottom,
+// shoes last. Only the display is sorted; the saved order never changes, and
+// pieces of the same kind stay in the order they were added.
+const HEAD_TO_TOE = ['outerwear', 'tops', 'dresses', 'bottoms', 'shoes', 'accessories'];
+function sortHeadToToe(items) {
+    const rank = (item) => {
+        const i = HEAD_TO_TOE.indexOf(item.category);
+        return i === -1 ? HEAD_TO_TOE.length : i;
+    };
+    return items.map((item, index) => ({ item, index }))
+        .sort((a, b) => rank(a.item) - rank(b.item) || a.index - b.index)
+        .map(entry => entry.item);
+}
+
 let activeCategory = 'all';
 let activeSeason = 'all';
 let currentEditingItemId = null;
@@ -392,9 +406,9 @@ function renderSavedOutfitsList() {
     liveSavedOutfits.forEach(outfit => {
         const card = document.createElement('div');
         card.className = 'saved-outfit-card';
-        const thumbs = outfit.itemIds
+        const thumbs = sortHeadToToe(outfit.itemIds
             .map(id => liveCloset.find(i => i.id === id))
-            .filter(Boolean)
+            .filter(Boolean))
             .map(i => `<img src="${i.image}">`)
             .join('');
         card.innerHTML = `

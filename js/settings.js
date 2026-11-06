@@ -29,6 +29,7 @@ function syncSettingsUI(prefs) {
     $('pref-hebrew').checked = prefs.hebrewCalendarEnabled;
     $('pref-temp').value = prefs.tempUnit;
     $('pref-weekstart').value = prefs.weekStart;
+    $('pref-photos').checked = prefs.showOutfitPhotos;
 
     // Say what "Automatic" currently means for the chosen location; units only matter with the weather on.
     $('pref-temp').options[0].textContent = `Automatic (${usesFahrenheit(Location.get()) ? '°F' : '°C'} here)`;
@@ -80,6 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     $('pref-weekstart').addEventListener('change', (e) => {
         Store.savePrefs({ weekStart: e.target.value }).catch(console.error);
+    });
+    $('pref-photos').addEventListener('change', (e) => {
+        Store.savePrefs({ showOutfitPhotos: e.target.checked }).catch(console.error);
     });
 
     // Repeat warnings: switch, how many past times, and which categories count.

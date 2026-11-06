@@ -27,9 +27,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('prev-month-btn').addEventListener('click', () => stepView(-1));
     document.getElementById('next-month-btn').addEventListener('click', () => stepView(1));
-    document.getElementById('back-to-calendar-btn').addEventListener('click', () => {
-        document.querySelector('.calendar-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // On narrow screens the planning panel is a popup over the calendar.
+    document.getElementById('back-to-calendar-btn').addEventListener('click', closePlanningPopup);
+    document.getElementById('planning-backdrop').addEventListener('click', closePlanningPopup);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.body.classList.contains('planning-open')) closePlanningPopup();
     });
+    // Widening the window puts the panel back beside the calendar, so drop the popup.
+    window.matchMedia('(max-width: 900px)').addEventListener('change', closePlanningPopup);
     document.getElementById('view-switcher').addEventListener('click', (e) => {
         const btn = e.target.closest('[data-view]');
         if (btn) setViewMode(btn.dataset.view);
@@ -158,6 +163,86 @@ function holidayTitlesFor(date, holidayInfo) {
     ];
 }
 
+// A small photo of a piece (its color dot if it somehow has no photo).
+// `alt` is '' where the piece's name is already written next to the photo.
+function itemThumb(item, className, alt = item.name) {
+    if (!item.image) {
+        const dot = document.createElement('span');
+        dot.className = 'color-dot';
+        dot.style.background = item.color || '#ccc';
+        return dot;
+    }
+    const img = document.createElement('img');
+    img.className = className;
+    img.src = item.image;
+    img.alt = alt;
+    return img;
+}
+
+const phoneQuery = window.matchMedia('(max-width: 640px)');
+// Turning a phone sideways (or resizing a window) changes how many photos fit.
+phoneQuery.addEventListener('change', () => renderCalendarGrid());
+
+// How many photos fit in one calendar day before it says "+N".
+function cellPhotoLimit() {
+    if (viewMode === 'month') return 4;
+    return phoneQuery.matches ? 6 : (viewMode === 'week' ? 8 : 6);
+}
+
+// The pieces planned for one calendar day.
+function buildCellItems(items, showPhotos) {
+    const box = document.createElement('div');
+    box.className = showPhotos ? 'cell-items cell-photos' : 'cell-items';
+    if (!showPhotos) {
+        items.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'cell-item-row';
+            const dot = document.createElement('span');
+            dot.className = 'color-dot';
+            dot.style.background = item.color || '#ccc';
+            row.append(dot, document.createTextNode(item.name));
+            box.appendChild(row);
+        });
+        return box;
+    }
+    const limit = cellPhotoLimit();
+    const shown = items.length > limit ? items.slice(0, limit - 1) : items;
+    shown.forEach(item => {
+        const thumb = itemThumb(item, 'cell-thumb');
+        thumb.title = item.name;
+        box.appendChild(thumb);
+    });
+    if (shown.length < items.length) {
+        const more = document.createElement('span');
+        more.className = 'cell-more';
+        more.textContent = `+${items.length - shown.length}`;
+        box.appendChild(more);
+    }
+    return box;
+}
+
+// Phones and small windows have no room beside the calendar, so tapping a day
+// opens the planning panel (that day's outfit + the photo picker) as a popup.
+// On wide screens it stays in its side column and these do nothing.
+function openPlanningPopup() {
+    if (!isStackedLayout()) return;
+    const panel = document.querySelector('.planning-panel');
+    document.body.classList.add('planning-open');
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-labelledby', 'planning-date');
+    panel.scrollTop = 0;
+    document.getElementById('back-to-calendar-btn').focus({ preventScroll: true });
+}
+
+function closePlanningPopup() {
+    const panel = document.querySelector('.planning-panel');
+    document.body.classList.remove('planning-open');
+    panel.removeAttribute('role');
+    panel.removeAttribute('aria-modal');
+    panel.removeAttribute('aria-labelledby');
+}
+
 function renderCalendarGrid() {
     const grid = document.getElementById('month-grid');
     if (!grid) return;
@@ -187,6 +272,7 @@ function renderCalendarGrid() {
     const prefs = Store.getPrefs();                    // Settings: weather / Hebrew calendar on or off
     const weatherMap = prefs.weatherEnabled ? Weather.getForecastMap(location) : {};
     const holidayMaps = {};
+    const closetById = Object.fromEntries(plannerCloset.map(i => [i.id, i]));
 
     for (const cellDate of dates) {
         const dateKey = isoDateKey(cellDate);
@@ -204,11 +290,7 @@ function renderCalendarGrid() {
         cell.addEventListener('click', () => {
             selectedDateKey = dateKey;
             renderCalendar();
-            // When the planning panel is stacked below the calendar (phones,
-            // small tablets), bring it into view so tapping a day visibly does something.
-            if (isStackedLayout()) {
-                document.querySelector('.planning-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
+            openPlanningPopup();      // narrow screens: the day's closet pops up right here
         });
 
         const holidayLabel = holidayTitles.length > 0
@@ -217,12 +299,6 @@ function renderCalendarGrid() {
             ? `<div class="cell-candle-label">🕯 ${holidayInfo.candleLighting}</div>` : '';
         const weatherBadge = weather
             ? `<span class="cell-weather">${weatherInfo(weather.code).icon} ${formatTemp(weather.high)}</span>` : '';
-        const itemsList = assignedIds
-            .map(id => plannerCloset.find(i => i.id === id))
-            .filter(Boolean)
-            .map(item => `<div class="cell-item-row"><span class="color-dot" style="background:${item.color || '#ccc'}"></span>${item.name}</div>`)
-            .join('');
-
         cell.innerHTML = `
             ${holidayLabel}
             <div class="cell-top-row">
@@ -231,8 +307,11 @@ function renderCalendarGrid() {
                 ${weatherBadge}
             </div>
             ${candleLabel}
-            <div class="cell-items">${itemsList}</div>
         `;
+        // The planned pieces: little photos (Settings → Outfit photos) or names.
+        // Built as elements, not HTML, so an item's name can't break the page.
+        const assigned = sortHeadToToe(assignedIds.map(id => closetById[id]).filter(Boolean));
+        cell.appendChild(buildCellItems(assigned, prefs.showOutfitPhotos));
         grid.appendChild(cell);
     }
 }
@@ -431,16 +510,12 @@ function buildOutfitCard({ outfit, isActive, ctx, autoLabel, catById, chips }) {
         empty.textContent = 'No pieces yet — pick some below.';
         card.appendChild(empty);
     }
-    outfit.itemIds.forEach(id => {
-        const item = plannerCloset.find(i => i.id === id);
-        if (!item) return;
+    sortHeadToToe(outfit.itemIds.map(id => plannerCloset.find(i => i.id === id)).filter(Boolean)).forEach(item => {
+        const id = item.id;
         const row = document.createElement('div');
         row.className = 'planning-item-row';
 
-        const dot = document.createElement('span');
-        dot.className = 'color-dot';
-        dot.style.background = item.color || '#ccc';
-        row.appendChild(dot);
+        row.appendChild(itemThumb(item, 'planning-item-thumb', ''));
 
         const name = document.createElement('span');
         name.className = 'planning-item-name';
@@ -548,6 +623,7 @@ function renderPicker() {
     const dayOutfits = plannerOutfits[selectedDateKey] || [];
     const active = dayOutfits.find(o => o.id === activeOutfitId) || null;
     const ctx = active && !active.flagsOff ? repeatContextFor(selectedDateKey, active, prefs, labelOf) : null;
+    const closetById = Object.fromEntries(plannerCloset.map(i => [i.id, i]));
 
     // Saved outfits: replace the active outfit's pieces (or start a new outfit)
     outfitsRow.innerHTML = '';
@@ -557,7 +633,12 @@ function renderPicker() {
     plannerSavedOutfits.forEach(saved => {
         const pill = document.createElement('button');
         pill.className = 'outfit-pill';
-        pill.textContent = saved.name;
+        // a peek at the pieces, so you can tell outfits apart by sight
+        sortHeadToToe(saved.itemIds.map(id => closetById[id]).filter(Boolean)).slice(0, 3)
+            .forEach(item => pill.appendChild(itemThumb(item, 'outfit-pill-thumb', '')));
+        const pillName = document.createElement('span');
+        pillName.textContent = saved.name;
+        pill.appendChild(pillName);
         pill.addEventListener('click', () => {
             if (!active) {
                 const id = newOutfitId();
@@ -602,16 +683,24 @@ function renderPicker() {
         const card = document.createElement('div');
         card.className = `piece-card ${inActive ? 'selected' : ''} ${rep ? 'is-repeat' : ''}`;
 
-        const dot = document.createElement('span');
-        dot.className = 'color-dot';
-        dot.style.background = item.color || '#ccc';
+        // Photo first: sometimes you just want to see it. The name is underneath.
+        const photoBox = document.createElement('div');
+        photoBox.className = 'piece-card-photo';
+        photoBox.appendChild(itemThumb(item, 'piece-card-img', ''));
+        if (inActive) {
+            const check = document.createElement('span');
+            check.className = 'piece-check';
+            check.textContent = '✓';
+            photoBox.appendChild(check);
+        }
         const name = document.createElement('span');
         name.className = 'piece-card-name';
         name.textContent = item.name;
         const st = document.createElement('span');
         st.className = 'piece-card-status';
         st.textContent = status;
-        card.append(dot, name, st);
+        card.title = item.name;
+        card.append(photoBox, name, st);
 
         card.addEventListener('click', () => {
             if (!active) {

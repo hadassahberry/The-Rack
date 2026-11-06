@@ -175,6 +175,7 @@ const Store = {
         hebrewCalendarEnabled: true,
         tempUnit: 'auto',      // 'auto' (by location) | 'F' | 'C'
         weekStart: 'sun',      // 'sun' | 'mon'
+        showOutfitPhotos: true, // little photos of the planned pieces on each calendar day
         // Repeat warnings (js/repeats.js): on/off, how many past times to check,
         // and which categories count. Shoes, accessories and coats repeat
         // constantly, so they start switched off.
