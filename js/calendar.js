@@ -27,14 +27,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('prev-month-btn').addEventListener('click', () => stepView(-1));
     document.getElementById('next-month-btn').addEventListener('click', () => stepView(1));
-    // On narrow screens the planning panel is a popup over the calendar.
+    // The planning panel is a popup: close with the button, a click outside, or Esc.
     document.getElementById('back-to-calendar-btn').addEventListener('click', closePlanningPopup);
     document.getElementById('planning-backdrop').addEventListener('click', closePlanningPopup);
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && document.body.classList.contains('planning-open')) closePlanningPopup();
     });
-    // Widening the window puts the panel back beside the calendar, so drop the popup.
-    window.matchMedia('(max-width: 900px)').addEventListener('change', closePlanningPopup);
     document.getElementById('view-switcher').addEventListener('click', (e) => {
         const btn = e.target.closest('[data-view]');
         if (btn) setViewMode(btn.dataset.view);
@@ -141,12 +139,6 @@ function renderCalendar() {
     renderPlanningPanel();
 }
 
-// True when the planning panel sits below the calendar instead of beside it
-// (matches the 900px breakpoint in components.css).
-function isStackedLayout() {
-    return window.matchMedia('(max-width: 900px)').matches;
-}
-
 // Holiday data (and Friday candle-lighting) for one date. `cache` lets a
 // caller rendering many dates reuse each month's map instead of re-reading it.
 function getHolidayInfo(date, location, cache = {}) {
@@ -185,7 +177,7 @@ phoneQuery.addEventListener('change', () => renderCalendarGrid());
 
 // How many photos fit in one calendar day before it says "+N".
 function cellPhotoLimit() {
-    if (viewMode === 'month') return 4;
+    if (viewMode === 'month') return phoneQuery.matches ? 4 : 6;
     return phoneQuery.matches ? 6 : (viewMode === 'week' ? 8 : 6);
 }
 
@@ -221,11 +213,9 @@ function buildCellItems(items, showPhotos) {
     return box;
 }
 
-// Phones and small windows have no room beside the calendar, so tapping a day
-// opens the planning panel (that day's outfit + the photo picker) as a popup.
-// On wide screens it stays in its side column and these do nothing.
+// Clicking a day opens the planning panel (that day's outfit + the photo
+// closet to pick from) as a popup over the calendar, on every screen size.
 function openPlanningPopup() {
-    if (!isStackedLayout()) return;
     const panel = document.querySelector('.planning-panel');
     document.body.classList.add('planning-open');
     panel.setAttribute('role', 'dialog');

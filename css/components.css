@@ -112,10 +112,7 @@
 
 /* ---------- Planner layout ---------- */
 .planner-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 380px;
-    gap: 20px;
-    align-items: start;
+    display: block;     /* just the calendar; the planning panel is a popup */
 }
 
 .calendar-panel, .planning-panel {
@@ -1166,61 +1163,66 @@ input.switch:focus-visible { outline: 2px solid var(--accent-pink); outline-offs
 
 /* ---------- Responsive ---------- */
 
-/* Tablet and down: no room beside the calendar, so the planning panel is a
-   popup that opens when a day is tapped (js/calendar.js: openPlanningPopup). */
-@media (max-width: 900px) {
-    .planner-layout {
-        grid-template-columns: minmax(0, 1fr);
-    }
+/* Planning a day happens in a popup on every screen size: click a day and its
+   outfit + the photo closet open over the calendar (js/calendar.js:
+   openPlanningPopup). There is no side column. */
+.planning-panel { display: none; }
 
-    .planning-panel { display: none; }
+body.planning-open { overflow: hidden; }
 
-    body.planning-open { overflow: hidden; }
-
-    body.planning-open .planning-backdrop {
-        display: block;
-        position: fixed;
-        inset: 0;
-        background: rgba(45, 20, 30, 0.45);
-        z-index: 900;
-    }
-
-    body.planning-open .planning-panel {
-        display: block;
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        margin: 0 auto;
-        width: min(620px, 100%);
-        max-height: 90vh;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        border-radius: 20px 20px 0 0;
-        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25);
-        z-index: 901;
-    }
-
-    /* Always reachable while the panel scrolls. */
-    .back-to-calendar {
-        display: block;
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        background: var(--card-bg);
-        margin: 0 0 8px;
-        padding: 4px 0 8px;
-        font-size: 0.95rem;
-    }
+body.planning-open .planning-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(45, 20, 30, 0.45);
+    z-index: 900;
 }
 
-@media (max-width: 900px) and (prefers-reduced-motion: no-preference) {
+/* Computers and tablets: a dialog in the middle of the screen. */
+body.planning-open .planning-panel {
+    display: block;
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(720px, calc(100% - 32px));
+    height: fit-content;
+    max-height: 90vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    z-index: 901;
+}
+
+/* Always reachable while the popup scrolls. */
+.back-to-calendar {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--card-bg);
+    margin: 0 0 8px;
+    padding: 4px 0 8px;
+    font-size: 0.95rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
     body.planning-open .planning-panel { animation: sheet-up 0.2s ease-out; }
 }
 
 @keyframes sheet-up {
     from { transform: translateY(24px); opacity: 0; }
     to { transform: none; opacity: 1; }
+}
+
+/* Phones: it slides up from the bottom instead. */
+@media (max-width: 640px) {
+    body.planning-open .planning-panel {
+        top: auto;
+        bottom: 0;
+        width: 100%;
+        height: auto;
+        border-radius: 20px 20px 0 0;
+    }
 }
 
 /* Phones */

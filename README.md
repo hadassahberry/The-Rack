@@ -10,7 +10,7 @@
 - **Planner with Week / 2 Weeks / Month views:** A calendar (month by default) where each day shows its assigned outfit, the day's forecast (within the ~16-day forecast window), and any Jewish holiday — including Shabbat candle-lighting times.
 - **Photos on the calendar:** each day shows small photos of the pieces planned for it (with a "+N" when there are more than fit). Settings → Outfit photos switches this off to show names instead.
 - **Head to toe:** an outfit's pieces always show in the same order, with a top above a bottom (outerwear, tops, dresses, bottoms, shoes, accessories), wherever they appear.
-- **Planning Panel:** On a wide screen it sits beside the calendar; on a phone or small window, tapping a day pops it up over the calendar (close with ✕, Esc, or a tap outside). Pick a day to see its outfit, a rewear "gap" warning when an item was recently worn nearby, saved outfits you can apply in one click, and a photo picker filtered by category, so you choose by sight, not just by name.
+- **Planning popup:** click any day and a popup opens over the calendar (a dialog on a computer, a sheet from the bottom on a phone); close it with ✕, Esc, or a click outside. It shows the day's outfit, a rewear "gap" warning when an item was recently worn nearby, saved outfits you can apply in one click, and a photo picker filtered by category, so you choose by sight, not just by name.
 - **Saved Outfits:** Build and name reusable outfit combinations from the Closet tab.
 - **Rested vs. Planned:** Items already assigned to a day are marked "planned"; everything else is "rested" and ready to wear.
 - **Wear Stats:** Totals, top category, and your most-worn pieces.
