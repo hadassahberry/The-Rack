@@ -257,6 +257,10 @@
     transition: border-color 0.15s;
 }
 
+/* Markers and their key only exist for the phone's month view (see the phone block below). */
+.cell-markers, .marker-key { display: none; }
+.marker-key { margin: 8px 2px 0; font-size: 0.72rem; color: var(--text-muted); text-align: center; }
+
 /* A day is a real <button> (keyboard-reachable), made to look exactly like the card it was:
    the browser's own button look is switched off, and its parts are spans set to behave like blocks. */
 button.month-cell {
@@ -1779,6 +1783,21 @@ body.planning-open .planning-panel {
     .month-grid.view-month .cell-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; }
     .month-grid.view-month .cell-group-label { display: none; }
     .month-grid.view-month .cell-photos { gap: 2px; }
+
+    /* Tiny markers under the date: forecast icon, ★ holiday, 🕯 candle lighting (different shapes,
+       not different colours). Decoration only; the words are in the day's popup. */
+    .month-grid.view-month .cell-markers {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 0 1px;
+        line-height: 1;
+        pointer-events: none;
+        user-select: none;
+    }
+    .cell-markers .cm { font-size: 0.6rem; line-height: 1; }
+    .cell-markers .cm-holiday { color: var(--lavender-text); font-size: 0.65rem; }    .month-grid.view-month ~ .marker-key { display: block; }
     .weekday-row span { font-size: 0.6rem; }
 
     /* Week / 2-week views: a day-by-day list, one full-width row per day. */

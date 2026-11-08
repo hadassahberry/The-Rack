@@ -381,6 +381,7 @@ function renderCalendarGrid() {
     const firstShown = dates.find(d => viewMode !== 'month' || d.getMonth() === anchorDate.getMonth()) || dates[0];
     const tabStopKey = [calendarFocusKey, selectedDateKey, todayKey].find(k => k && visibleKeys.includes(k)) || isoDateKey(firstShown);
 
+    const markerKindsShown = new Set();      // which markers appear in this view (for the key under the calendar)
     for (const cellDate of dates) {
         const dateKey = isoDateKey(cellDate);
         const isToday = dateKey === todayKey;
@@ -465,12 +466,35 @@ function renderCalendarGrid() {
             hijri.append(full, short);
             topRow.after(hijri);
         }
+        // Phone month view: the words (weather, holiday names, candle times) live in the day's
+        // popup, so a few tiny shapes under the date say "there is something here". Decoration
+        // only (aria-hidden): the day's spoken name and its popup carry the real details.
+        const markers = dayMarkers({
+            hasWeather: !!weather,
+            weatherIcon: weather ? weatherInfo(weather.code).icon : '',
+            hasHoliday: holidayTitles.some(t => t !== 'Shabbos') || extra.notes.length > 0,   // not the weekly Shabbos
+            hasCandles: !!(holidayInfo && holidayInfo.candleLighting)
+        });
+        if (markers.length) {
+            const row = document.createElement('span');
+            row.className = 'cell-markers';
+            row.setAttribute('aria-hidden', 'true');
+            markers.forEach(m => {
+                const mark = document.createElement('span');
+                mark.className = `cm cm-${m.kind}`;
+                mark.textContent = m.glyph;
+                row.appendChild(mark);
+                markerKindsShown.add(m.kind);
+            });
+            topRow.after(row);
+        }
         // The planned pieces: little photos (Settings → Outfit photos) or names.
         // Built as elements, not HTML, so an item's name can't break the page.
         cell.appendChild(buildCellItems(plannerOutfits[dateKey] || [], closetById, prefs.showOutfitPhotos));
         grid.appendChild(cell);
     }
     renderWeatherLegend(prefs.weatherEnabled, dates, weatherMap, todayKey);
+    renderMarkerKey(markerKindsShown);
 
     if (keepFocusKey) {                       // put keyboard focus back on the day that had it
         const again = grid.querySelector(`[data-date="${keepFocusKey}"]`);
@@ -518,6 +542,16 @@ function focusCalendarDay(dateKey) {
 function weatherFor(dateKey, weatherMap, todayKey) {
     const avail = weatherAvailability({ dateKey, todayKey, hasForecast: !!weatherMap[dateKey], status: Weather.status });
     return { avail, forecast: avail.kind === 'available' ? weatherMap[dateKey] : null };
+}
+
+// One quiet line under the calendar explaining the markers that are actually showing
+// (phone month view only; CSS hides it elsewhere). The wording is in js/calendar-access.js.
+function renderMarkerKey(kinds) {
+    const key = document.getElementById('marker-key');
+    if (!key) return;
+    const text = markerKeyText(kinds);
+    key.classList.toggle('hidden', !text);
+    key.textContent = text;
 }
 
 // The one quiet line under the calendar. Shown only when some visible day has no forecast

@@ -84,6 +84,26 @@ function anchorToShow(viewMode, dateKey) {
     return viewMode === 'month' ? new Date(d.getFullYear(), d.getMonth(), 1) : d;
 }
 
+// The small markers on a phone's month cells, in a fixed order, each a different SHAPE (so they
+// don't depend on colour): the forecast's icon, a star for a holiday, a candle for candle lighting.
+function dayMarkers({ hasWeather, weatherIcon, hasHoliday, hasCandles }) {
+    const out = [];
+    if (hasWeather && weatherIcon) out.push({ kind: 'weather', glyph: weatherIcon });
+    if (hasHoliday) out.push({ kind: 'holiday', glyph: '★' });
+    if (hasCandles) out.push({ kind: 'candle', glyph: '🕯' });
+    return out;
+}
+
+// The one-line key under the calendar for the markers actually showing ('' when there are none).
+function markerKeyText(kinds) {
+    const has = (k) => (kinds instanceof Set ? kinds.has(k) : (kinds || []).includes(k));
+    const parts = [];
+    if (has('weather')) parts.push('weather icon = forecast');
+    if (has('holiday')) parts.push('★ holiday');
+    if (has('candle')) parts.push('🕯 candle lighting');
+    return parts.length ? `${parts.join(' · ')}. Tap a day for details.` : '';
+}
+
 if (typeof module !== 'undefined') {
-    module.exports = { dayAccessibleName, calendarKeyTarget, anchorToShow, caShiftPeriod, caKey, caParse };
+    module.exports = { dayAccessibleName, calendarKeyTarget, anchorToShow, caShiftPeriod, caKey, caParse, dayMarkers, markerKeyText };
 }
