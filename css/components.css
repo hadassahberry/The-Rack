@@ -1749,6 +1749,10 @@ body.planning-open .planning-panel {
     .view-switcher { width: 100%; }
     .view-switcher .tab-btn { flex: 1; }
     .month-nav h2 { font-size: 1.15rem; }
+    /* With larger text the arrows, Today and the title no longer fit in one row: let the title
+       drop underneath instead of running off the screen. (At normal text size it stays beside them.) */
+    .month-nav { flex-wrap: wrap; row-gap: 6px; }
+    .month-title-block { flex: 1 1 5.5rem; min-width: 0; }
 
     /* Month view: compact cells — day number plus a dot per planned item.
        Holiday names, candle times, weather and outfit names move to the
