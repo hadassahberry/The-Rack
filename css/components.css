@@ -899,6 +899,12 @@ button.piece-card {
     outline: none;
 }
 
+/* The outline above is switched off for mouse clicks; keyboard focus still has to be visible. */
+.filter-dropdown:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+}
+
 .full-closet-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
