@@ -161,9 +161,18 @@ function scheduleMidnightRefresh() {
 
 async function setViewMode(mode) {
     if (mode === viewMode || !['week', '2weeks', 'month'].includes(mode)) return;
+    // The new range is built around the day you picked if you can see it, else today if
+    // you can see that, else wherever you're looking now (js/view-range.js). Your
+    // selected day is never changed by switching views.
+    anchorDate = pickSwitchAnchor({
+        fromMode: viewMode,
+        toMode: mode,
+        dates: visibleDates(),
+        anchorDate,
+        selectedKey: selectedDateKey,
+        todayKey: isoDateKey(new Date())
+    });
     viewMode = mode;
-    // Keep the selected day on screen when switching views.
-    anchorDate = new Date(selectedDateKey + 'T00:00:00');
     renderCalendar();
     await refreshHolidaysForView(Store.getLocation());
     renderCalendar();
@@ -314,6 +323,7 @@ function renderCalendarGrid() {
 
     const dates = visibleDates();
     document.getElementById('month-label').textContent = viewLabel(dates);
+    document.getElementById('view-sublabel').textContent = describeViewRange(viewMode, dates, new Date());   // "This week", "Next month"...
 
     // Weekday header row follows the chosen first day of the week.
     const weekStart = weekStartIndex();

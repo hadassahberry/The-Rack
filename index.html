@@ -82,7 +82,10 @@
                             <button id="prev-month-btn" class="month-arrow" aria-label="Previous month">&lsaquo;</button>
                             <button id="next-month-btn" class="month-arrow" aria-label="Next month">&rsaquo;</button>
                             <button id="today-btn" class="today-btn" type="button" aria-label="Go to today">Today</button>
-                            <h2 id="month-label">Month Year</h2>
+                            <div class="month-title-block" aria-live="polite">
+                                <h2 id="month-label">Month Year</h2>
+                                <p id="view-sublabel" class="view-sublabel"></p>
+                            </div>
                         </div>
                         <div id="view-switcher" class="view-switcher" role="group" aria-label="Calendar view">
                             <button class="tab-btn" data-view="week" aria-pressed="false">Week</button>
@@ -492,6 +495,7 @@
     <script src="js/weather.js"></script>
     <script src="js/holidays.js"></script>
     <script src="js/calendars.js"></script>
+    <script src="js/view-range.js"></script>
     <script src="js/colors.js"></script>
     <script src="js/repeats.js"></script>
     <script src="js/photo-frame.js"></script>

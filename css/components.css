@@ -144,6 +144,10 @@
     font-weight: 700;
 }
 
+/* The range, plus a plain-words line saying where it sits ("This week", "3 months ago"). */
+.month-title-block { display: flex; flex-direction: column; min-width: 0; }
+.view-sublabel { margin: 1px 0 0; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
+
 .month-arrow {
     background: #faf3ee;
     border: 1px solid var(--border);
