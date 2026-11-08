@@ -811,6 +811,23 @@ button.month-cell {
     min-width: 0;
 }
 
+/* A piece is a real <button> (a toggle): the browser's own button look is switched off so it looks
+   exactly like the card it was. */
+button.piece-card {
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    margin: 0;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* Keyboard focus: a dark ring, deliberately not the pink "selected" border (a piece can be both). */
+.piece-card:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+}
+
 .piece-card:hover { border-color: var(--accent-pink); }
 
 .piece-card.selected {

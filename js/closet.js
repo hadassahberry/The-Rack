@@ -327,6 +327,7 @@ function renderCloset() {
             setCardSelected(card, outfitBuilderSelectedIds.includes(item.id));
             card.addEventListener('click', () => toggleBuildSelection(item.id, card));
             card.addEventListener('keydown', (e) => {
+                if (e.target !== card) return;     // a key on the card's inner "Show full name" button isn't a selection
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBuildSelection(item.id, card); }
             });
         } else {

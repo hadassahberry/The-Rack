@@ -949,6 +949,12 @@ function renderPicker() {
     const ctx = active && !active.flagsOff ? repeatContextFor(selectedDateKey, active, prefs, labelOf) : null;
     const closetById = Object.fromEntries(plannerCloset.map(i => [i.id, i]));
 
+    // This panel is rebuilt after every change (a piece added or removed, a category picked), which
+    // would drop keyboard focus: note what had it, and give it back once the new buttons exist.
+    const focused = document.activeElement;
+    const refocusPiece = pieceGrid.contains(focused) ? focused.dataset.itemId : null;
+    const refocusCategory = catTabs.contains(focused) ? focused.dataset.category : null;
+
     // Saved outfits: replace the active outfit's pieces (or start a new outfit)
     outfitsRow.innerHTML = '';
     if (plannerSavedOutfits.length === 0) {
@@ -982,6 +988,7 @@ function renderPicker() {
     CATEGORIES.forEach(cat => {
         const btn = document.createElement('button');
         btn.className = `tab-btn ${cat === planningActiveCategory ? 'active' : ''}`;
+        btn.dataset.category = cat;
         btn.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
         btn.addEventListener('click', () => {
             planningActiveCategory = cat;
@@ -997,31 +1004,44 @@ function renderPicker() {
     if (pieces.length === 0) {
         pieceGrid.innerHTML = '<p class="planning-empty">No items in this category yet.</p>';
     }
-    pieces.forEach(item => {
+    pieces.forEach((item, index) => {
         const inActive = !!active && active.itemIds.includes(item.id);
         const rep = ctx ? itemRepeat(ctx, item.id, item.category) : null;
         const status = rep ? repeatTagText(ctx, rep) : (anyPlannedIds.has(item.id) ? 'planned' : 'rested');
 
-        const card = document.createElement('div');
+        // Each piece is a real toggle button: reachable with Tab, switched with Space or Enter, and
+        // "pressed" says it is in the outfit being edited. Its name is the piece's name; its
+        // status ("planned", "Worn to Class · 6 days ago") is the description. The photo and the
+        // tick are decoration (the photo has empty alt text because the name already says it).
+        // Parts are spans because a button may only hold inline content.
+        const card = document.createElement('button');
+        card.type = 'button';
         card.className = `piece-card ${inActive ? 'selected' : ''} ${rep ? 'is-repeat' : ''}`;
+        card.dataset.itemId = item.id;
+        card.setAttribute('aria-pressed', String(inActive));
 
         // Photo first: sometimes you just want to see it. The name is underneath.
-        const photoBox = document.createElement('div');
+        const photoBox = document.createElement('span');
         photoBox.className = 'piece-card-photo';
         photoBox.appendChild(itemThumb(item, 'piece-card-img', ''));
         if (inActive) {
             const check = document.createElement('span');
             check.className = 'piece-check';
+            check.setAttribute('aria-hidden', 'true');
             check.textContent = '✓';
             photoBox.appendChild(check);
         }
         const name = document.createElement('span');
         name.className = 'piece-card-name';
+        name.id = `piece-name-${index}`;
         name.textContent = item.name;
         const st = document.createElement('span');
         st.className = 'piece-card-status';
+        st.id = `piece-status-${index}`;
         st.textContent = status;
-        card.title = item.name;
+        card.title = item.name;                      // the full name on hover, when a long one is shortened
+        card.setAttribute('aria-labelledby', name.id);
+        card.setAttribute('aria-describedby', st.id);
         card.append(photoBox, name, st);
 
         card.addEventListener('click', () => {
@@ -1040,6 +1060,15 @@ function renderPicker() {
         });
         pieceGrid.appendChild(card);
     });
+
+    // Keyboard focus goes back to the same piece (or category tab) it was on.
+    if (refocusPiece) {
+        const again = [...pieceGrid.children].find(c => c.dataset && c.dataset.itemId === refocusPiece);
+        if (again) again.focus({ preventScroll: true });
+    } else if (refocusCategory) {
+        const again = [...catTabs.children].find(c => c.dataset.category === refocusCategory);
+        if (again) again.focus({ preventScroll: true });
+    }
 }
 
 function renderPlanningPanel() {
