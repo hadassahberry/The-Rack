@@ -161,6 +161,34 @@
     gap: 6px;
 }
 
+/* Text for screen readers only */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* "Today": back to the current date in whichever view is open */
+.today-btn {
+    flex: none;
+    background: var(--card-bg);
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    border-radius: 16px;
+    padding: 5px 14px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+}
+.today-btn:hover { background: var(--primary); color: #fff; }
+
 /* Week / 2-week views have fewer cells, so give each one more room. */
 /* Taller days leave room for bigger photos; the fewer days shown, the bigger. */
 .month-grid.view-month .month-cell { min-height: 150px; }
@@ -235,6 +263,21 @@
     padding: 7px;
 }
 
+/* Today has its own marker (a filled date badge and a stripe along the top) that
+   stays put whichever day is selected; "selected" is the pink outline above. */
+.month-cell.today { box-shadow: inset 0 4px 0 var(--primary); }
+.month-cell.today .cell-date-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.75em;
+    height: 1.75em;
+    padding: 0 0.4em;
+    border-radius: 999px;
+    background: var(--primary);
+    color: #fff;
+}
+
 .cell-top-row {
     display: flex;
     align-items: center;
@@ -242,6 +285,7 @@
 }
 
 .cell-date-num {
+    position: relative;
     font-weight: 700;
     font-size: 0.9rem;
 }

@@ -27,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('prev-month-btn').addEventListener('click', () => stepView(-1));
     document.getElementById('next-month-btn').addEventListener('click', () => stepView(1));
+    document.getElementById('today-btn').addEventListener('click', goToToday);
+    scheduleMidnightRefresh();
     // The planning panel is a popup: close with the button, a click outside, or Esc.
     document.getElementById('back-to-calendar-btn').addEventListener('click', closePlanningPopup);
     document.getElementById('planning-backdrop').addEventListener('click', closePlanningPopup);
@@ -134,6 +136,27 @@ async function stepView(direction) {
     renderCalendar();
     await refreshHolidaysForView(Store.getLocation());
     renderCalendar();
+}
+
+// "Today": come back to the current date in whichever view is open (Week, 2 weeks or
+// Month) and select it. The view itself is not changed.
+async function goToToday() {
+    const now = new Date();
+    anchorDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    selectedDateKey = isoDateKey(now);
+    renderCalendar();
+    await refreshHolidaysForView(Store.getLocation());
+    renderCalendar();
+}
+
+// If the page stays open past midnight, today's marker moves to the new day by itself.
+function scheduleMidnightRefresh() {
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
+    setTimeout(() => {
+        renderCalendar();
+        scheduleMidnightRefresh();
+    }, nextMidnight - now);
 }
 
 async function setViewMode(mode) {
@@ -311,8 +334,11 @@ function renderCalendarGrid() {
     const holidayMaps = {};
     const closetById = Object.fromEntries(plannerCloset.map(i => [i.id, i]));
 
+    const todayKey = isoDateKey(new Date());
+
     for (const cellDate of dates) {
         const dateKey = isoDateKey(cellDate);
+        const isToday = dateKey === todayKey;
         const isCurrentMonth = viewMode !== 'month' || cellDate.getMonth() === anchorDate.getMonth();
         const holidayInfo = prefs.hebrewCalendarEnabled ? getHolidayInfo(cellDate, location, holidayMaps) : undefined;
         const holidayTitles = prefs.hebrewCalendarEnabled ? holidayTitlesFor(cellDate, holidayInfo) : [];
@@ -325,6 +351,7 @@ function renderCalendarGrid() {
         if (holidayTitles.length > 0) cell.classList.add('holiday');
         else if (extra.notes.some(n => n.kind === 'public')) cell.classList.add('public-holiday');
         if (dateKey === selectedDateKey) cell.classList.add('selected');
+        if (isToday) { cell.classList.add('today'); cell.title = 'Today'; }      // its own marker, separate from "selected"
         cell.addEventListener('click', () => {
             selectedDateKey = dateKey;
             renderCalendar();
@@ -341,7 +368,7 @@ function renderCalendarGrid() {
             ${holidayLabel}
             <div class="cell-top-row">
                 <span class="cell-weekday">${WEEKDAY_NAMES[cellDate.getDay()].slice(0, 3)}</span>
-                <span class="cell-date-num">${cellDate.getDate()}</span>
+                <span class="cell-date-num">${cellDate.getDate()}${isToday ? '<span class="sr-only"> (today)</span>' : ''}</span>
                 ${weatherBadge}
             </div>
             ${candleLabel}
