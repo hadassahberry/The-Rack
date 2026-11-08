@@ -316,7 +316,19 @@ function openPlanningPopup() {
     panel.setAttribute('aria-modal', 'true');
     panel.setAttribute('aria-labelledby', 'planning-date');
     panel.scrollTop = 0;
-    document.getElementById('back-to-calendar-btn').focus({ preventScroll: true });
+    // It is genuinely modal: focus moves in (to the Close button), Tab stays inside, and the calendar
+    // and page behind are blocked (only the dim backdrop stays clickable, to close it). Closing hands
+    // focus back to the day that was opened (see returnTo: the calendar redraws, so the button that
+    // was clicked may be gone).
+    ModalDialogs.open(panel, {
+        initialFocus: document.getElementById('back-to-calendar-btn'),
+        keep: [document.getElementById('planning-backdrop')],
+        returnTo: () => {
+            const day = document.querySelector(`#month-grid [data-date="${selectedDateKey}"]`);
+            if (day) calendarFocusKey = selectedDateKey;
+            return day;
+        }
+    });
 }
 
 function closePlanningPopup() {
@@ -326,10 +338,7 @@ function closePlanningPopup() {
     panel.removeAttribute('role');
     panel.removeAttribute('aria-modal');
     panel.removeAttribute('aria-labelledby');
-    if (wasOpen) {                            // back to the day that was opened, so the keyboard picks up where it left off
-        const day = document.querySelector(`#month-grid [data-date="${selectedDateKey}"]`);
-        if (day) { calendarFocusKey = selectedDateKey; day.focus({ preventScroll: true }); }
-    }
+    if (wasOpen) ModalDialogs.close(panel);   // un-blocks the page and returns keyboard focus to the day that was opened
 }
 
 // Keyboard focus on the calendar's days. The grid is ONE Tab stop (the day in calendarFocusKey,

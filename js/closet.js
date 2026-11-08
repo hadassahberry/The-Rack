@@ -120,6 +120,12 @@ async function openWebcam() {
     error.classList.add('hidden');
     captureBtn.disabled = true;
     modal.classList.remove('hidden');
+    // Cancel has focus first (Capture is off until the camera is ready); the page behind is blocked,
+    // and closing returns focus to "+ Add clothes" (the menu item that opened this is gone by then).
+    ModalDialogs.open(modal, {
+        initialFocus: document.getElementById('camera-cancel-btn'),
+        returnTo: () => document.getElementById('add-clothes-btn')
+    });
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         showCameraError('Your browser doesn\'t support camera access here.');
@@ -155,6 +161,7 @@ function closeWebcam() {
     }
     document.getElementById('camera-video').srcObject = null;
     document.getElementById('camera-modal').classList.add('hidden');
+    ModalDialogs.close(document.getElementById('camera-modal'));
 }
 
 function captureWebcamPhoto() {
@@ -275,7 +282,15 @@ function initClosetLiveData() {
 function renderCloset() {
     const grid = document.getElementById('full-closet-grid');
     if (!grid) return;
+    // The cards are rebuilt on every change; keep keyboard focus on the same piece's card.
+    const focused = document.activeElement;
+    const refocusItem = (grid.contains(focused) && focused.classList && focused.classList.contains('closet-card')) ? focused.dataset.itemId : null;
     grid.innerHTML = '';
+    queueMicrotask(() => {
+        if (!refocusItem || document.activeElement !== document.body) return;       // only if focus was dropped by the redraw
+        const again = cardForItem(refocusItem);
+        if (again) again.focus({ preventScroll: true });
+    });
 
     let filtered = activeCategory === 'all' ? liveCloset : liveCloset.filter(i => i.category === activeCategory);
     if (activeSeason !== 'all') filtered = filtered.filter(i => i.season === activeSeason || i.season === 'all-season');
@@ -404,6 +419,18 @@ function openEditModal(itemId) {
     document.getElementById('edit-modal').classList.remove('hidden');
     PhotoFrame.load(item);          // after the popup is visible: the frame needs a size
     editSnapshot = readEditForm();  // what "unchanged" means for this popup
+    // Focus moves into the window (the name field; on a phone just the first control, so the
+    // on-screen keyboard doesn't pop up), the page behind is blocked, and closing returns focus to
+    // the card that opened it, or to that piece's new card if the closet was redrawn meanwhile.
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    ModalDialogs.open(document.getElementById('edit-modal'), {
+        initialFocus: coarse ? null : document.getElementById('modal-name'),
+        returnTo: () => cardForItem(itemId) || document.querySelector('.nav-btn[data-tab="closet-view"]')
+    });
+    // Focus lands with the caret after the name, not with the whole name selected, so the next key
+    // typed can't silently replace it.
+    const nameField = document.getElementById('modal-name');
+    if (document.activeElement === nameField) nameField.setSelectionRange(nameField.value.length, nameField.value.length);
 }
 
 // The line under the Category field that says it's only a suggestion (and an amber outline on
@@ -453,6 +480,7 @@ async function requestCloseEditModal() {
 function closeEditModal() {
     PhotoFrame.unload();
     document.getElementById('edit-modal').classList.add('hidden');
+    ModalDialogs.close(document.getElementById('edit-modal'));      // focus goes back to where it was
     currentEditingItemId = null;
     editFromTagQueue = false;
     editSnapshot = null;

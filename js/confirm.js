@@ -68,17 +68,15 @@ function describeItemDeletion(itemName, impact) {
 // The window itself (markup: #confirm-modal in index.html)
 
 let confirmResolve = null;
-let confirmReturnFocus = null;
 
+// Closing hands focus back to whatever had it when the question opened (js/dialog.js), and
+// un-blocks the window underneath it, if any.
 function finishConfirm(answer) {
     const modal = document.getElementById('confirm-modal');
     modal.classList.add('hidden');
+    ModalDialogs.close(modal);
     const resolve = confirmResolve;
     confirmResolve = null;
-    if (confirmReturnFocus && typeof confirmReturnFocus.focus === 'function' && document.contains(confirmReturnFocus)) {
-        confirmReturnFocus.focus({ preventScroll: true });
-    }
-    confirmReturnFocus = null;
     if (resolve) resolve(answer);
 }
 
@@ -103,9 +101,9 @@ function confirmDialog(options) {
     cancel.textContent = o.cancelLabel;
     cancel.classList.toggle('hidden', !o.cancelLabel);     // no cancel label = a plain notice with just OK
 
-    confirmReturnFocus = document.activeElement;
     $('confirm-modal').classList.remove('hidden');
-    (o.cancelLabel ? cancel : ok).focus();
+    // The safe answer has focus first (Cancel, or OK on a plain notice); the page behind is blocked.
+    ModalDialogs.open($('confirm-modal'), { initialFocus: o.cancelLabel ? cancel : ok });
     return new Promise(resolve => { confirmResolve = resolve; });
 }
 
@@ -124,24 +122,13 @@ if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded
     });
 
     // Handled first (capture phase) so a window underneath, like the edit popup,
-    // doesn't also react to the same Esc. Tab stays inside the two buttons.
+    // doesn't also react to the same Esc. (Tab stays inside the window: js/dialog.js.)
     window.addEventListener('keydown', (e) => {
         if (modal.classList.contains('hidden')) return;
         if (e.key === 'Escape') {
             e.preventDefault();
             e.stopPropagation();
             finishConfirm(false);
-        } else if (e.key === 'Tab') {
-            const ok = document.getElementById('confirm-ok-btn'), cancel = document.getElementById('confirm-cancel-btn');
-            if (cancel.classList.contains('hidden')) { e.preventDefault(); ok.focus(); return; }
-            const first = e.shiftKey ? ok : cancel, last = e.shiftKey ? cancel : ok;
-            if (document.activeElement === last || !modal.contains(document.activeElement)) {
-                e.preventDefault();
-                first.focus();
-            } else {
-                e.preventDefault();
-                last.focus();
-            }
         }
     }, true);
 });

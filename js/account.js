@@ -52,12 +52,17 @@ document.addEventListener('DOMContentLoaded', () => {
         showError('');
         setBusy(false);
         modal.classList.remove('hidden');
-        if (usesPassword) passwordInput.focus();
+        // The password field has focus when there is one, otherwise the safe button (Cancel).
+        ModalDialogs.open(modal, {
+            initialFocus: usesPassword ? passwordInput : cancelBtn,
+            returnTo: () => $('delete-account-btn')
+        });
     }
 
     function closeModal() {
         if (busy) return;
         modal.classList.add('hidden');
+        ModalDialogs.close(modal);
         passwordInput.value = '';
         showError('');
     }
@@ -160,11 +165,16 @@ document.addEventListener('DOMContentLoaded', () => {
         clearConfirmBtn.disabled = empty;
         clearError.classList.add('hidden');
         clearModal.classList.remove('hidden');
+        ModalDialogs.open(clearModal, {            // Cancel has focus first: the safe answer
+            initialFocus: clearCancelBtn,
+            returnTo: () => $('clear-data-btn')
+        });
     }
 
     function closeClearModal() {
         if (clearBusy) return;
         clearModal.classList.add('hidden');
+        ModalDialogs.close(clearModal);
     }
 
     async function confirmClear() {
@@ -178,6 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await Store.clearClosetData();
             clearBusy = false;
             clearModal.classList.add('hidden');
+            ModalDialogs.close(clearModal);
             setDataStatus('Your closet has been cleared.');
         } catch (err) {
             console.error(err);

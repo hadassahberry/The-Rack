@@ -388,9 +388,9 @@
     </div>
 
     <!-- Clear Closet Modal -->
-    <div id="clear-data-modal" class="modal hidden">
+    <div id="clear-data-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="clear-data-title" aria-describedby="clear-data-summary">
         <div class="modal-content">
-            <h3>Clear your closet?</h3>
+            <h3 id="clear-data-title">Clear your closet?</h3>
             <p id="clear-data-summary" class="delete-warning"></p>
             <p class="delete-note">This can't be undone. Your account and settings stay. Tip: use &ldquo;Export my closet&rdquo; first if you want a backup.</p>
             <div id="clear-data-error" class="auth-error hidden"></div>
@@ -402,9 +402,9 @@
     </div>
 
     <!-- Delete Account Modal -->
-    <div id="delete-account-modal" class="modal hidden">
+    <div id="delete-account-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
         <div class="modal-content">
-            <h3>Delete your account?</h3>
+            <h3 id="delete-account-title">Delete your account?</h3>
             <p class="delete-warning">This permanently deletes your login and everything in your closet &mdash; photos, outfits and your planner. This can't be undone.</p>
             <div id="delete-account-error" class="auth-error hidden"></div>
             <div id="delete-password-section" class="hidden">
@@ -420,9 +420,9 @@
     </div>
 
     <!-- Webcam Modal (laptops/desktops) -->
-    <div id="camera-modal" class="modal hidden">
+    <div id="camera-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="camera-title">
         <div class="modal-content">
-            <h3>Take a photo</h3>
+            <h3 id="camera-title">Take a photo</h3>
             <div id="camera-error" class="auth-error hidden"></div>
             <video id="camera-video" autoplay playsinline muted></video>
             <div class="modal-actions">
@@ -433,10 +433,10 @@
     </div>
 
     <!-- Edit Modal -->
-    <div id="edit-modal" class="modal hidden">
+    <div id="edit-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
         <div class="modal-content">
             <div class="modal-header-row">
-                <h3>Edit Item Details</h3>
+                <h3 id="edit-modal-title">Edit Item Details</h3>
                 <button type="button" id="edit-close-btn" class="modal-close-btn" aria-label="Close without saving">&times;</button>
             </div>
             <!-- Choose what part of the photo shows: drag to move, zoom to focus on one piece. -->
@@ -521,6 +521,7 @@
     <script src="js/colors.js"></script>
     <script src="js/repeats.js"></script>
     <script src="js/photo-frame.js"></script>
+    <script src="js/dialog.js"></script>
     <script src="js/confirm.js"></script>
     <script src="js/category-guess.js"></script>
     <script src="js/closet.js"></script>
