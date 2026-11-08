@@ -28,6 +28,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('prev-month-btn').addEventListener('click', () => stepView(-1));
     document.getElementById('next-month-btn').addEventListener('click', () => stepView(1));
     document.getElementById('today-btn').addEventListener('click', goToToday);
+    const dayGrid = document.getElementById('month-grid');
+    dayGrid.addEventListener('keydown', onCalendarKeydown);
+    dayGrid.addEventListener('focusin', (e) => {        // however focus got onto a day (Tab, arrows, a click, a screen reader), it becomes the one Tab stop
+        const day = e.target.closest && e.target.closest('.month-cell');
+        if (!day) return;
+        calendarFocusKey = day.dataset.date;
+        dayGrid.querySelectorAll('.month-cell').forEach(c => { c.tabIndex = c === day ? 0 : -1; });
+    });
     document.getElementById('apply-undo-btn').addEventListener('click', undoApply);
     document.getElementById('weather-retry-btn').addEventListener('click', retryWeather);
     document.getElementById('planning-weather-retry').addEventListener('click', retryWeather);
@@ -240,17 +248,18 @@ function buildCellItems(outfits, closetById, showPhotos) {
         }))
         .filter(g => g.items.length > 0);
 
-    const box = document.createElement('div');
+    // (spans, not divs: the whole day is a <button>, which may only hold inline elements)
+    const box = document.createElement('span');
     box.className = showPhotos ? 'cell-items cell-groups' : 'cell-items';
     if (groups.length > 1) box.classList.add('multi');
     const limit = cellPhotoLimit();       // pieces per outfit before "+N"
     let tallestStack = 1;                 // most photos in any one outfit's column (drives their size in CSS)
 
     groups.forEach(group => {
-        const groupEl = document.createElement('div');
+        const groupEl = document.createElement('span');
         groupEl.className = 'cell-group';
         if (group.label) {
-            const label = document.createElement('div');
+            const label = document.createElement('span');
             label.className = 'cell-group-label';
             label.textContent = group.label;
             label.title = group.label;
@@ -259,7 +268,7 @@ function buildCellItems(outfits, closetById, showPhotos) {
 
         if (!showPhotos) {
             group.items.forEach(item => {
-                const row = document.createElement('div');
+                const row = document.createElement('span');
                 row.className = 'cell-item-row';
                 const dot = document.createElement('span');
                 dot.className = 'color-dot';
@@ -268,7 +277,7 @@ function buildCellItems(outfits, closetById, showPhotos) {
                 groupEl.appendChild(row);
             });
         } else {
-            const photos = document.createElement('div');
+            const photos = document.createElement('span');
             photos.className = 'cell-photos';
             const shown = group.items.length > limit ? group.items.slice(0, limit - 1) : group.items;
             shown.forEach(item => {
@@ -311,16 +320,31 @@ function openPlanningPopup() {
 }
 
 function closePlanningPopup() {
+    const wasOpen = document.body.classList.contains('planning-open');
     const panel = document.querySelector('.planning-panel');
     document.body.classList.remove('planning-open');
     panel.removeAttribute('role');
     panel.removeAttribute('aria-modal');
     panel.removeAttribute('aria-labelledby');
+    if (wasOpen) {                            // back to the day that was opened, so the keyboard picks up where it left off
+        const day = document.querySelector(`#month-grid [data-date="${selectedDateKey}"]`);
+        if (day) { calendarFocusKey = selectedDateKey; day.focus({ preventScroll: true }); }
+    }
 }
+
+// Keyboard focus on the calendar's days. The grid is ONE Tab stop (the day in calendarFocusKey,
+// else the selected day, else today); the arrow keys move between days (see onCalendarKeydown).
+let calendarFocusKey = null;     // the day that is the Tab stop / has keyboard focus
+let pendingFocusKey = null;      // a day to give focus to once the grid has been rebuilt
 
 function renderCalendarGrid() {
     const grid = document.getElementById('month-grid');
     if (!grid) return;
+    // The grid is rebuilt from scratch on every redraw (a saved plan arriving, a day being
+    // picked...), which would drop keyboard focus: remember which day had it and put it back.
+    const focused = document.activeElement;
+    const keepFocusKey = pendingFocusKey || (grid.contains(focused) && focused.dataset ? focused.dataset.date : null);
+    pendingFocusKey = null;
     grid.innerHTML = '';
     grid.className = `month-grid view-${viewMode}`;
     // Lets CSS treat the weekday header row differently per view (phones
@@ -352,6 +376,11 @@ function renderCalendarGrid() {
 
     const todayKey = isoDateKey(new Date());
 
+    // The single Tab stop: the day that last had focus, else the selected day, else today, else the first day shown.
+    const visibleKeys = dates.map(isoDateKey);
+    const firstShown = dates.find(d => viewMode !== 'month' || d.getMonth() === anchorDate.getMonth()) || dates[0];
+    const tabStopKey = [calendarFocusKey, selectedDateKey, todayKey].find(k => k && visibleKeys.includes(k)) || isoDateKey(firstShown);
+
     for (const cellDate of dates) {
         const dateKey = isoDateKey(cellDate);
         const isToday = dateKey === todayKey;
@@ -364,42 +393,57 @@ function renderCalendarGrid() {
         const weather = prefs.weatherEnabled ? weatherFor(dateKey, weatherMap, todayKey).forecast : null;
         const extra = extraCalendarNotes(cellDate, prefs, location);   // public / Christian / Hijri
 
-        const cell = document.createElement('div');
+        // Each day is a real <button>: it can be reached with Tab / the arrow keys, shows a focus
+        // ring, and opens with Enter or Space exactly as a click does. Its spoken name is the
+        // date plus what matters (see js/calendar-access.js); everything inside is for the eye.
+        // (A button may only contain inline elements, so the parts inside are spans.)
+        const cell = document.createElement('button');
+        cell.type = 'button';
         cell.className = 'month-cell';
+        cell.dataset.date = dateKey;
+        cell.tabIndex = dateKey === tabStopKey ? 0 : -1;
         if (!isCurrentMonth) cell.classList.add('not-current');
         if (holidayTitles.length > 0) cell.classList.add('holiday');
         else if (extra.notes.some(n => n.kind === 'public')) cell.classList.add('public-holiday');
         if (dateKey === selectedDateKey) cell.classList.add('selected');
-        if (isToday) { cell.classList.add('today'); cell.title = 'Today'; }      // its own marker, separate from "selected"
+        if (isToday) { cell.classList.add('today'); cell.setAttribute('aria-current', 'date'); }   // its own marker, separate from "selected"
+        cell.setAttribute('aria-label', dayAccessibleName({
+            date: cellDate,
+            isToday,
+            isSelected: dateKey === selectedDateKey,
+            outfits: plannerOutfits[dateKey] || [],
+            holidayNames: [...holidayTitles.filter(t => t !== 'Shabbos'), ...extra.notes.map(n => n.text)]   // real holidays, not the weekly Shabbos
+        }));
         cell.addEventListener('click', () => {
             selectedDateKey = dateKey;
+            calendarFocusKey = dateKey;
             renderCalendar();
             openPlanningPopup();      // narrow screens: the day's closet pops up right here
         });
 
         const holidayLabel = holidayTitles.length > 0
-            ? `<div class="cell-holiday-label">${holidayTitles.join(' / ')}</div>` : '';
+            ? `<span class="cell-holiday-label">${holidayTitles.join(' / ')}</span>` : '';
         const candleLabel = (holidayInfo && holidayInfo.candleLighting)
-            ? `<div class="cell-candle-label">🕯 ${holidayInfo.candleLighting}</div>` : '';
+            ? `<span class="cell-candle-label">🕯 ${holidayInfo.candleLighting}</span>` : '';
         const weatherBadge = weather
             ? `<span class="cell-weather">${weatherInfo(weather.code).icon} ${formatTemp(weather.high)}</span>` : '';
         cell.innerHTML = `
             ${holidayLabel}
-            <div class="cell-top-row">
+            <span class="cell-top-row">
                 <span class="cell-weekday">${WEEKDAY_NAMES[cellDate.getDay()].slice(0, 3)}</span>
                 <span class="cell-date-num">${cellDate.getDate()}${isToday ? '<span class="sr-only"> (today)</span>' : ''}</span>
                 ${weatherBadge}
-            </div>
+            </span>
             ${candleLabel}
         `;
         // Holiday names from the other calendars (built as elements: some come
         // from the network) and the Hijri date.
         const topRow = cell.querySelector('.cell-top-row');
         if (extra.notes.length) {
-            const box = document.createElement('div');
+            const box = document.createElement('span');
             box.className = 'cell-notes';
             extra.notes.forEach(n => {
-                const note = document.createElement('div');
+                const note = document.createElement('span');
                 note.className = `cell-note cell-note-${n.kind}`;
                 note.textContent = n.text;
                 note.title = n.text;
@@ -409,7 +453,7 @@ function renderCalendarGrid() {
         }
         if (extra.hijri) {
             const h = extra.hijri;
-            const hijri = document.createElement('div');
+            const hijri = document.createElement('span');
             hijri.className = 'cell-hijri';
             hijri.title = `${h.day} ${h.monthName} ${h.year} AH`;
             const full = document.createElement('span');
@@ -427,6 +471,45 @@ function renderCalendarGrid() {
         grid.appendChild(cell);
     }
     renderWeatherLegend(prefs.weatherEnabled, dates, weatherMap, todayKey);
+
+    if (keepFocusKey) {                       // put keyboard focus back on the day that had it
+        const again = grid.querySelector(`[data-date="${keepFocusKey}"]`);
+        if (again) again.focus({ preventScroll: true });
+    }
+}
+
+// Arrow keys, Home / End and Page Up / Down move between the days; Enter and Space open one
+// (a <button> does that by itself). Only the focused day is a Tab stop, so Tab passes over
+// the whole calendar in one step instead of through all of its days.
+function onCalendarKeydown(e) {
+    const cell = e.target.closest && e.target.closest('.month-cell');
+    if (!cell || e.altKey || e.ctrlKey || e.metaKey) return;
+    // Up / Down follow the layout: a week down in the 7-column grid, but just the next day when the
+    // days are stacked in one column (the Week and 2-week views on a phone).
+    let key = e.key;
+    const oneColumn = getComputedStyle(document.getElementById('month-grid')).gridTemplateColumns.trim().split(/\s+/).length === 1;
+    if (oneColumn && key === 'ArrowUp') key = 'ArrowLeft';
+    if (oneColumn && key === 'ArrowDown') key = 'ArrowRight';
+    const target = calendarKeyTarget({ key, dateKey: cell.dataset.date, viewMode, weekStart: weekStartIndex() });
+    if (!target) return;
+    e.preventDefault();                       // the arrows and Page keys shouldn't also scroll the page
+    focusCalendarDay(target);
+}
+
+function focusCalendarDay(dateKey) {
+    const grid = document.getElementById('month-grid');
+    calendarFocusKey = dateKey;
+    const shown = grid.querySelector(`[data-date="${dateKey}"]`);
+    if (shown) {                              // already on screen: move focus (and the one Tab stop) there
+        grid.querySelectorAll('.month-cell').forEach(c => { c.tabIndex = c === shown ? 0 : -1; });
+        shown.focus();
+        return;
+    }
+    // Off the edge of what's showing: move the view just far enough, then focus the day.
+    anchorDate = anchorToShow(viewMode, dateKey);
+    pendingFocusKey = dateKey;
+    renderCalendar();
+    refreshHolidaysForView(Store.getLocation()).then(renderCalendar);     // focus stays on the day through this redraw too
 }
 
 // --- Weather: what to show for a day, and why there's sometimes nothing (js/weather-status.js) ---

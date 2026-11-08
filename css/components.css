@@ -257,6 +257,35 @@
     transition: border-color 0.15s;
 }
 
+/* A day is a real <button> (keyboard-reachable), made to look exactly like the card it was:
+   the browser's own button look is switched off, and its parts are spans set to behave like blocks. */
+button.month-cell {
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    width: 100%;
+    margin: 0;
+    -webkit-appearance: none;
+    appearance: none;
+}
+.month-cell .cell-holiday-label,
+.month-cell .cell-candle-label,
+.month-cell .cell-note,
+.month-cell .cell-hijri,
+.month-cell .cell-group,
+.month-cell .cell-group-label { display: block; }
+
+/* Keyboard focus: a solid dark ring with a white gap, deliberately not pink, so it can't be
+   mistaken for the pink "selected" outline (a day can be both). Only shown for keyboard use. */
+.month-cell:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px #fff;
+    z-index: 1;
+    position: relative;
+}
+.month-cell.today:focus-visible { box-shadow: inset 0 4px 0 var(--primary), 0 0 0 2px #fff; }
+
 .month-cell:hover {
     border-color: var(--accent-pink);
 }

@@ -13,7 +13,7 @@ const SHELL = [
     'css/variables.css', 'css/layout.css', 'css/components.css',
     'js/firebase-config.js', 'js/firebase-init.js', 'js/state.js', 'js/auth.js', 'js/geolocation.js',
     'js/weather.js', 'js/weather-status.js', 'js/holidays.js', 'js/calendars.js', 'js/view-range.js', 'js/activities.js', 'js/apply-outfit.js', 'js/activity-combo.js', 'js/colors.js', 'js/repeats.js', 'js/photo-frame.js', 'js/confirm.js', 'js/category-guess.js', 'js/closet.js', 'js/analytics.js',
-    'js/calendar.js', 'js/navigation.js', 'js/settings.js', 'js/account.js', 'js/pwa.js', 'js/app.js',
+    'js/calendar-access.js', 'js/calendar.js', 'js/navigation.js', 'js/settings.js', 'js/account.js', 'js/pwa.js', 'js/app.js',
     'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'icons/logo.svg'
 ];
 

@@ -97,7 +97,8 @@
                     <div class="weekday-row">
                         <span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span>
                     </div>
-                    <div id="month-grid" class="month-grid"></div>
+                    <p id="calendar-keys-hint" class="sr-only">Calendar days. Use the arrow keys to move between days, Home and End for the start and end of the week, Page Up and Page Down for the previous or next period, and Enter or Space to open a day.</p>
+                    <div id="month-grid" class="month-grid" role="group" aria-labelledby="month-label" aria-describedby="calendar-keys-hint"></div>
                     <!-- One quiet line explaining empty weather spots; shown only when some visible day has no forecast. -->
                     <p id="weather-legend" class="weather-legend hidden" role="status">
                         <span id="weather-legend-text"></span>
@@ -522,6 +523,7 @@
     <script src="js/category-guess.js"></script>
     <script src="js/closet.js"></script>
     <script src="js/analytics.js"></script>
+    <script src="js/calendar-access.js"></script>
     <script src="js/calendar.js"></script>
     <script src="js/navigation.js"></script>
     <script src="js/settings.js"></script>
