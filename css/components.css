@@ -807,43 +807,110 @@
     color: var(--primary);
 }
 
-.saved-outfit-builder {
-    background: #faf3ee;
-    border: 1px dashed var(--border);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-}
+.closet-header-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.build-trigger { padding: 8px 16px; font-weight: 600; }
+.saved-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.saved-header-row .section-subhead-lg { margin-bottom: 0; }
 
-.saved-outfit-builder input {
-    width: 100%;
+/* Outfit-building mode: one bar with everything needed, kept in view while scrolling. */
+.build-bar {
+    position: sticky;
+    top: 8px;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--card-bg);
+    border: 2px solid var(--accent-pink);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+}
+.build-bar:focus { outline: none; }
+.build-bar-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.build-title { display: block; font-size: 1rem; color: var(--primary); }
+.build-count { display: block; font-size: 0.9rem; font-weight: 700; color: var(--accent-pink); }
+.build-hint { margin: 0; font-size: 0.8rem; line-height: 1.4; color: var(--text-muted); }
+
+.build-selected { display: flex; align-items: center; gap: 6px; overflow-x: auto; padding: 2px 0 4px; min-height: 36px; }
+.build-empty { font-size: 0.8rem; color: var(--text-muted); }
+.build-chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 230px;
+    background: #faf3ee;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 3px 4px 3px 4px;
+}
+.build-chip img { width: 28px; height: 28px; flex: none; object-fit: contain; background: #fff; border-radius: 8px; }
+.build-chip-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.build-chip-name { font-size: 0.8rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.build-chip-meta { font-size: 0.65rem; color: var(--text-muted); text-transform: capitalize; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.build-chip-remove {
+    flex: none;
+    background: none;
+    border: none;
+    border-radius: 50%;
+    font-size: 1.05rem;
+    line-height: 1;
+    padding: 3px 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.build-chip-remove:hover { background: #fbe6ea; color: var(--accent-pink); }
+
+.build-bar-save { display: flex; gap: 8px; }
+.build-bar-save input {
+    flex: 1;
+    min-width: 0;
     padding: 8px 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
     font-size: 0.9rem;
-    margin-bottom: 12px;
 }
+.build-bar-save .primary-btn { flex: none; padding: 8px 18px; }
+.build-bar .builder-message { margin: 0; }
 
-.picker-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 8px;
-    max-height: 220px;
-    overflow-y: auto;
-    padding: 4px;
-    margin-bottom: 12px;
+/* Cards while building: a checkbox on each, a clear selected state, names allowed two lines. */
+.closet-card { position: relative; }
+.closet-card.selectable { border: 2px solid var(--border); }
+.closet-card.selectable.selected {
+    border-color: var(--accent-pink);
+    background: #fff4f7;
+    box-shadow: 0 0 0 2px var(--accent-pink);
 }
-
-.picker-item {
-    border: 2px solid var(--border);
-    border-radius: 8px;
+.select-mark {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid #b9aaa3;
+    background: #fff;
+    color: transparent;
+    font-size: 0.95rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+.closet-card.selected .select-mark { background: var(--accent-pink); border-color: var(--accent-pink); color: #fff; }
+.is-building .closet-card-name {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    cursor: pointer;
-    height: 80px;
+    overflow-wrap: anywhere;
 }
-
-.picker-item img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
-.picker-item.selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
+.badge-category { background: #e6dcf3; color: #5b4a86; font-weight: 600; text-transform: capitalize; }
 
 .saved-outfits-list {
     display: grid;
@@ -1043,7 +1110,7 @@
 .builder-message { font-size: 0.85rem; line-height: 1.4; margin: 4px 0 0; }
 .builder-message.is-error { color: #c81e1e; font-weight: 600; }
 .builder-message.is-success { color: #2f6b3b; }
-.saved-outfit-builder input[aria-invalid="true"] { border-color: #ef4444; outline: 1px solid #ef4444; }
+.build-bar input[aria-invalid="true"] { border-color: #ef4444; outline: 1px solid #ef4444; }
 
 /* "Mark as worn" on a planned outfit */
 .worn-toggle {
@@ -1470,12 +1537,16 @@ body.planning-open .planning-panel {
     /* 16px inputs stop iPhones from zooming in when a field is tapped. */
     input, select,
     .modal-content input, .modal-content select,
-    .auth-card input, .saved-outfit-builder input,
+    .auth-card input, .build-bar input,
     .location-pill input, .filter-dropdown, .outfit-label { font-size: 16px; }
     .location-pill input { width: 100%; min-width: 0; }
 
     .calendar-panel, .planning-panel { padding: 14px; }
     .settings-card { padding: 16px; }
+
+    /* The outfit builder stays on screen while scrolling, so keep it compact on a phone. */
+    .build-bar { top: 4px; padding: 12px; gap: 8px; }
+    .build-bar.has-selection .build-hint { display: none; }
 
     .calendar-top-row { gap: 10px; }
     .view-switcher { width: 100%; }

@@ -34,6 +34,7 @@ let editSnapshot = null;          // the edit form as it was when opened, to tel
 let editBusy = false;             // a save or delete is in progress
 let outfitBuilderSelectedIds = [];
 let outfitBuilderBusy = false;
+let buildMode = false;            // "Build an outfit": tapping a card selects it instead of opening it
 
 // Kept in sync by Firestore's live listeners (see initLiveData below) so
 // render functions can stay synchronous and read from here instead of
@@ -238,6 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-close-btn').addEventListener('click', requestCloseEditModal);
     document.getElementById('delete-item-btn').addEventListener('click', deleteEditingItem);
 
+    document.querySelectorAll('.build-trigger').forEach(btn => btn.addEventListener('click', () => setBuildMode(true)));
+    document.getElementById('build-done-btn').addEventListener('click', requestExitBuildMode);
     document.getElementById('save-outfit-btn').addEventListener('click', saveOutfitFromBuilder);
     // Typing a name clears an old complaint about it.
     document.getElementById('outfit-name-input').addEventListener('input', () => setBuilderMessage(''));
@@ -252,7 +255,7 @@ function initClosetLiveData() {
     Store.onClosetChange((closet) => {
         liveCloset = closet;
         renderCloset();
-        renderOutfitPickerGrid();
+        renderBuildBar();
         updateTagQueueUI();
     });
     Store.onSavedOutfitsChange((outfits) => {
@@ -277,6 +280,8 @@ function renderCloset() {
     filtered.forEach(item => {
         const card = document.createElement('div');
         card.className = 'closet-card';
+        card.title = item.name;                      // the full name, when a long one is shortened
+        card.dataset.itemId = item.id;
         card.innerHTML = `
             <img src="${itemPhoto(item)}" alt="">
             <div class="closet-card-info">
@@ -285,20 +290,34 @@ function renderCloset() {
                     <span class="closet-card-name">${escapeHtml(item.name)}</span>
                 </div>
                 <div class="tags-row">
+                    ${buildMode ? `<span class="badge badge-category">${escapeHtml(item.category)}</span>` : ''}
                     <span class="badge">${item.occasion}</span>
                     <span class="badge">${item.season}</span>
                     ${!item.tagged ? '<span class="badge badge-untagged">needs tagging</span>' : ''}
                 </div>
             </div>
         `;
-        // The whole card opens the item's details (no gear icon needed).
         card.tabIndex = 0;
-        card.setAttribute('role', 'button');
-        card.setAttribute('aria-label', `Open details for ${item.name}`);
-        card.addEventListener('click', () => openEditModal(item.id));
-        card.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEditModal(item.id); }
-        });
+        if (buildMode) {
+            // Building an outfit: the card is a checkbox. Tapping, Space or Enter selects it.
+            card.classList.add('selectable');
+            card.insertAdjacentHTML('afterbegin', '<span class="select-mark" aria-hidden="true">✓</span>');
+            card.setAttribute('role', 'checkbox');
+            card.setAttribute('aria-label', `${item.name}, ${item.category}, ${item.occasion}`);
+            setCardSelected(card, outfitBuilderSelectedIds.includes(item.id));
+            card.addEventListener('click', () => toggleBuildSelection(item.id, card));
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleBuildSelection(item.id, card); }
+            });
+        } else {
+            // Normally the whole card opens the item's details (no gear icon needed).
+            card.setAttribute('role', 'button');
+            card.setAttribute('aria-label', `Open details for ${item.name}`);
+            card.addEventListener('click', () => openEditModal(item.id));
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEditModal(item.id); }
+            });
+        }
         grid.appendChild(card);
     });
 }
@@ -446,25 +465,127 @@ async function deleteEditingItem() {
 
 // --- Saved Outfits builder (Closet tab) ---
 
-function renderOutfitPickerGrid() {
-    const grid = document.getElementById('outfit-picker-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
+// "Build an outfit" mode. The closet cards themselves become the picker: each shows
+// its name and a checkbox, tapping one selects it (it doesn't open the editor), and a
+// bar above them shows how many are selected, which ones (by name), and holds the
+// name field and Save button. Category/season filters still work, so a big closet can
+// be searched while the selection is kept.
 
-    liveCloset.forEach(item => {
-        const p = document.createElement('div');
-        p.className = `picker-item ${outfitBuilderSelectedIds.includes(item.id) ? 'selected' : ''}`;
-        p.innerHTML = `<img src="${itemPhoto(item)}" alt="">`;
-        p.addEventListener('click', () => {
-            if (outfitBuilderSelectedIds.includes(item.id)) {
-                outfitBuilderSelectedIds = outfitBuilderSelectedIds.filter(id => id !== item.id);
-            } else {
-                outfitBuilderSelectedIds.push(item.id);
-            }
-            setBuilderMessage('');
-            renderOutfitPickerGrid();
+function setCardSelected(card, selected) {
+    card.classList.toggle('selected', selected);
+    card.setAttribute('aria-checked', String(selected));
+}
+
+function cardForItem(itemId) {
+    return [...document.querySelectorAll('#full-closet-grid .closet-card')].find(c => c.dataset.itemId === itemId);
+}
+
+function setBuildMode(on) {
+    if (buildMode === on) return;
+    buildMode = on;
+    const bar = document.getElementById('build-bar');
+    bar.classList.toggle('hidden', !on);
+    document.getElementById('closet-view').classList.toggle('is-building', on);
+    document.querySelectorAll('.build-trigger').forEach(b => {
+        b.classList.toggle('hidden', on);
+        b.setAttribute('aria-expanded', String(on));
+    });
+    if (!on) {
+        outfitBuilderSelectedIds = [];
+        document.getElementById('outfit-name-input').value = '';
+        setBuilderMessage('');
+    }
+    renderCloset();
+    renderBuildBar();
+    if (on) {
+        bar.scrollIntoView({ block: 'nearest', behavior: 'smooth' });   // visible even if started from the lower button
+        bar.focus({ preventScroll: true });                              // so a screen reader announces the builder
+    }
+}
+
+// Done: leaves the mode, asking first if there's an unsaved outfit in progress.
+async function requestExitBuildMode() {
+    const n = outfitBuilderSelectedIds.length;
+    const nameTyped = document.getElementById('outfit-name-input').value.trim() !== '';
+    if (n > 0 || nameTyped) {
+        const leave = await confirmDialog({
+            title: 'Stop building this outfit?',
+            message: n > 0
+                ? `Your ${pluralize(n, 'selected piece')} won’t be saved as an outfit.`
+                : 'The name you typed won’t be saved.',
+            confirmLabel: 'Discard outfit',
+            cancelLabel: 'Keep building'
         });
-        grid.appendChild(p);
+        if (!leave) return;
+    }
+    setBuildMode(false);
+    const trigger = [...document.querySelectorAll('.build-trigger')].find(b => b.offsetParent !== null);
+    if (trigger) trigger.focus({ preventScroll: true });
+}
+
+function toggleBuildSelection(itemId, card) {
+    const was = outfitBuilderSelectedIds.includes(itemId);
+    outfitBuilderSelectedIds = was
+        ? outfitBuilderSelectedIds.filter(id => id !== itemId)
+        : [...outfitBuilderSelectedIds, itemId];
+    setCardSelected(card, !was);        // updated in place, so keyboard focus stays on this card
+    setBuilderMessage('');
+    renderBuildBar();
+}
+
+// The bar's count and the list of selected pieces (by name, head to toe).
+function renderBuildBar() {
+    if (!buildMode) return;
+    // A piece deleted elsewhere drops out of the selection.
+    const known = new Set(liveCloset.map(i => i.id));
+    outfitBuilderSelectedIds = outfitBuilderSelectedIds.filter(id => known.has(id));
+
+    const n = outfitBuilderSelectedIds.length;
+    document.getElementById('build-count').textContent = `${pluralize(n, 'piece')} selected`;
+    document.getElementById('build-bar').classList.toggle('has-selection', n > 0);   // phones then hide the long hint
+
+    const box = document.getElementById('build-selected');
+    box.innerHTML = '';
+    if (n === 0) {
+        box.innerHTML = '<span class="build-empty">Nothing selected yet.</span>';
+        return;
+    }
+    const selectedItems = sortHeadToToe(outfitBuilderSelectedIds.map(id => liveCloset.find(i => i.id === id)).filter(Boolean));
+    selectedItems.forEach(item => {
+        // Each chip says what kind of piece it is; if two selected pieces share a name
+        // (and a kind), it adds the occasion and season so they can be told apart.
+        const twin = selectedItems.some(o => o !== item && o.name === item.name && o.category === item.category);
+        const meta = [item.category, ...(twin ? [item.occasion, item.season] : [])].filter(Boolean).join(' · ');
+        const chip = document.createElement('span');
+        chip.className = 'build-chip';
+        chip.title = `${item.name} (${meta})`;
+        const img = document.createElement('img');
+        img.src = itemPhoto(item);
+        img.alt = '';
+        const label = document.createElement('span');
+        label.className = 'build-chip-text';
+        const name = document.createElement('span');
+        name.className = 'build-chip-name';
+        name.textContent = item.name;
+        const kind = document.createElement('span');
+        kind.className = 'build-chip-meta';
+        kind.textContent = meta;
+        label.append(name, kind);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'build-chip-remove';
+        remove.setAttribute('aria-label', `Remove ${item.name} from this outfit`);
+        remove.textContent = '×';
+        remove.addEventListener('click', () => {
+            outfitBuilderSelectedIds = outfitBuilderSelectedIds.filter(id => id !== item.id);
+            const card = cardForItem(item.id);
+            if (card) setCardSelected(card, false);
+            setBuilderMessage('');
+            renderBuildBar();
+            document.getElementById('build-bar').focus({ preventScroll: true });   // the chip that had focus is gone
+        });
+        chip.append(img, label, remove);
+        box.appendChild(chip);
     });
 }
 
@@ -510,17 +631,20 @@ async function saveOutfitFromBuilder() {
     const saving = Store.addSavedOutfit({ id: 'outfit_' + Date.now(), name, itemIds });
     nameInput.value = '';
     outfitBuilderSelectedIds = [];
-    renderOutfitPickerGrid();
-    setBuilderMessage(`Saved “${name}”.`, 'success');
+    renderCloset();
+    renderBuildBar();
+    setBuilderMessage(`Saved “${name}”. Pick more pieces to build another outfit, or press Done.`, 'success');
     outfitBuilderBusy = false;
 
     // If the save fails, give the user their pieces and name back.
     saving.catch(err => {
         console.error('Saving an outfit failed', err);
         if (!nameInput.value && outfitBuilderSelectedIds.length === 0) {
+            setBuildMode(true);                  // (in case they pressed Done in the meantime)
             nameInput.value = rawName;
             outfitBuilderSelectedIds = itemIds;
-            renderOutfitPickerGrid();
+            renderCloset();
+            renderBuildBar();
         }
         setBuilderMessage('Couldn’t save the outfit. Please try again.', 'error');
     });
@@ -532,7 +656,7 @@ function renderSavedOutfitsList() {
     list.innerHTML = '';
 
     if (liveSavedOutfits.length === 0) {
-        list.innerHTML = '<p style="color:#888; font-size:0.85rem;">No saved outfits yet — select items above and name them to save one.</p>';
+        list.innerHTML = '<p style="color:#888; font-size:0.85rem;">No saved outfits yet. Press “Build an outfit”, tap the pieces you want, name the outfit and save it.</p>';
         return;
     }
 

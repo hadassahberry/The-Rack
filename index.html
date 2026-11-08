@@ -122,12 +122,15 @@
         <section id="closet-view" class="view-section">
             <div class="closet-header-actions">
                 <h2>Wardrobe Collection</h2>
-                <select id="season-filter" class="filter-dropdown">
-                    <option value="all">All Seasons</option>
-                    <option value="summer">Summer</option>
-                    <option value="winter">Winter</option>
-                    <option value="all-season">All-Season</option>
-                </select>
+                <div class="closet-header-controls">
+                    <select id="season-filter" class="filter-dropdown" aria-label="Filter by season">
+                        <option value="all">All Seasons</option>
+                        <option value="summer">Summer</option>
+                        <option value="winter">Winter</option>
+                        <option value="all-season">All-Season</option>
+                    </select>
+                    <button type="button" class="primary-btn build-trigger" aria-controls="build-bar" aria-expanded="false">Build an outfit</button>
+                </div>
             </div>
 
             <div class="category-tabs" id="category-tabs">
@@ -140,14 +143,31 @@
                 <button class="tab-btn" data-category="accessories">Accessories</button>
             </div>
 
+            <!-- Outfit-building mode: while this is open, tapping a piece below selects it
+                 (it does NOT open the editor). Everything the user needs to build and save
+                 an outfit is in this one bar, and it stays in view while scrolling. -->
+            <div id="build-bar" class="build-bar hidden" role="region" aria-label="Outfit builder" tabindex="-1">
+                <div class="build-bar-top">
+                    <div>
+                        <strong class="build-title">Building an outfit</strong>
+                        <span id="build-count" class="build-count" aria-live="polite">0 pieces selected</span>
+                    </div>
+                    <button id="build-done-btn" class="secondary-btn" type="button">Done</button>
+                </div>
+                <p class="build-hint">Tap the pieces below to add them to this outfit, and tap again to take one out. (Tapping a piece here selects it; it doesn&rsquo;t open it.)</p>
+                <div id="build-selected" class="build-selected" aria-label="Selected pieces"></div>
+                <div class="build-bar-save">
+                    <input type="text" id="outfit-name-input" placeholder="Name this outfit (e.g. Studio casual)" aria-label="Outfit name" aria-describedby="outfit-builder-message" />
+                    <button id="save-outfit-btn" class="primary-btn" type="button">Save outfit</button>
+                </div>
+                <p id="outfit-builder-message" class="builder-message hidden" role="status" aria-live="polite"></p>
+            </div>
+
             <div id="full-closet-grid" class="full-closet-grid"></div>
 
-            <h2 class="section-subhead-lg">Saved Outfits</h2>
-            <div class="saved-outfit-builder">
-                <input type="text" id="outfit-name-input" placeholder="Outfit name (e.g. Studio casual)" aria-describedby="outfit-builder-message" />
-                <div id="outfit-picker-grid" class="picker-grid"></div>
-                <p id="outfit-builder-message" class="builder-message hidden" role="status" aria-live="polite"></p>
-                <button id="save-outfit-btn" class="primary-btn" type="button">Save Outfit</button>
+            <div class="saved-header-row">
+                <h2 class="section-subhead-lg">Saved Outfits</h2>
+                <button type="button" class="secondary-btn build-trigger" aria-controls="build-bar" aria-expanded="false">Build an outfit</button>
             </div>
             <div id="saved-outfits-list" class="saved-outfits-list"></div>
         </section>
