@@ -390,6 +390,7 @@ function openEditModal(itemId) {
     currentEditingItemId = itemId;
 
     document.getElementById('modal-name').value = item.name;
+    document.getElementById('modal-img').alt = `Photo of ${item.name}`;      // not a generic "preview": say which piece it is
     // For an item that hasn't been tagged yet the Category field starts as a SUGGESTION (a guess
     // from the name, or the category just confirmed on the previous item), and says so. Nothing is
     // saved until the owner presses Save; Cancel leaves the item exactly as it was.
@@ -727,16 +728,19 @@ function renderSavedOutfitsList() {
     liveSavedOutfits.forEach(outfit => {
         const card = document.createElement('div');
         card.className = 'saved-outfit-card';
-        const thumbs = sortHeadToToe(outfit.itemIds
+        const pieces = sortHeadToToe(outfit.itemIds
             .map(id => liveCloset.find(i => i.id === id))
-            .filter(Boolean))
-            .map(i => `<img src="${itemPhoto(i)}" alt="">`)
-            .join('');
+            .filter(Boolean));
+        const thumbs = pieces.map(i => `<img src="${itemPhoto(i)}" alt="">`).join('');
+        // The thumbnails are the only place the pieces show, so they are described once, in words
+        // ("Pieces: Blue top, Black skirt"), and the pictures themselves stay silent.
         card.innerHTML = `
-            <div class="saved-outfit-thumbs">${thumbs}</div>
+            <div class="saved-outfit-thumbs" aria-hidden="true">${thumbs}</div>
             <div class="saved-outfit-name">${escapeHtml(outfit.name)}</div>
+            <span class="sr-only saved-outfit-pieces"></span>
             <button class="edit-icon-btn" type="button" aria-label="Delete saved outfit ${escapeHtml(outfit.name)}" data-outfit-id="${escapeHtml(outfit.id)}">🗑️</button>
         `;
+        card.querySelector('.saved-outfit-pieces').textContent = outfitPiecesSummary(pieces.map(i => i.name));
         card.querySelector('button').addEventListener('click', async () => {
             const sure = await confirmDialog({
                 title: `Delete “${outfit.name}”?`,

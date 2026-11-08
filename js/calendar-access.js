@@ -1,5 +1,5 @@
-// Keyboard and screen-reader support for the calendar's days. Pure functions (no page access)
-// so they can be tested on their own.
+// Keyboard and screen-reader support for the calendar's days (and the wording for a saved outfit's
+// thumbnails). Pure functions (no page access) so they can be tested on their own.
 //
 //   dayAccessibleName     the spoken name of a day: its date plus the planning state that matters,
 //                         kept short so tabbing through a month isn't a wall of words
@@ -94,6 +94,16 @@ function dayMarkers({ hasWeather, weatherIcon, hasHoliday, hasCandles }) {
     return out;
 }
 
+// A saved outfit's thumbnails are the only place its pieces are shown, so they get a spoken
+// summary: "Pieces: Blue top, Black skirt, Brown shoes". Long outfits are shortened to the first few
+// with "and N more" so it stays concise. '' when there is nothing to say.
+function outfitPiecesSummary(names, max = 6) {
+    const list = (names || []).map(n => String(n || '').trim()).filter(Boolean);
+    if (list.length === 0) return '';
+    if (list.length <= max) return `Pieces: ${list.join(', ')}`;
+    return `Pieces: ${list.slice(0, max).join(', ')}, and ${list.length - max} more`;
+}
+
 // The one-line key under the calendar for the markers actually showing ('' when there are none).
 function markerKeyText(kinds) {
     const has = (k) => (kinds instanceof Set ? kinds.has(k) : (kinds || []).includes(k));
@@ -105,5 +115,5 @@ function markerKeyText(kinds) {
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = { dayAccessibleName, calendarKeyTarget, anchorToShow, caShiftPeriod, caKey, caParse, dayMarkers, markerKeyText };
+    module.exports = { dayAccessibleName, calendarKeyTarget, anchorToShow, caShiftPeriod, caKey, caParse, dayMarkers, markerKeyText, outfitPiecesSummary };
 }

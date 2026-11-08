@@ -964,11 +964,23 @@ function renderPicker() {
         const pill = document.createElement('button');
         pill.className = 'outfit-pill';
         // a peek at the pieces, so you can tell outfits apart by sight
-        sortHeadToToe(saved.itemIds.map(id => closetById[id]).filter(Boolean)).slice(0, 3)
-            .forEach(item => pill.appendChild(itemThumb(item, 'outfit-pill-thumb', '')));
+        const savedPieces = sortHeadToToe(saved.itemIds.map(id => closetById[id]).filter(Boolean));
+        savedPieces.slice(0, 3).forEach(item => pill.appendChild(itemThumb(item, 'outfit-pill-thumb', '')));
         const pillName = document.createElement('span');
         pillName.textContent = saved.name;
         pill.appendChild(pillName);
+        // Spoken: the outfit's name is the button's name; its pieces (what the thumbnails show) are
+        // the description. The thumbnails themselves stay silent (empty alt text).
+        pill.setAttribute('aria-label', saved.name);
+        const piecesText = outfitPiecesSummary(savedPieces.map(i => i.name));
+        if (piecesText) {
+            const desc = document.createElement('span');
+            desc.className = 'sr-only';
+            desc.id = `saved-pieces-${saved.id}`;
+            desc.textContent = piecesText;
+            pill.appendChild(desc);
+            pill.setAttribute('aria-describedby', desc.id);
+        }
         // Already on this day? Say so before it's even clicked.
         if (dayOutfits.some(o => o.itemIds.length > 0 && sameItemSet(o.itemIds, saved.itemIds))) {
             pill.classList.add('is-planned');
