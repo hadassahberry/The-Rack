@@ -515,12 +515,45 @@ function buildOutfitCard({ outfit, isActive, ctx, autoLabel, catById, chips }) {
         head.appendChild(pill);
     }
 
+    // "Mark as worn": wearing is something you confirm, not something planning implies.
+    // Only today and past days can be marked (you can't have worn tomorrow's outfit yet).
+    if (selectedDateKey <= isoDateKey(new Date()) && outfit.itemIds.length > 0) {
+        const worn = document.createElement('button');
+        worn.type = 'button';
+        worn.className = 'worn-toggle' + (outfit.worn ? ' is-worn' : '');
+        worn.setAttribute('aria-pressed', String(!!outfit.worn));
+        worn.textContent = outfit.worn ? '✓ Worn' : 'Mark as worn';
+        worn.addEventListener('click', () => {
+            updateDay(selectedDateKey, outfits => {
+                const o = outfits.find(x => x.id === outfit.id);
+                if (o) o.worn = !o.worn;
+                return outfits;
+            });
+        });
+        head.appendChild(worn);
+    }
+
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'outfit-delete';
     remove.setAttribute('aria-label', 'Remove this outfit');
     remove.textContent = '🗑️';
-    remove.addEventListener('click', () => {
+    remove.addEventListener('click', async () => {
+        // An empty outfit with no activity has nothing in it to lose: remove it straight away.
+        const hasContent = outfit.itemIds.length > 0 || !!outfit.label;
+        if (hasContent) {
+            const day = new Date(selectedDateKey + 'T00:00:00');
+            const what = [outfit.label ? `“${outfit.label}”` : 'This outfit',
+                outfit.itemIds.length ? `with ${pluralize(outfit.itemIds.length, 'piece')}` : ''].filter(Boolean).join(' ');
+            const sure = await confirmDialog({
+                title: 'Remove this outfit?',
+                message: `${what} will be removed from ${WEEKDAY_NAMES[day.getDay()]}, ${MONTH_NAMES[day.getMonth()]} ${day.getDate()}.`,
+                details: outfit.worn ? ['It is marked as worn, so it will also leave your wear stats.'] : [],
+                note: 'Your clothing pieces stay in your closet.',
+                confirmLabel: 'Remove outfit'
+            });
+            if (!sure) return;
+        }
         if (activeOutfitId === outfit.id) activeOutfitId = null;
         updateDay(selectedDateKey, outfits => outfits.filter(x => x.id !== outfit.id));
     });

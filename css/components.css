@@ -1005,6 +1005,104 @@
 
 .modal-actions { display: flex; gap: 8px; margin-top: 8px; }
 
+/* Edit-item popup: a visible way out (X and Cancel), and Delete kept well apart from Save. */
+.modal-header-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.modal-header-row h3 { margin: 0; }
+.modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 1.6rem;
+    line-height: 1;
+    padding: 2px 8px;
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.modal-close-btn:hover { background: #f3f4f6; color: var(--text-main); }
+#edit-modal .modal-actions button { flex: 1; padding: 10px; }
+.modal-danger-zone { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 6px; }
+.danger-outline-btn {
+    width: 100%;
+    background: transparent;
+    color: #c81e1e;
+    border: 1px solid #f0b4b4;
+    border-radius: 8px;
+    padding: 9px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+.danger-outline-btn:hover { background: #fdecec; border-color: #ef4444; }
+
+/* "Are you sure?" window (js/confirm.js) */
+.confirm-details { margin: 0 0 0 18px; font-size: 0.85rem; line-height: 1.5; color: var(--text-main); }
+.confirm-details li { margin-bottom: 4px; }
+#confirm-modal .modal-actions button { flex: 1; padding: 10px; }
+
+/* Save Outfit: why it didn't save (or that it did) */
+.builder-message { font-size: 0.85rem; line-height: 1.4; margin: 4px 0 0; }
+.builder-message.is-error { color: #c81e1e; font-weight: 600; }
+.builder-message.is-success { color: #2f6b3b; }
+.saved-outfit-builder input[aria-invalid="true"] { border-color: #ef4444; outline: 1px solid #ef4444; }
+
+/* "Mark as worn" on a planned outfit */
+.worn-toggle {
+    flex: none;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.worn-toggle:hover { border-color: #2f6b3b; }
+.worn-toggle.is-worn { background: #e4f0e3; border-color: #9cc79f; color: #2f6b3b; }
+
+/* Wear stats: past plans that haven't been marked */
+.wear-unmarked {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    background: #fff7e6;
+    border: 1px solid #f1d9a6;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 24px;
+    font-size: 0.85rem;
+}
+.wear-unmarked p { flex: 1 1 260px; margin: 0; line-height: 1.45; }
+.wear-unmarked button { flex: none; padding: 8px 14px; }
+
+/* Shown while the first sign-in check runs, so the sign-in form never flashes */
+.auth-loading {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: var(--bg-color);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+.auth-loading .brand-logo { height: 44px; width: auto; }
+.auth-loading p { margin: 0; }
+.auth-spinner {
+    width: 26px;
+    height: 26px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+}
+@media (prefers-reduced-motion: no-preference) {
+    .auth-spinner { animation: auth-spin 0.9s linear infinite; }
+}
+@keyframes auth-spin { to { transform: rotate(360deg); } }
+
 /* ---------- Auth screen ---------- */
 .auth-screen {
     position: fixed;

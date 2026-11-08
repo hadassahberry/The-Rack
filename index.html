@@ -17,8 +17,16 @@
     <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
+    <!-- Shown until the first sign-in check finishes, so a signed-in person never
+         sees the sign-in form flash by (js/auth.js swaps it for the app or the form). -->
+    <div id="auth-loading" class="auth-loading" role="status" aria-live="polite">
+        <img class="brand-logo" src="icons/logo.svg" alt="">
+        <div class="auth-spinner" aria-hidden="true"></div>
+        <p>Loading your wardrobe&hellip;</p>
+    </div>
+
     <!-- Sign-in gate -->
-    <div id="auth-screen" class="auth-screen">
+    <div id="auth-screen" class="auth-screen hidden">
         <div class="auth-card">
             <div class="brand">
                 <img class="brand-logo" src="icons/logo.svg" alt="">
@@ -136,9 +144,10 @@
 
             <h2 class="section-subhead-lg">Saved Outfits</h2>
             <div class="saved-outfit-builder">
-                <input type="text" id="outfit-name-input" placeholder="Outfit name (e.g. Studio casual)" />
+                <input type="text" id="outfit-name-input" placeholder="Outfit name (e.g. Studio casual)" aria-describedby="outfit-builder-message" />
                 <div id="outfit-picker-grid" class="picker-grid"></div>
-                <button id="save-outfit-btn" class="primary-btn">Save Outfit</button>
+                <p id="outfit-builder-message" class="builder-message hidden" role="status" aria-live="polite"></p>
+                <button id="save-outfit-btn" class="primary-btn" type="button">Save Outfit</button>
             </div>
             <div id="saved-outfits-list" class="saved-outfits-list"></div>
         </section>
@@ -146,6 +155,7 @@
         <!-- Analytics / Wear Stats View -->
         <section id="analytics-view" class="view-section">
             <h2>Wear Stats</h2>
+            <p class="setting-hint">Only outfits you mark as worn count here. Planning an outfit doesn't.</p>
             <div class="stats-grid">
                 <div class="stat-card">
                     <span id="stat-total-items" class="stat-number">0</span>
@@ -153,12 +163,21 @@
                 </div>
                 <div class="stat-card">
                     <span id="stat-total-wears" class="stat-number">0</span>
-                    <span class="stat-label">Total Wears Logged</span>
+                    <span class="stat-label">Wears Marked</span>
+                </div>
+                <div class="stat-card">
+                    <span id="stat-planned" class="stat-number">0</span>
+                    <span class="stat-label">Outfits Planned Ahead</span>
                 </div>
                 <div class="stat-card">
                     <span id="stat-top-category" class="stat-number">&mdash;</span>
-                    <span class="stat-label">Top Category</span>
+                    <span class="stat-label">Top Category Worn</span>
                 </div>
+            </div>
+
+            <div id="wear-unmarked" class="wear-unmarked hidden">
+                <p id="wear-unmarked-text"></p>
+                <button id="wear-mark-past-btn" class="secondary-btn" type="button">Mark them as worn</button>
             </div>
 
             <h3 class="section-subhead">Most Worn Pieces</h3>
@@ -376,7 +395,10 @@
     <!-- Edit Modal -->
     <div id="edit-modal" class="modal hidden">
         <div class="modal-content">
-            <h3>Edit Item Details</h3>
+            <div class="modal-header-row">
+                <h3>Edit Item Details</h3>
+                <button type="button" id="edit-close-btn" class="modal-close-btn" aria-label="Close without saving">&times;</button>
+            </div>
             <!-- Choose what part of the photo shows: drag to move, zoom to focus on one piece. -->
             <div id="crop-frame" class="crop-frame" tabindex="0" role="group"
                  aria-label="Photo framing. Drag the photo to move it. Plus and minus keys zoom.">
@@ -414,14 +436,33 @@
             <label for="modal-color">Color:</label>
             <input type="color" id="modal-color" value="#cccccc">
             <div class="modal-actions">
-                <button id="save-item-btn" class="primary-btn">Save</button>
-                <button id="delete-item-btn" class="danger-btn">Delete</button>
+                <button id="save-item-btn" class="primary-btn" type="button">Save</button>
+                <button id="cancel-item-btn" class="secondary-btn" type="button">Cancel</button>
+            </div>
+            <!-- Kept apart from Save on purpose. -->
+            <div class="modal-danger-zone">
+                <button id="delete-item-btn" class="danger-outline-btn" type="button">Delete this item&hellip;</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- "Are you sure?" (js/confirm.js). After the other windows so it opens on top of them. -->
+    <div id="confirm-modal" class="modal hidden" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+        <div class="modal-content">
+            <h3 id="confirm-title"></h3>
+            <p id="confirm-message" class="delete-warning"></p>
+            <ul id="confirm-details" class="confirm-details"></ul>
+            <p id="confirm-note" class="delete-note"></p>
+            <div class="modal-actions">
+                <button id="confirm-ok-btn" class="danger-btn" type="button">Delete</button>
+                <button id="confirm-cancel-btn" class="secondary-btn" type="button">Cancel</button>
             </div>
         </div>
     </div>
 
     <!-- Firebase (ES module — publishes window.Firebase + 'firebase-ready') -->
-    <script type="module" src="js/firebase-init.js"></script>
+    <script type="module" src="js/firebase-init.js"
+            onerror="window.firebaseFailed = true; window.dispatchEvent(new Event('firebase-failed'));"></script>
 
     <!-- Modular JS Scripts -->
     <script src="js/state.js"></script>
@@ -433,6 +474,7 @@
     <script src="js/colors.js"></script>
     <script src="js/repeats.js"></script>
     <script src="js/photo-frame.js"></script>
+    <script src="js/confirm.js"></script>
     <script src="js/closet.js"></script>
     <script src="js/analytics.js"></script>
     <script src="js/calendar.js"></script>

@@ -232,7 +232,7 @@ const PhotoFrame = (() => {
 
     function round4(n) { return Math.round(n * 10000) / 10000; }
 
-    return { init, load, unload, buildPatch };
+    return { init, load, unload, buildPatch, isChanged: changed };
 })();
 
 if (typeof document !== 'undefined') {

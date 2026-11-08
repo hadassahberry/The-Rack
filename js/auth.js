@@ -18,6 +18,31 @@ function showAuthError(message, isInfo = false) {
     el.classList.toggle('hidden', !message);
 }
 
+// The page opens on a neutral "Loading" screen (#auth-loading). It's replaced by the
+// app or the sign-in form only once the first sign-in check has answered, so someone
+// who is already signed in never sees the form flash by. If the check never answers,
+// the sign-in form appears after this long, with a note, instead of an endless spinner.
+const AUTH_CHECK_TIMEOUT_MS = 8000;
+let authCheckDone = false;
+
+function showSignedOutScreen(notice) {
+    document.getElementById('auth-loading').classList.add('hidden');
+    document.getElementById('auth-screen').classList.remove('hidden');
+    document.getElementById('app-shell').classList.add('hidden');
+    document.getElementById('account-menu').classList.add('hidden');
+    // Never replace a notice that's already showing (e.g. "your account was deleted").
+    if (notice && !document.getElementById('auth-error').textContent) showAuthError(notice, true);
+}
+
+const CANT_REACH_SIGN_IN = 'We can’t reach the sign-in service right now. Check your internet connection and reload the page.';
+
+// The buttons wait for Firebase; if it failed to load, say so instead of doing nothing.
+function signInServiceAvailable() {
+    if (!window.firebaseFailed) return true;
+    showAuthError(CANT_REACH_SIGN_IN);
+    return false;
+}
+
 function friendlyAuthError(err) {
     const code = err && err.code ? err.code : '';
     if (code.includes('wrong-password') || code.includes('invalid-credential') || code.includes('invalid-login-credentials')) return 'Incorrect email or password.';
@@ -41,8 +66,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     } catch (e) { /* sessionStorage unavailable: just skip the notice */ }
 
+    // If Firebase never answers (or its script can't load), don't leave the spinner up.
+    const authTimer = setTimeout(() => {
+        if (!authCheckDone) showSignedOutScreen('We couldn’t restore your session. Please sign in again.');
+    }, AUTH_CHECK_TIMEOUT_MS);
+    const onFirebaseFailed = () => {
+        if (!authCheckDone) { clearTimeout(authTimer); showSignedOutScreen(CANT_REACH_SIGN_IN); }
+    };
+    window.addEventListener('firebase-failed', onFirebaseFailed);
+    if (window.firebaseFailed) onFirebaseFailed();
+
     waitForFirebase().then(({ auth, authFns }) => {
         authFns.onAuthStateChanged(auth, (user) => {
+            authCheckDone = true;
+            clearTimeout(authTimer);
+            document.getElementById('auth-loading').classList.add('hidden');
             if (user) {
                 Store.setUid(user.uid);
                 document.getElementById('auth-screen').classList.add('hidden');
@@ -61,16 +99,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     location.reload();
                 }
             } else {
-                document.getElementById('auth-screen').classList.remove('hidden');
-                document.getElementById('app-shell').classList.add('hidden');
-                document.getElementById('account-menu').classList.add('hidden');
+                showSignedOutScreen();
                 if (authReadyUid !== null) location.reload();
             }
+        }, (err) => {
+            // The check itself failed: show sign-in rather than hang.
+            console.error('Sign-in check failed', err);
+            authCheckDone = true;
+            clearTimeout(authTimer);
+            showSignedOutScreen('We couldn’t restore your session. Please sign in again.');
         });
     });
 
     document.getElementById('auth-signin-btn').addEventListener('click', async () => {
         showAuthError('');
+        if (!signInServiceAvailable()) return;
         try {
             const { auth, authFns } = await waitForFirebase();
             await authFns.signInWithEmailAndPassword(auth, emailInput.value.trim(), passwordInput.value);
@@ -81,6 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('auth-signup-btn').addEventListener('click', async () => {
         showAuthError('');
+        if (!signInServiceAvailable()) return;
         try {
             const { auth, authFns } = await waitForFirebase();
             await authFns.createUserWithEmailAndPassword(auth, emailInput.value.trim(), passwordInput.value);
@@ -91,6 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('auth-google-btn').addEventListener('click', async () => {
         showAuthError('');
+        if (!signInServiceAvailable()) return;
         try {
             const { auth, authFns } = await waitForFirebase();
             await authFns.signInWithPopup(auth, new authFns.GoogleAuthProvider());
@@ -101,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('auth-reset-btn').addEventListener('click', async () => {
         showAuthError('');
+        if (!signInServiceAvailable()) return;
         if (!emailInput.value.trim()) { showAuthError('Enter your email above first, then click this again.'); return; }
         try {
             const { auth, authFns } = await waitForFirebase();

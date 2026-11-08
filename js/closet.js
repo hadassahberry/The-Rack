@@ -21,11 +21,19 @@ function sortHeadToToe(items) {
         .map(entry => entry.item);
 }
 
+// Text from the user (item and outfit names) is escaped wherever it goes into HTML.
+function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 let activeCategory = 'all';
 let activeSeason = 'all';
 let currentEditingItemId = null;
 let editFromTagQueue = false;
+let editSnapshot = null;          // the edit form as it was when opened, to tell if anything changed
+let editBusy = false;             // a save or delete is in progress
 let outfitBuilderSelectedIds = [];
+let outfitBuilderBusy = false;
 
 // Kept in sync by Firestore's live listeners (see initLiveData below) so
 // render functions can stay synchronous and read from here instead of
@@ -215,19 +223,27 @@ document.addEventListener('DOMContentLoaded', () => {
         openNextUntaggedItem();
     });
 
-    // Click the dark area around a popup (or press Esc) to close it without saving.
-    closeOnBackdrop(document.getElementById('edit-modal'), closeEditModal);
+    // Click the dark area around a popup (or press Esc) to close it. The edit popup asks
+    // first if there are unsaved changes; the camera has nothing to lose.
+    closeOnBackdrop(document.getElementById('edit-modal'), requestCloseEditModal);
     closeOnBackdrop(document.getElementById('camera-modal'), closeWebcam);
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
-        if (!document.getElementById('edit-modal').classList.contains('hidden')) closeEditModal();
+        if (!document.getElementById('edit-modal').classList.contains('hidden')) requestCloseEditModal();
         if (!document.getElementById('camera-modal').classList.contains('hidden')) closeWebcam();
     });
 
     document.getElementById('save-item-btn').addEventListener('click', saveEditModal);
+    document.getElementById('cancel-item-btn').addEventListener('click', requestCloseEditModal);
+    document.getElementById('edit-close-btn').addEventListener('click', requestCloseEditModal);
     document.getElementById('delete-item-btn').addEventListener('click', deleteEditingItem);
 
     document.getElementById('save-outfit-btn').addEventListener('click', saveOutfitFromBuilder);
+    // Typing a name clears an old complaint about it.
+    document.getElementById('outfit-name-input').addEventListener('input', () => setBuilderMessage(''));
+    document.getElementById('outfit-name-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); saveOutfitFromBuilder(); }
+    });
 
     window.waitForAuth().then(initClosetLiveData);
 });
@@ -266,7 +282,7 @@ function renderCloset() {
             <div class="closet-card-info">
                 <div class="closet-card-header-row">
                     <span class="color-dot" style="background:${item.color || '#ccc'}"></span>
-                    <span class="closet-card-name">${item.name}</span>
+                    <span class="closet-card-name">${escapeHtml(item.name)}</span>
                 </div>
                 <div class="tags-row">
                     <span class="badge">${item.occasion}</span>
@@ -316,6 +332,41 @@ function openEditModal(itemId) {
 
     document.getElementById('edit-modal').classList.remove('hidden');
     PhotoFrame.load(item);          // after the popup is visible: the frame needs a size
+    editSnapshot = readEditForm();  // what "unchanged" means for this popup
+}
+
+// The values currently in the edit form.
+function readEditForm() {
+    return {
+        name: document.getElementById('modal-name').value,
+        category: document.getElementById('modal-category').value,
+        occasion: document.getElementById('modal-occasion').value,
+        season: document.getElementById('modal-season').value,
+        color: document.getElementById('modal-color').value
+    };
+}
+
+// Anything typed, picked, or reframed since the popup opened?
+function isEditDirty() {
+    if (!editSnapshot) return false;
+    const now = readEditForm();
+    return Object.keys(now).some(k => now[k] !== editSnapshot[k]) || PhotoFrame.isChanged();
+}
+
+// Close button, Cancel, Esc and a click outside all come here: nothing changed closes
+// at once; unsaved changes ask before they're thrown away.
+async function requestCloseEditModal() {
+    if (document.getElementById('edit-modal').classList.contains('hidden')) return;
+    if (isEditDirty()) {
+        const discard = await confirmDialog({
+            title: 'Discard your changes?',
+            message: 'You changed this item but haven’t saved. If you close now, those changes are lost.',
+            confirmLabel: 'Discard changes',
+            cancelLabel: 'Keep editing'
+        });
+        if (!discard) return;
+    }
+    closeEditModal();
 }
 
 function closeEditModal() {
@@ -323,6 +374,7 @@ function closeEditModal() {
     document.getElementById('edit-modal').classList.add('hidden');
     currentEditingItemId = null;
     editFromTagQueue = false;
+    editSnapshot = null;
 }
 
 async function saveEditModal() {
@@ -347,22 +399,48 @@ async function saveEditModal() {
     if (wasTagQueue) openNextUntaggedItem();
 }
 
+// Deleting a piece also takes it out of every planned day and saved outfit, so the
+// confirmation spells that out first. Cancel changes nothing, and the edit popup
+// (with anything typed in it) stays open.
 async function deleteEditingItem() {
     if (!currentEditingItemId) return;
     const id = currentEditingItemId;
+    const item = liveCloset.find(i => i.id === id);
+    if (!item) return;
+
+    const impact = itemDeletionImpact(id, plannerOutfits, liveSavedOutfits);
+    const text = describeItemDeletion(item.name, impact);
+    const sure = await confirmDialog({
+        title: `Delete “${item.name}”?`,
+        message: text.message,
+        details: text.details,
+        note: 'This can’t be undone.',
+        confirmLabel: 'Delete item'
+    });
+    if (!sure) return;
+    if (currentEditingItemId !== id) return;      // the popup was closed in the meantime
+
     closeEditModal();
-
-    await Store.deleteClosetItem(id);
-
-    await Store.removeItemFromSchedule(id);
-
-    const outfits = await Store.getSavedOutfits();
-    for (const outfit of outfits) {
-        if (outfit.itemIds.includes(id)) {
-            const itemIds = outfit.itemIds.filter(x => x !== id);
-            if (itemIds.length === 0) await Store.deleteSavedOutfit(outfit.id);
-            else await Store.addSavedOutfit({ ...outfit, itemIds });
+    try {
+        await Store.deleteClosetItem(id);
+        await Store.removeItemFromSchedule(id);
+        const outfits = await Store.getSavedOutfits();
+        for (const outfit of outfits) {
+            if (outfit.itemIds.includes(id)) {
+                const itemIds = outfit.itemIds.filter(x => x !== id);
+                if (itemIds.length === 0) await Store.deleteSavedOutfit(outfit.id);
+                else await Store.addSavedOutfit({ ...outfit, itemIds });
+            }
         }
+    } catch (err) {
+        console.error('Deleting an item failed', err);
+        await confirmDialog({
+            title: 'Couldn’t finish deleting',
+            message: `Something went wrong while deleting “${item.name}”. Check your connection and try again.`,
+            confirmLabel: 'OK',
+            cancelLabel: '',
+            danger: false
+        });
     }
 }
 
@@ -383,23 +461,69 @@ function renderOutfitPickerGrid() {
             } else {
                 outfitBuilderSelectedIds.push(item.id);
             }
+            setBuilderMessage('');
             renderOutfitPickerGrid();
         });
         grid.appendChild(p);
     });
 }
 
+// The line under the pieces that says why Save Outfit didn't save, or that it did.
+// kind: 'error' | 'success' | '' (empty text hides it).
+function setBuilderMessage(text, kind = '') {
+    const el = document.getElementById('outfit-builder-message');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('hidden', !text);
+    el.classList.toggle('is-error', kind === 'error');
+    el.classList.toggle('is-success', kind === 'success');
+    if (kind !== 'error') document.getElementById('outfit-name-input').removeAttribute('aria-invalid');
+}
+
+// What's wrong with the outfit being built, or '' if it's ready to save. Pieces are
+// checked first, then the name.
+function outfitBuilderProblem(name, pieceCount) {
+    if (pieceCount === 0) return 'Pick at least one piece.';
+    if (!name) return 'Give the outfit a name first.';
+    return '';
+}
+
 async function saveOutfitFromBuilder() {
+    if (outfitBuilderBusy) return;
     const nameInput = document.getElementById('outfit-name-input');
     const name = nameInput.value.trim();
-    if (!name || outfitBuilderSelectedIds.length === 0) return;
 
+    // Nothing is cleared when something is missing: the pieces and name stay as they were.
+    const problem = outfitBuilderProblem(name, outfitBuilderSelectedIds.length);
+    if (problem) {
+        setBuilderMessage(problem, 'error');
+        if (!name && outfitBuilderSelectedIds.length > 0) {
+            nameInput.setAttribute('aria-invalid', 'true');
+            nameInput.focus();
+        }
+        return;
+    }
+
+    outfitBuilderBusy = true;
     const itemIds = [...outfitBuilderSelectedIds];
+    const rawName = nameInput.value;
+    const saving = Store.addSavedOutfit({ id: 'outfit_' + Date.now(), name, itemIds });
     nameInput.value = '';
     outfitBuilderSelectedIds = [];
     renderOutfitPickerGrid();
+    setBuilderMessage(`Saved “${name}”.`, 'success');
+    outfitBuilderBusy = false;
 
-    await Store.addSavedOutfit({ id: 'outfit_' + Date.now(), name, itemIds });
+    // If the save fails, give the user their pieces and name back.
+    saving.catch(err => {
+        console.error('Saving an outfit failed', err);
+        if (!nameInput.value && outfitBuilderSelectedIds.length === 0) {
+            nameInput.value = rawName;
+            outfitBuilderSelectedIds = itemIds;
+            renderOutfitPickerGrid();
+        }
+        setBuilderMessage('Couldn’t save the outfit. Please try again.', 'error');
+    });
 }
 
 function renderSavedOutfitsList() {
@@ -422,10 +546,23 @@ function renderSavedOutfitsList() {
             .join('');
         card.innerHTML = `
             <div class="saved-outfit-thumbs">${thumbs}</div>
-            <div class="saved-outfit-name">${outfit.name}</div>
-            <button class="edit-icon-btn" data-outfit-id="${outfit.id}">🗑️</button>
+            <div class="saved-outfit-name">${escapeHtml(outfit.name)}</div>
+            <button class="edit-icon-btn" type="button" aria-label="Delete saved outfit ${escapeHtml(outfit.name)}" data-outfit-id="${escapeHtml(outfit.id)}">🗑️</button>
         `;
-        card.querySelector('button').addEventListener('click', () => Store.deleteSavedOutfit(outfit.id));
+        card.querySelector('button').addEventListener('click', async () => {
+            const sure = await confirmDialog({
+                title: `Delete “${outfit.name}”?`,
+                message: 'This saved outfit will be deleted. Your clothing pieces and any days you already planned with it are not affected.',
+                confirmLabel: 'Delete outfit'
+            });
+            if (!sure) return;
+            try {
+                await Store.deleteSavedOutfit(outfit.id);
+            } catch (err) {
+                console.error('Deleting a saved outfit failed', err);
+                await confirmDialog({ title: 'Couldn’t delete the outfit', message: 'Something went wrong. Please try again.', confirmLabel: 'OK', cancelLabel: '', danger: false });
+            }
+        });
         list.appendChild(card);
     });
 }

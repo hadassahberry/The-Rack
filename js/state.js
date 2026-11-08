@@ -70,9 +70,11 @@ const Store = {
     },
 
     // ---- Schedule (keyed by ISO date) ----
-    // A day holds a list of outfits: [{ id, label, itemIds, flagsOff? }].
+    // A day holds a list of outfits: [{ id, label, itemIds, flagsOff?, worn? }].
     // `label` is the activity ("Class"); `flagsOff` hides repeat warnings for
-    // that outfit. Days saved before outfits existed hold only { itemIds };
+    // that outfit; `worn` is set only when the owner marks the outfit as worn
+    // (planning alone is never treated as wearing, and nothing already saved
+    // is turned into "worn" automatically). Days saved before outfits existed hold only { itemIds };
     // they're read as one unlabeled outfit, so nothing needs migrating.
     // Each day's document also keeps a flat `itemIds` (every item across its
     // outfits) so older copies of the app still show the right items.
@@ -82,11 +84,12 @@ const Store = {
                 id: o.id || 'main',
                 label: o.label || '',
                 itemIds: Array.isArray(o.itemIds) ? o.itemIds : [],
-                flagsOff: !!o.flagsOff
+                flagsOff: !!o.flagsOff,
+                worn: !!o.worn           // only ever true if the owner marked it as worn
             }));
         }
         if (Array.isArray(data.itemIds) && data.itemIds.length) {
-            return [{ id: 'main', label: '', itemIds: data.itemIds, flagsOff: false }];
+            return [{ id: 'main', label: '', itemIds: data.itemIds, flagsOff: false, worn: false }];
         }
         return [];
     },
@@ -125,7 +128,8 @@ const Store = {
             id: o.id,
             label: String(o.label || '').trim().slice(0, 40),
             itemIds: [...new Set(o.itemIds)],
-            ...(o.flagsOff ? { flagsOff: true } : {})
+            ...(o.flagsOff ? { flagsOff: true } : {}),
+            ...(o.worn ? { worn: true } : {})
         }));
         await dbFns.setDoc(await this._doc('schedule', dateKey), {
             outfits: clean,
