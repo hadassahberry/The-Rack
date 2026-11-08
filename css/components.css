@@ -866,6 +866,17 @@
     font-weight: 600;
 }
 
+/* A category that is only a guess: dashed and amber, so it never looks confirmed */
+.badge-guess {
+    background: #fff7e6;
+    color: #9a5b00;
+    border: 1px dashed #e0b45c;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+.category-note { margin: -4px 0 2px; font-size: 0.78rem; line-height: 1.35; color: #9a5b00; font-weight: 600; }
+#modal-category.is-unconfirmed { border-color: #e0b45c; outline: 1px solid #e0b45c; background: #fffaf0; }
+
 .edit-icon-btn {
     background: none;
     border: none;

@@ -31,6 +31,7 @@ let activeSeason = 'all';
 let currentEditingItemId = null;
 let editFromTagQueue = false;
 let editSnapshot = null;          // the edit form as it was when opened, to tell if anything changed
+let lastTaggedCategory = null;    // the category confirmed on the last item tagged this session (suggested for the next one, never saved by itself)
 let editBusy = false;             // a save or delete is in progress
 let outfitBuilderSelectedIds = [];
 let outfitBuilderBusy = false;
@@ -77,11 +78,16 @@ async function addImageFiles(files) {
             const image = await compressImage(file);
             const fullName = file.name.replace(/\.[^.]+$/, '');
             const color = await pickItemColor(fullName, image);
+            // A guess from the name (e.g. "...skirt" -> bottoms), or the old default of tops when
+            // the name gives nothing to go on. Either way the item stays "needs tagging": the
+            // category counts as confirmed only when the owner saves it in the editor.
+            const guessed = guessCategory(fullName);
             await Store.addClosetItem({
                 id: 'item_' + Date.now() + Math.random().toString(36).substr(2, 5),
                 name: fullName.substring(0, 20) || 'Item',
-                category: 'tops', occasion: 'casual', season: 'all-season',
+                category: guessed || 'tops', occasion: 'casual', season: 'all-season',
                 color, tagged: false,
+                ...(guessed ? { categoryGuess: 'name' } : {}),
                 image
             });
         } catch (err) {
@@ -234,6 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!document.getElementById('camera-modal').classList.contains('hidden')) closeWebcam();
     });
 
+    document.getElementById('modal-category').addEventListener('change', () => showCategoryNote({ text: '' }));
     document.getElementById('save-item-btn').addEventListener('click', saveEditModal);
     document.getElementById('cancel-item-btn').addEventListener('click', requestCloseEditModal);
     document.getElementById('edit-close-btn').addEventListener('click', requestCloseEditModal);
@@ -295,6 +302,7 @@ function renderCloset() {
                     ${buildMode ? `<span class="badge badge-category">${escapeHtml(item.category)}</span>` : ''}
                     <span class="badge">${item.occasion}</span>
                     <span class="badge">${item.season}</span>
+                    ${!item.tagged && item.categoryGuess ? `<span class="badge badge-guess" title="Guessed from the name. Open the item and save it to confirm.">guessed: ${escapeHtml(item.category)}</span>` : ''}
                     ${!item.tagged ? '<span class="badge badge-untagged">needs tagging</span>' : ''}
                 </div>
             </div>
@@ -381,7 +389,12 @@ function openEditModal(itemId) {
     currentEditingItemId = itemId;
 
     document.getElementById('modal-name').value = item.name;
-    document.getElementById('modal-category').value = item.category;
+    // For an item that hasn't been tagged yet the Category field starts as a SUGGESTION (a guess
+    // from the name, or the category just confirmed on the previous item), and says so. Nothing is
+    // saved until the owner presses Save; Cancel leaves the item exactly as it was.
+    const suggestion = categorySuggestionFor(item, lastTaggedCategory);
+    document.getElementById('modal-category').value = suggestion.category;
+    showCategoryNote(suggestion);
     document.getElementById('modal-occasion').value = item.occasion;
     document.getElementById('modal-season').value = item.season;
     document.getElementById('modal-color').value = item.color || '#cccccc';
@@ -389,6 +402,16 @@ function openEditModal(itemId) {
     document.getElementById('edit-modal').classList.remove('hidden');
     PhotoFrame.load(item);          // after the popup is visible: the frame needs a size
     editSnapshot = readEditForm();  // what "unchanged" means for this popup
+}
+
+// The line under the Category field that says it's only a suggestion (and an amber outline on
+// the field itself). Cleared as soon as the owner picks a category.
+function showCategoryNote(suggestion) {
+    const note = document.getElementById('modal-category-note');
+    const select = document.getElementById('modal-category');
+    note.textContent = suggestion.text || '';
+    note.classList.toggle('hidden', !suggestion.text);
+    select.classList.toggle('is-unconfirmed', !!suggestion.text);
 }
 
 // The values currently in the edit form.
@@ -445,8 +468,11 @@ async function saveEditModal() {
         season: document.getElementById('modal-season').value,
         color: document.getElementById('modal-color').value,
         tagged: true,
+        ...(existing.categoryGuess ? { categoryGuess: null } : {}),   // saving confirms it: no longer a guess
         ...PhotoFrame.buildPatch()      // the framed picture, only if it was changed
     };
+    // Tagging an item remembers its category as the suggestion for the next untagged one.
+    if (!existing.tagged) lastTaggedCategory = patch.category;
 
     const id = currentEditingItemId;
     const wasTagQueue = editFromTagQueue;
