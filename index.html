@@ -112,6 +112,11 @@
 
                     <h3 class="panel-subhead">Saved outfits</h3>
                     <div id="planning-saved-outfits" class="pill-row"></div>
+                    <!-- What applying a saved outfit just did (or "Already planned"), with an Undo. -->
+                    <div id="apply-status" class="apply-status hidden" role="status" aria-live="polite">
+                        <span id="apply-status-text"></span>
+                        <button id="apply-undo-btn" class="link-btn" type="button">Undo</button>
+                    </div>
 
                     <h3 class="panel-subhead">Add a single piece</h3>
                     <div id="planning-category-tabs" class="category-tabs"></div>
@@ -498,6 +503,7 @@
     <script src="js/calendars.js"></script>
     <script src="js/view-range.js"></script>
     <script src="js/activities.js"></script>
+    <script src="js/apply-outfit.js"></script>
     <script src="js/activity-combo.js"></script>
     <script src="js/colors.js"></script>
     <script src="js/repeats.js"></script>

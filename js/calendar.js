@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('prev-month-btn').addEventListener('click', () => stepView(-1));
     document.getElementById('next-month-btn').addEventListener('click', () => stepView(1));
     document.getElementById('today-btn').addEventListener('click', goToToday);
+    document.getElementById('apply-undo-btn').addEventListener('click', undoApply);
     scheduleMidnightRefresh();
     // The planning panel is a popup: close with the button, a click outside, or Esc.
     document.getElementById('back-to-calendar-btn').addEventListener('click', closePlanningPopup);
@@ -295,6 +296,8 @@ function buildCellItems(outfits, closetById, showPhotos) {
 // Clicking a day opens the planning panel (that day's outfit + the photo
 // closet to pick from) as a popup over the calendar, on every screen size.
 function openPlanningPopup() {
+    applyStatus = null;                    // a fresh look at the day: no leftover message from before
+    renderApplyStatus();
     const panel = document.querySelector('.planning-panel');
     document.body.classList.add('planning-open');
     panel.setAttribute('role', 'dialog');
@@ -725,6 +728,63 @@ function renderOutfitCards(prefs, location, labelOf) {
     addBtn.textContent = outfits.length ? '+ Add another outfit' : '+ Add an outfit';
 }
 
+// --- Applying a saved outfit to the selected day (rules: js/apply-outfit.js) ---
+let applyStatus = null;      // { dateKey, text, kind: 'info' | 'already', undo }: what the last apply did
+
+function renderApplyStatus() {
+    const box = document.getElementById('apply-status');
+    if (!box) return;
+    const show = !!applyStatus && applyStatus.dateKey === selectedDateKey;
+    box.classList.toggle('hidden', !show);
+    box.classList.toggle('is-already', show && applyStatus.kind === 'already');
+    document.getElementById('apply-status-text').textContent = show ? applyStatus.text : '';
+    document.getElementById('apply-undo-btn').classList.toggle('hidden', !(show && applyStatus.undo));
+}
+
+// Adds or replaces pieces as the rules say, never silently, and tells the person what happened.
+function applySavedOutfit(saved) {
+    const dateKey = selectedDateKey;
+    const dayOutfits = plannerOutfits[dateKey] || [];
+    const plan = planApplySavedOutfit({ dayOutfits, activeId: activeOutfitId, savedItemIds: saved.itemIds });
+    const target = dayOutfits.find(o => o.id === plan.outfitId);
+    let undo = null;
+
+    if (plan.action === 'already') {
+        if (plan.outfitId !== activeOutfitId) setActiveOutfit(plan.outfitId);   // point at the outfit that has it
+    } else if (plan.action === 'create' || plan.action === 'add') {
+        const id = newOutfitId();
+        activeOutfitId = id;
+        updateDay(dateKey, outfits => [...outfits, { id, label: '', itemIds: [...saved.itemIds], flagsOff: false }]);
+        undo = () => {
+            if (activeOutfitId === id) activeOutfitId = null;
+            return updateDay(dateKey, outfits => outfits.filter(o => o.id !== id));
+        };
+    } else if (plan.action === 'fill' || plan.action === 'replace') {
+        const before = plan.action === 'replace' ? plan.previousItemIds : [];
+        updateDay(dateKey, outfits => {
+            const o = outfits.find(x => x.id === plan.outfitId);
+            if (o) o.itemIds = [...saved.itemIds];            // only the pieces: its activity (and everything else) stays
+            return outfits;
+        });
+        undo = () => updateDay(dateKey, outfits => {
+            const o = outfits.find(x => x.id === plan.outfitId);
+            if (o) o.itemIds = [...before];
+            return outfits;
+        });
+    }
+
+    applyStatus = { dateKey, text: describeApply(plan, saved.name, target), kind: plan.action === 'already' ? 'already' : 'info', undo };
+    renderApplyStatus();
+}
+
+function undoApply() {
+    if (!applyStatus || !applyStatus.undo) return;
+    const { dateKey } = applyStatus;
+    applyStatus.undo();
+    applyStatus = { dateKey, text: 'Undone.', kind: 'info', undo: null };
+    renderApplyStatus();
+}
+
 // Saved outfits, the category tabs and the piece grid (all act on the active outfit).
 function renderPicker() {
     const outfitsRow = document.getElementById('planning-saved-outfits');
@@ -752,21 +812,19 @@ function renderPicker() {
         const pillName = document.createElement('span');
         pillName.textContent = saved.name;
         pill.appendChild(pillName);
-        pill.addEventListener('click', () => {
-            if (!active) {
-                const id = newOutfitId();
-                activeOutfitId = id;
-                updateDay(selectedDateKey, outfits => [...outfits, { id, label: '', itemIds: [...saved.itemIds], flagsOff: false }]);
-                return;
-            }
-            updateDay(selectedDateKey, outfits => {
-                const o = outfits.find(x => x.id === active.id);
-                if (o) o.itemIds = [...saved.itemIds];
-                return outfits;
-            });
-        });
+        // Already on this day? Say so before it's even clicked.
+        if (dayOutfits.some(o => o.itemIds.length > 0 && sameItemSet(o.itemIds, saved.itemIds))) {
+            pill.classList.add('is-planned');
+            const tag = document.createElement('span');
+            tag.className = 'pill-planned';
+            tag.textContent = '✓ Planned';
+            pill.appendChild(tag);
+            pill.setAttribute('aria-label', `${saved.name} (already planned on this day)`);
+        }
+        pill.addEventListener('click', () => applySavedOutfit(saved));
         outfitsRow.appendChild(pill);
     });
+    renderApplyStatus();
 
     // Add-a-single-piece category tabs
     catTabs.innerHTML = '';

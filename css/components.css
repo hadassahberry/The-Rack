@@ -721,6 +721,28 @@
     border-color: var(--primary);
 }
 
+/* Already on this day */
+.outfit-pill.is-planned { border-color: #9cc79f; background: #f2f8f1; }
+.pill-planned { font-size: 0.65rem; font-weight: 700; color: #2f6b3b; white-space: nowrap; }
+
+/* What applying a saved outfit just did ("Already planned..." in amber), with an Undo */
+.apply-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 6px 0 4px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    background: #eef6ee;
+    color: #2f5a38;
+    border: 1px solid #cfe3d0;
+}
+.apply-status.is-already { background: #fff7e6; color: #7a5200; border-color: #f1d9a6; }
+.apply-status .link-btn { margin-left: auto; font-weight: 700; color: inherit; }
+
 .outfit-pill-thumb {
     width: 24px;
     height: 24px;
