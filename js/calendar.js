@@ -477,19 +477,23 @@ function makeLabelOf(prefs, location) {
     return (dateKey, outfit) => (outfit.label || '').trim() || autoActivityLabel(dateKey, prefs, location, cache);
 }
 
-// Activities used before, most recent first (for the quick-pick chips and the typing suggestions).
-function knownActivityLabels() {
-    const latest = new Map();
-    for (const [date, outfits] of Object.entries(plannerOutfits)) {
-        for (const o of outfits) {
-            const text = (o.label || '').trim();
-            if (!text) continue;
-            const key = normalizeActivity(text);
-            const seen = latest.get(key);
-            if (!seen || date > seen.date) latest.set(key, { text, date });
+// This person's activities, as saved on their plans, most recently used first (js/activities.js).
+// Nothing is built in: no plans means an empty list.
+function savedActivities() {
+    return activityList(plannerOutfits, Date.now());
+}
+
+// Saves an activity on one of the selected day's outfits. The time is kept so the list can show
+// the most recently used first. Only that outfit's label changes; the rest of the plan is as it was.
+function setOutfitActivity(outfitId, label) {
+    return updateDay(selectedDateKey, outfits => {
+        const o = outfits.find(x => x.id === outfitId);
+        if (o) {
+            o.label = label;
+            if (label) o.labelAt = Date.now(); else delete o.labelAt;
         }
-    }
-    return [...latest.values()].sort((a, b) => (a.date < b.date ? 1 : -1)).map(v => v.text);
+        return outfits;
+    });
 }
 
 function repeatContextFor(dateKey, outfit, prefs, labelOf) {
@@ -522,28 +526,14 @@ function buildOutfitCard({ outfit, isActive, ctx, autoLabel, catById, chips }) {
     const head = document.createElement('div');
     head.className = 'outfit-card-head';
 
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'outfit-label';
-    input.maxLength = 40;
-    input.value = outfit.label || '';
-    input.placeholder = 'Activity (optional)';
-    input.setAttribute('list', 'activity-suggestions');
-    input.setAttribute('aria-label', 'Activity for this outfit');
-    input.addEventListener('focus', () => setActiveOutfit(outfit.id));
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
-    input.addEventListener('change', () => {
-        let value = input.value.trim().replace(/\s+/g, ' ');
-        // "class" adopts the spelling already in use ("Class") so the same activity looks the same everywhere
-        const existing = knownActivityLabels().find(l => normalizeActivity(l) === normalizeActivity(value));
-        if (existing) value = existing;
-        updateDay(selectedDateKey, outfits => {
-            const o = outfits.find(x => x.id === outfit.id);
-            if (o) o.label = value;
-            return outfits;
-        });
+    // The Activity field is an editable dropdown of the person's own saved activities (js/activity-combo.js).
+    const combo = createActivityCombo({
+        value: outfit.label || '',
+        getActivities: savedActivities,
+        onFocus: () => setActiveOutfit(outfit.id),
+        onCommit: (label) => setOutfitActivity(outfit.id, label)
     });
-    head.appendChild(input);
+    head.appendChild(combo.element);
 
     if (!outfit.label && autoLabel) {
         const pill = document.createElement('span');
@@ -608,11 +598,7 @@ function buildOutfitCard({ outfit, isActive, ctx, autoLabel, catById, chips }) {
             chip.textContent = text;
             chip.addEventListener('click', () => {
                 activeOutfitId = outfit.id;
-                updateDay(selectedDateKey, outfits => {
-                    const o = outfits.find(x => x.id === outfit.id);
-                    if (o) o.label = text;
-                    return outfits;
-                });
+                setOutfitActivity(outfit.id, text);
             });
             row.appendChild(chip);
         });
@@ -715,18 +701,9 @@ function renderOutfitCards(prefs, location, labelOf) {
     if (!outfits.some(o => o.id === activeOutfitId)) activeOutfitId = outfits.length ? outfits[0].id : null;
 
     const catById = Object.fromEntries(plannerCloset.map(i => [i.id, i.category]));
-    const known = knownActivityLabels();
-    const selectedDate = new Date(selectedDateKey + 'T00:00:00');
-    const suggestions = [...known];
-    if (prefs.hebrewCalendarEnabled && selectedDate.getDay() === 5 && !suggestions.some(s => normalizeActivity(s) === 'shabbos')) {
-        suggestions.unshift('Shabbos');                       // Friday night is Shabbos too
-    }
-
-    const list = document.getElementById('activity-suggestions');
-    if (list) {
-        list.innerHTML = '';
-        suggestions.forEach(text => { const o = document.createElement('option'); o.value = text; list.appendChild(o); });
-    }
+    // The quick-pick chips under an outfit with no activity are the person's own most recent ones.
+    // No activity is ever suggested that they haven't saved themselves.
+    const suggestions = savedActivities().map(a => a.label);
 
     box.innerHTML = '';
     if (outfits.length === 0) {

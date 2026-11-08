@@ -85,7 +85,9 @@ const Store = {
                 label: o.label || '',
                 itemIds: Array.isArray(o.itemIds) ? o.itemIds : [],
                 flagsOff: !!o.flagsOff,
-                worn: !!o.worn           // only ever true if the owner marked it as worn
+                worn: !!o.worn,          // only ever true if the owner marked it as worn
+                // when the activity was last saved on this outfit (orders the Activity dropdown); older plans have none
+                ...(Number.isFinite(o.labelAt) ? { labelAt: o.labelAt } : {})
             }));
         }
         if (Array.isArray(data.itemIds) && data.itemIds.length) {
@@ -129,7 +131,8 @@ const Store = {
             label: String(o.label || '').trim().slice(0, 40),
             itemIds: [...new Set(o.itemIds)],
             ...(o.flagsOff ? { flagsOff: true } : {}),
-            ...(o.worn ? { worn: true } : {})
+            ...(o.worn ? { worn: true } : {}),
+            ...(o.label && Number.isFinite(o.labelAt) ? { labelAt: o.labelAt } : {})
         }));
         await dbFns.setDoc(await this._doc('schedule', dateKey), {
             outfits: clean,

@@ -533,6 +533,66 @@
 
 .outfit-label:focus { border-color: var(--primary); background: #fff; }
 
+/* The Activity dropdown: the field, a visible arrow, and a list of the person's own activities */
+.activity-combo { position: relative; flex: 1; min-width: 160px; }
+.activity-combo .outfit-label { width: 100%; min-width: 0; padding-right: 44px; }
+.activity-arrow {
+    position: absolute;
+    right: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.activity-arrow:hover { background: #f1e6dd; }
+.activity-chevron {
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--primary);
+    border-bottom: 2px solid var(--primary);
+    transform: rotate(45deg) translate(-2px, -2px);
+    transition: transform 0.15s;
+}
+.activity-arrow[aria-expanded="true"] .activity-chevron { transform: rotate(225deg) translate(-2px, -2px); }
+
+.activity-popup {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 20;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+    padding: 4px;
+}
+.activity-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; }
+.activity-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 42px;               /* a comfortable touch target */
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    cursor: pointer;
+}
+.activity-option-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-option.is-active { background: #faf3ee; }
+.activity-option.is-selected { font-weight: 700; color: var(--primary); }
+.activity-option.is-new { color: var(--accent-pink); font-weight: 600; }
+.activity-tick { flex: none; color: var(--primary); font-weight: 700; }
+.activity-hint { margin: 0; padding: 10px 12px; font-size: 0.82rem; line-height: 1.4; color: var(--text-muted); }
+
 .outfit-auto-label {
     font-size: 0.7rem;
     font-weight: 600;
