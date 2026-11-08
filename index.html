@@ -98,6 +98,11 @@
                         <span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span>
                     </div>
                     <div id="month-grid" class="month-grid"></div>
+                    <!-- One quiet line explaining empty weather spots; shown only when some visible day has no forecast. -->
+                    <p id="weather-legend" class="weather-legend hidden" role="status">
+                        <span id="weather-legend-text"></span>
+                        <button id="weather-retry-btn" class="link-btn hidden" type="button">Try again</button>
+                    </p>
                 </div>
 
                 <aside class="planning-panel">
@@ -105,6 +110,10 @@
                     <p class="eyebrow">PLANNING</p>
                     <h2 id="planning-date">&mdash;</h2>
                     <p id="planning-weather" class="planning-weather"></p>
+                    <p id="planning-weather-note" class="planning-weather-note hidden" role="status">
+                        <span id="planning-weather-note-text"></span>
+                        <button id="planning-weather-retry" class="link-btn hidden" type="button">Try again</button>
+                    </p>
                     <p id="planning-holiday" class="planning-holiday hidden"></p>
 
                     <div id="planning-items" class="planning-items"></div>
@@ -499,6 +508,7 @@
     <script src="js/auth.js"></script>
     <script src="js/geolocation.js"></script>
     <script src="js/weather.js"></script>
+    <script src="js/weather-status.js"></script>
     <script src="js/holidays.js"></script>
     <script src="js/calendars.js"></script>
     <script src="js/view-range.js"></script>

@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('next-month-btn').addEventListener('click', () => stepView(1));
     document.getElementById('today-btn').addEventListener('click', goToToday);
     document.getElementById('apply-undo-btn').addEventListener('click', undoApply);
+    document.getElementById('weather-retry-btn').addEventListener('click', retryWeather);
+    document.getElementById('planning-weather-retry').addEventListener('click', retryWeather);
+    document.addEventListener('weather-status', () => renderCalendar());   // loading / loaded / failed
     scheduleMidnightRefresh();
     // The planning panel is a popup: close with the button, a click outside, or Esc.
     document.getElementById('back-to-calendar-btn').addEventListener('click', closePlanningPopup);
@@ -355,7 +358,10 @@ function renderCalendarGrid() {
         const isCurrentMonth = viewMode !== 'month' || cellDate.getMonth() === anchorDate.getMonth();
         const holidayInfo = prefs.hebrewCalendarEnabled ? getHolidayInfo(cellDate, location, holidayMaps) : undefined;
         const holidayTitles = prefs.hebrewCalendarEnabled ? holidayTitlesFor(cellDate, holidayInfo) : [];
-        const weather = weatherMap[dateKey];
+        // A forecast only for days it really covers (today and the next 15). Never for a past
+        // day (even a stale saved one) and never made up; why a day has none is explained
+        // by the legend under the calendar and by the day's own popup.
+        const weather = prefs.weatherEnabled ? weatherFor(dateKey, weatherMap, todayKey).forecast : null;
         const extra = extraCalendarNotes(cellDate, prefs, location);   // public / Christian / Hijri
 
         const cell = document.createElement('div');
@@ -420,6 +426,34 @@ function renderCalendarGrid() {
         cell.appendChild(buildCellItems(plannerOutfits[dateKey] || [], closetById, prefs.showOutfitPhotos));
         grid.appendChild(cell);
     }
+    renderWeatherLegend(prefs.weatherEnabled, dates, weatherMap, todayKey);
+}
+
+// --- Weather: what to show for a day, and why there's sometimes nothing (js/weather-status.js) ---
+
+// { avail, forecast }: why a day has or hasn't got weather, and the forecast itself when it does.
+function weatherFor(dateKey, weatherMap, todayKey) {
+    const avail = weatherAvailability({ dateKey, todayKey, hasForecast: !!weatherMap[dateKey], status: Weather.status });
+    return { avail, forecast: avail.kind === 'available' ? weatherMap[dateKey] : null };
+}
+
+// The one quiet line under the calendar. Shown only when some visible day has no forecast
+// (past, too far ahead, still loading, or the request failed), and only if weather is on.
+function renderWeatherLegend(enabled, dates, weatherMap, todayKey) {
+    const box = document.getElementById('weather-legend');
+    if (!box) return;
+    const legend = enabled
+        ? weatherLegend({ visibleKeys: dates.map(isoDateKey), todayKey, hasForecastFor: k => !!weatherMap[k], status: Weather.status })
+        : null;
+    box.classList.toggle('hidden', !legend);
+    box.classList.toggle('is-error', !!legend && legend.retry);
+    document.getElementById('weather-legend-text').textContent = legend ? legend.text : '';
+    document.getElementById('weather-retry-btn').classList.toggle('hidden', !(legend && legend.retry));
+}
+
+// "Try again" after a failed forecast request. The calendar redraws as the request starts and ends.
+function retryWeather() {
+    return Weather.refresh(Location.get());
 }
 
 function computeGapDays(itemId, excludeDateKey) {
@@ -903,9 +937,27 @@ function renderPlanningPanel() {
 
     dateHeading.textContent = `${WEEKDAY_NAMES[selectedDate.getDay()]}, ${MONTH_NAMES[selectedDate.getMonth()]} ${selectedDate.getDate()}`;
 
-    const weather = weatherMap[selectedDateKey];
+    // The forecast for this day, or (when weather is on) a short note saying why there isn't one:
+    // a past date, too far ahead ("not available yet", which isn't an error), still loading,
+    // or the request failed (with Try again). If the last refresh failed but an earlier
+    // forecast is on hand, it's shown with a note saying how old it is.
+    const { avail, forecast: weather } = weatherFor(selectedDateKey, weatherMap, isoDateKey(new Date()));
     weatherLine.textContent = weather ? `${weatherInfo(weather.code).icon} ${formatTemp(weather.high, true)} · ${weatherInfo(weather.code).label}` : '';
     weatherLine.classList.toggle('hidden', !weather);
+
+    let noteText = '';
+    if (prefs.weatherEnabled) {
+        if (avail.kind !== 'available') noteText = avail.text;
+        else if (avail.stale) {
+            const fetchedAt = Weather.getFetchedAt(location);
+            noteText = `Couldn’t refresh the forecast. This one was loaded ${describeAge(fetchedAt ? Date.now() - fetchedAt : NaN)}.`;
+        }
+    }
+    const note = document.getElementById('planning-weather-note');
+    note.classList.toggle('hidden', !noteText);
+    note.classList.toggle('is-error', avail.kind === 'failed' || !!avail.stale);
+    document.getElementById('planning-weather-note-text').textContent = noteText;
+    document.getElementById('planning-weather-retry').classList.toggle('hidden', !(noteText && (avail.kind === 'failed' || avail.stale)));
 
     // Holiday + candle-lighting for the selected day (the calendar cells
     // are too small on phones to show them).

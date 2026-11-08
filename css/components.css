@@ -165,6 +165,13 @@
     gap: 6px;
 }
 
+/* Weather: one quiet line under the calendar explaining empty spots, and a note in a day's popup */
+.weather-legend { margin: 10px 2px 0; font-size: 0.78rem; line-height: 1.4; color: var(--text-muted); }
+.weather-legend.is-error { color: #9a3b3b; font-weight: 600; }
+.weather-legend .link-btn, .planning-weather-note .link-btn { font-size: inherit; font-weight: 700; color: inherit; margin-left: 6px; padding: 8px 6px; }   /* roomy enough to tap */
+.planning-weather-note { margin: -6px 0 12px; font-size: 0.8rem; line-height: 1.4; color: var(--text-muted); }
+.planning-weather-note.is-error { color: #9a3b3b; font-weight: 600; }
+
 /* Text for screen readers only */
 .sr-only {
     position: absolute;

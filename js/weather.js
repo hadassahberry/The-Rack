@@ -61,15 +61,36 @@ function formatTemp(valueF, withUnit = false) {
 }
 
 const Weather = {
+    // How the most recent request went: 'idle' (none yet) | 'loading' | 'ok' | 'failed'.
+    // The calendar uses it to tell "still loading" and "couldn't load" apart from days the
+    // forecast simply doesn't cover (js/weather-status.js). Changes are announced with a
+    // 'weather-status' event so the calendar can redraw.
+    status: 'idle',
+
+    _setStatus(status) {
+        this.status = status;
+        document.dispatchEvent(new Event('weather-status'));
+    },
+
     getForecastMap(location) {
         const loc = location || Location.get();
         return Store.getCache(`weather_${loc.lat}_${loc.lon}`) || {};
     },
 
+    // When the saved forecast was last fetched (ms), or null if unknown.
+    getFetchedAt(location) {
+        const loc = location || Location.get();
+        const meta = Store.getCache(`weather_meta_${loc.lat}_${loc.lon}`);
+        return meta && Number.isFinite(meta.fetchedAt) ? meta.fetchedAt : null;
+    },
+
     async refresh(location) {
+        this._setStatus('loading');
         try {
             const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&daily=temperature_2m_max,temperature_2m_min,weathercode&temperature_unit=fahrenheit&timezone=auto&forecast_days=16`);
+            if (!res.ok) throw new Error(`Weather request failed (${res.status})`);
             const data = await res.json();
+            if (!data || !data.daily || !Array.isArray(data.daily.time)) throw new Error('Weather response was not what was expected');
 
             if (data.timezone && data.timezone !== location.tzid) {
                 Store.saveLocation({ ...location, tzid: data.timezone });
@@ -83,9 +104,13 @@ const Weather = {
             });
 
             Store.saveCache(`weather_${location.lat}_${location.lon}`, map);
+            Store.saveCache(`weather_meta_${location.lat}_${location.lon}`, { fetchedAt: Date.now() });
+            this._setStatus('ok');
             return map;
-        } catch {
-            return this.getForecastMap(location);
+        } catch (err) {
+            console.warn('Weather could not be loaded:', err && err.message);
+            this._setStatus('failed');
+            return this.getForecastMap(location);       // whatever was saved before, if anything
         }
     }
 };
