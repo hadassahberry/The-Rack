@@ -239,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-close-btn').addEventListener('click', requestCloseEditModal);
     document.getElementById('delete-item-btn').addEventListener('click', deleteEditingItem);
 
+    watchCardGrid();
     document.querySelectorAll('.build-trigger').forEach(btn => btn.addEventListener('click', () => setBuildMode(true)));
     document.getElementById('build-done-btn').addEventListener('click', requestExitBuildMode);
     document.getElementById('save-outfit-btn').addEventListener('click', saveOutfitFromBuilder);
@@ -289,6 +290,7 @@ function renderCloset() {
                     <span class="color-dot" style="background:${item.color || '#ccc'}"></span>
                     <span class="closet-card-name">${escapeHtml(item.name)}</span>
                 </div>
+                <button type="button" class="name-more hidden" tabindex="-1" aria-hidden="true">Show full name</button>
                 <div class="tags-row">
                     ${buildMode ? `<span class="badge badge-category">${escapeHtml(item.category)}</span>` : ''}
                     <span class="badge">${item.occasion}</span>
@@ -298,6 +300,16 @@ function renderCloset() {
             </div>
         `;
         card.tabIndex = 0;
+        // "Show full name": reads a long name in place. It only ever appears for a name that is
+        // actually cut off. It is a sighted-user aid (hidden from screen readers and the Tab
+        // order) because the card's own label already gives them the full name. Pressing it never
+        // opens the editor or toggles the selection.
+        const more = card.querySelector('.name-more');
+        more.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = card.classList.toggle('name-expanded');
+            more.textContent = open ? 'Show less' : 'Show full name';
+        });
         if (buildMode) {
             // Building an outfit: the card is a checkbox. Tapping, Space or Enter selects it.
             card.classList.add('selectable');
@@ -320,6 +332,31 @@ function renderCloset() {
         }
         grid.appendChild(card);
     });
+    updateNameOverflow();
+}
+
+// Shows "Show full name" on exactly those cards whose name is cut off at two lines
+// (or already expanded, so it can be closed). The sizes only exist while the Closet tab
+// is showing, so this also re-runs whenever the card grid changes size or appears
+// (window resized, phone turned, tab opened): see watchCardGrid.
+function updateNameOverflow() {
+    document.querySelectorAll('#full-closet-grid .closet-card').forEach(card => {
+        const name = card.querySelector('.closet-card-name');
+        const more = card.querySelector('.name-more');
+        if (!name || !more) return;
+        const cutOff = name.scrollHeight > name.clientHeight + 1;
+        more.classList.toggle('hidden', !(cutOff || card.classList.contains('name-expanded')));
+    });
+}
+function watchCardGrid() {
+    const grid = document.getElementById('full-closet-grid');
+    if (!grid) return;
+    if (window.ResizeObserver) {
+        new ResizeObserver(() => updateNameOverflow()).observe(grid);
+    } else {
+        let timer = null;
+        window.addEventListener('resize', () => { clearTimeout(timer); timer = setTimeout(updateNameOverflow, 120); });
+    }
 }
 
 function updateTagQueueUI() {

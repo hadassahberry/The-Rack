@@ -809,17 +809,41 @@
 
 .closet-card-header-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;        /* the color dot lines up with the first line of a two-line name */
     gap: 6px;
 }
+.closet-card-header-row .color-dot { margin-top: 4px; }
 
+/* Names get two lines before they're cut off (long unbroken words are broken too).
+   If a name is still cut off, a "Show full name" link on the card opens the rest in place. */
 .closet-card-name {
     font-size: 0.85rem;
     font-weight: 600;
-    white-space: nowrap;
+    line-height: 1.3;
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    flex-grow: 1;
+}
+.closet-card.name-expanded .closet-card-name {
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: visible;
+}
+.name-more {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    padding: 4px 0 2px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: underline;
+    cursor: pointer;
 }
 
 .tags-row {
@@ -950,14 +974,6 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 .closet-card.selected .select-mark { background: var(--accent-pink); border-color: var(--accent-pink); color: #fff; }
-.is-building .closet-card-name {
-    white-space: normal;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    overflow-wrap: anywhere;
-}
 .badge-category { background: #e6dcf3; color: #5b4a86; font-weight: 600; text-transform: capitalize; }
 
 .saved-outfits-list {
