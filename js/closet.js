@@ -76,7 +76,11 @@ async function addImageFiles(files) {
     for (const file of files) {
         try {
             const image = await compressImage(file);
-            const fullName = file.name.replace(/\.[^.]+$/, '');
+            // The item's name comes from the file's name: extension removed, underscores turned into
+            // spaces, Each Word Capitalized (js/item-name.js), and kept IN FULL. How much of it a card
+            // shows is the card's business (it wraps and clamps, with a "Show full name" link); the
+            // stored name is never shortened. 'Item' only when the file name leaves nothing.
+            const fullName = nameFromFilename(file.name);
             const color = await pickItemColor(fullName, image);
             // A guess from the name (e.g. "...skirt" -> bottoms), or the old default of tops when
             // the name gives nothing to go on. Either way the item stays "needs tagging": the
@@ -84,7 +88,7 @@ async function addImageFiles(files) {
             const guessed = guessCategory(fullName);
             await Store.addClosetItem({
                 id: 'item_' + Date.now() + Math.random().toString(36).substr(2, 5),
-                name: fullName.substring(0, 20) || 'Item',
+                name: fullName,
                 category: guessed || 'tops', occasion: 'casual', season: 'all-season',
                 color, tagged: false,
                 ...(guessed ? { categoryGuess: 'name' } : {}),
