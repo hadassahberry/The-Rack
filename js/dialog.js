@@ -95,7 +95,9 @@ const ModalDialogs = (function () {
         entry.inerted.forEach(e => { e.inert = false; });
 
         if (i !== stack.length) return;          // it wasn't the top window: nothing to hand focus back to
-        const usable = (e) => e && e.isConnected && isVisible(e) && !e.closest('[inert]') && typeof e.focus === 'function';
+        // The page body is not somewhere to hand focus back to (that is what "nothing had focus" looks like,
+        // e.g. in Safari, which doesn't focus a button when it is clicked): use the fallback instead.
+        const usable = (e) => e && e !== document.body && e !== document.documentElement && e.isConnected && isVisible(e) && !e.closest('[inert]') && typeof e.focus === 'function';
         const back = [entry.trigger, entry.returnTo && entry.returnTo()].find(usable);
         if (back) back.focus({ preventScroll: true });
         else if (stack.length) {                 // fall back to the window underneath

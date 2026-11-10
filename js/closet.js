@@ -233,6 +233,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.matchMedia('(pointer: coarse)').matches) itemCamera.click();
         else openWebcam();
     });
+    // "Add from a link" only appears once the server function behind it is set up (js/features.js).
+    const linkBtn = document.getElementById('menu-link-btn');
+    if (featureEnabled('linkImport')) linkBtn.classList.remove('hidden');
+    linkBtn.addEventListener('click', () => { setAddMenuOpen(false); LinkImport.open(); });
     document.getElementById('camera-capture-btn').addEventListener('click', captureWebcamPhoto);
     document.getElementById('camera-cancel-btn').addEventListener('click', closeWebcam);
 
@@ -410,6 +414,14 @@ function openEditModal(itemId) {
 
     document.getElementById('modal-name').value = item.name;
     document.getElementById('modal-img').alt = `Photo of ${item.name}`;      // not a generic "preview": say which piece it is
+    // Where an item added from a link came from (only ever a plain http(s) address).
+    const sourceLink = document.getElementById('modal-source-link');
+    const hasSource = typeof item.sourceUrl === 'string' && /^https?:\/\//i.test(item.sourceUrl);
+    document.getElementById('modal-source').classList.toggle('hidden', !hasSource);
+    if (hasSource) {
+        sourceLink.href = item.sourceUrl;
+        try { sourceLink.textContent = new URL(item.sourceUrl).hostname.replace(/^www\./, ''); } catch (e) { sourceLink.textContent = 'the store'; }
+    }
     // For an item that hasn't been tagged yet the Category field starts as a SUGGESTION (a guess
     // from the name, or the category just confirmed on the previous item), and says so. Nothing is
     // saved until the owner presses Save; Cancel leaves the item exactly as it was.

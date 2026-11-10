@@ -66,6 +66,8 @@
                 <div id="add-menu-list" class="add-menu-list hidden" role="menu">
                     <button id="menu-upload-btn" type="button" role="menuitem">Upload a photo</button>
                     <button id="menu-camera-btn" type="button" role="menuitem">Take a photo</button>
+                    <!-- Hidden until the server function behind it is set up (js/features.js, functions/README.md). -->
+                    <button id="menu-link-btn" type="button" role="menuitem" class="hidden">Add from a link</button>
                 </div>
             </div>
             <input type="file" id="item-upload" accept="image/*" multiple style="display: none;">
@@ -433,6 +435,66 @@
         </div>
     </div>
 
+    <!-- Add from a link (js/link-import.js) -->
+    <div id="link-import-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="link-import-title">
+        <div class="modal-content link-import-content">
+            <div class="modal-header-row">
+                <h3 id="link-import-title">Add from a link</h3>
+                <button type="button" id="link-import-close-btn" class="modal-close-btn" aria-label="Close">&times;</button>
+            </div>
+            <form id="link-import-form" novalidate>
+                <label for="link-import-url">Web address of a product page</label>
+                <div class="link-import-row">
+                    <input type="text" id="link-import-url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://store.com/product/&hellip;" aria-describedby="link-import-hint">
+                    <button type="submit" id="link-import-find-btn" class="primary-btn">Find photos</button>
+                </div>
+            </form>
+            <p id="link-import-hint" class="setting-hint">It works with many stores, not all. You choose which photo to keep.</p>
+            <div id="link-import-status" class="link-import-status" role="status" aria-live="polite"></div>
+            <div id="link-import-error" class="auth-error hidden" role="alert"></div>
+
+            <div id="link-import-details" class="hidden">
+                <fieldset class="link-import-photos">
+                    <legend>Choose the photo to use</legend>
+                    <div id="link-import-candidates" class="link-import-grid"></div>
+                    <button type="button" id="link-import-upload-btn" class="secondary-btn">Upload a photo instead</button>
+                    <input type="file" id="link-import-file" accept="image/*" class="hidden">
+                </fieldset>
+                <label for="link-import-name">Name</label>
+                <input type="text" id="link-import-name">
+                <label for="link-import-category">Category</label>
+                <select id="link-import-category">
+                    <option value="tops">Tops</option>
+                    <option value="bottoms">Bottoms</option>
+                    <option value="outerwear">Outerwear</option>
+                    <option value="shoes">Shoes</option>
+                    <option value="dresses">Dresses</option>
+                    <option value="accessories">Accessories</option>
+                </select>
+                <p id="link-import-category-note" class="category-note hidden" role="status"></p>
+                <label for="link-import-occasion">Occasion</label>
+                <select id="link-import-occasion">
+                    <option value="casual">Casual</option>
+                    <option value="work">Work / Professional</option>
+                    <option value="formal">Formal / Evening</option>
+                    <option value="workout">Workout / Active</option>
+                </select>
+                <label for="link-import-season">Season</label>
+                <select id="link-import-season">
+                    <option value="all-season">All-Season</option>
+                    <option value="summer">Summer</option>
+                    <option value="winter">Winter</option>
+                </select>
+                <p id="link-import-source" class="setting-hint link-import-source hidden">Link kept with the item: <a id="link-import-source-link" target="_blank" rel="noopener noreferrer"></a></p>
+                <p id="link-import-dup" class="category-note hidden"></p>
+                <div class="modal-actions">
+                    <button type="button" id="link-import-save-btn" class="primary-btn">Add to closet</button>
+                    <button type="button" id="link-import-cancel-btn" class="secondary-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Edit Modal -->
     <div id="edit-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
         <div class="modal-content">
@@ -478,6 +540,8 @@
             </select>
             <label for="modal-color">Color:</label>
             <input type="color" id="modal-color" value="#cccccc">
+            <!-- Only for items added from a link: where it came from. -->
+            <p id="modal-source" class="setting-hint hidden">Added from: <a id="modal-source-link" target="_blank" rel="noopener noreferrer"></a></p>
             <div class="modal-actions">
                 <button id="save-item-btn" class="primary-btn" type="button">Save</button>
                 <button id="cancel-item-btn" class="secondary-btn" type="button">Cancel</button>
@@ -503,6 +567,9 @@
         </div>
     </div>
 
+    <!-- Says out loud (to screen readers) what just happened when a window closes behind it, e.g. "Added ... to your closet." -->
+    <div id="app-announcer" class="sr-only" role="status" aria-live="polite"></div>
+
     <!-- Firebase (ES module — publishes window.Firebase + 'firebase-ready') -->
     <script type="module" src="js/firebase-init.js"
             onerror="window.firebaseFailed = true; window.dispatchEvent(new Event('firebase-failed'));"></script>
@@ -524,8 +591,10 @@
     <script src="js/photo-frame.js"></script>
     <script src="js/dialog.js"></script>
     <script src="js/confirm.js"></script>
+    <script src="js/features.js"></script>
     <script src="js/item-name.js"></script>
     <script src="js/category-guess.js"></script>
+    <script src="js/link-import.js"></script>
     <script src="js/closet.js"></script>
     <script src="js/analytics.js"></script>
     <script src="js/calendar-access.js"></script>

@@ -54,6 +54,47 @@ function nameFromFilename(fileName, fallback = 'Item') {
     return cleanItemName(stripFileExtension(fileName)) || fallback;
 }
 
+// ---- Names from a product page (the "Add from a link" import) ----------------------------------
+
+const alnum = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+// The brand-ish part of a host name: "www.uniqlo.com" -> "uniqlo", "shop.example.co.uk" -> "example".
+function brandOfHost(host) {
+    const labels = String(host || '').toLowerCase().replace(/^www\d?\./, '').split('.').filter(Boolean);
+    if (labels.length < 2) return labels[0] || '';
+    const sld = ['co', 'com', 'org', 'net', 'ac', 'gov'].includes(labels[labels.length - 2]) && labels.length > 2 ? labels.length - 3 : labels.length - 2;
+    return labels[Math.max(sld, 0)];
+}
+
+// A page title usually ends with the store's name: "Womens Oxford Shirt | UNIQLO US",
+// "Navy Shirt – Example Co.". Removes that part and tidies the rest like any derived name.
+//   - a piece separated by " | " that is just a short tail is dropped even if we don't recognise it;
+//   - a piece separated by " - " / " – " / " — " / " · " is only dropped when it matches the store's
+//     name, its brand or its web address (so "Shirt - Navy" keeps its colour);
+//   - if that would leave nothing, the whole title is kept.
+// The result is only a suggestion: it fills the Name field, which the person can change.
+function nameFromProductTitle(title, { siteName = '', brand = '', host = '' } = {}) {
+    const whole = String(title == null ? '' : title).replace(/\s+/g, ' ').trim();
+    if (!whole) return '';
+    const known = [siteName, brand, brandOfHost(host)].map(alnum).filter(k => k.length >= 3);
+    const isStore = (piece) => { const p = alnum(piece); return p.length > 0 && known.some(k => p === k || p.includes(k) || (k.length >= 5 && k.includes(p) && p.length >= 4)); };
+
+    let pieces = whole.split(/\s+\|\s+|\s+[-–—·•]\s+/);
+    const piped = /\s\|\s/.test(whole);
+    if (pieces.length > 1) {
+        const kept = pieces.filter((p, i) => !(i > 0 && isStore(p)) && !(i === 0 && pieces.length > 1 && isStore(p) && pieces.some((q, j) => j > 0 && !isStore(q))));
+        pieces = kept.length ? kept : pieces;
+        if (piped && pieces.length > 1) {                                   // an unrecognised short tail after a pipe is a site name too
+            const first = pieces[0];
+            const tail = pieces.slice(1);
+            if (tail.every(t => t.split(' ').length <= 4)) pieces = [first];
+        }
+    }
+    // Put back exactly the separators that were between the pieces that stayed.
+    const result = pieces.length === 1 ? pieces[0] : pieces.join(' - ');
+    return cleanItemName(result.replace(/[®™©]/g, '')) || cleanItemName(whole.replace(/[®™©]/g, ''));
+}
+
 if (typeof module !== 'undefined') {
-    module.exports = { stripFileExtension, cleanItemName, nameFromFilename };
+    module.exports = { stripFileExtension, cleanItemName, nameFromFilename, nameFromProductTitle, brandOfHost };
 }
