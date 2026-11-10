@@ -16,6 +16,23 @@ let plannerOutfits = {};     // { 'YYYY-MM-DD': [{ id, label, itemIds, flagsOff 
 let plannerSchedule = {};    // { 'YYYY-MM-DD': [itemIds] } — the same days flattened (calendar cells, gap tags, "planned")
 let plannerSavedOutfits = [];
 
+// ---- Saving feedback (js/save-state.js) ----
+// Plans save as you go. The line in the day popup (and, when the popup is closed, the one above the
+// calendar) says Saving… / Saved / Couldn’t save – try again. A day whose save failed stays as the person
+// left it on screen, and "try again" writes that same plan again.
+let unsavedDays = {};        // { 'YYYY-MM-DD': [outfits] } — failed saves, shown (and retried) until one succeeds
+let planSaveState = { status: 'idle', slow: false, failedCount: 0 };
+let planSaveViews = null;
+const planSaves = createSaveTracker({ onChange: (state) => { planSaveState = state; renderPlanSaveStatus(); } });
+warnBeforeLeavingWhileSaving(planSaves);
+
+function renderPlanSaveStatus() {
+    if (!planSaveViews) return;
+    const popupOpen = document.body.classList.contains('planning-open');
+    planSaveViews.panel.render(planSaveState);
+    planSaveViews.page.render(popupOpen ? { status: 'idle' } : planSaveState);     // one visible line at a time
+}
+
 function isoDateKey(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
@@ -36,6 +53,10 @@ document.addEventListener('DOMContentLoaded', () => {
         calendarFocusKey = day.dataset.date;
         dayGrid.querySelectorAll('.month-cell').forEach(c => { c.tabIndex = c === day ? 0 : -1; });
     });
+    planSaveViews = {
+        panel: createSaveStatusView(document.getElementById('plan-save-status'), { onRetry: () => planSaves.retryFailed() }),
+        page: createSaveStatusView(document.getElementById('calendar-save-status'), { onRetry: () => planSaves.retryFailed() })
+    };
     document.getElementById('apply-undo-btn').addEventListener('click', undoApply);
     document.getElementById('weather-retry-btn').addEventListener('click', retryWeather);
     document.getElementById('planning-weather-retry').addEventListener('click', retryWeather);
@@ -66,7 +87,11 @@ function initCalendarLiveData() {
     Store.onClosetChange((closet) => { plannerCloset = closet; renderCalendar(); });
     Store.onScheduleChange((byDate) => {
         plannerOutfits = byDate;
-        plannerSchedule = Store.flattenSchedule(byDate);
+        // A day whose save failed keeps what the person did (the server copy reverted) until it is saved.
+        for (const [date, outfits] of Object.entries(unsavedDays)) {
+            if (outfits.length) plannerOutfits[date] = outfits; else delete plannerOutfits[date];
+        }
+        plannerSchedule = Store.flattenSchedule(plannerOutfits);
         renderCalendar();
     });
     Store.onSavedOutfitsChange((outfits) => { plannerSavedOutfits = outfits; renderCalendar(); });
@@ -312,6 +337,7 @@ function openPlanningPopup() {
     renderApplyStatus();
     const panel = document.querySelector('.planning-panel');
     document.body.classList.add('planning-open');
+    renderPlanSaveStatus();
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'true');
     panel.setAttribute('aria-labelledby', 'planning-date');
@@ -335,6 +361,7 @@ function closePlanningPopup() {
     const wasOpen = document.body.classList.contains('planning-open');
     const panel = document.querySelector('.planning-panel');
     document.body.classList.remove('planning-open');
+    renderPlanSaveStatus();
     panel.removeAttribute('role');
     panel.removeAttribute('aria-modal');
     panel.removeAttribute('aria-labelledby');
@@ -620,7 +647,20 @@ function updateDay(dateKey, mutate) {
     if (next.length) plannerOutfits[dateKey] = next; else delete plannerOutfits[dateKey];
     plannerSchedule = Store.flattenSchedule(plannerOutfits);
     renderApplyStatus();      // any change to a day makes an earlier "Added…" notice (and its Undo) out of date, right away
-    return Store.setScheduleOutfits(dateKey, next).catch(console.error);
+    delete unsavedDays[dateKey];                 // this edit already builds on (and replaces) any earlier failed one for the day
+    // Saved only when the server has confirmed it. The same list is what "try again" writes, so a retry can
+    // neither lose the edit nor add a second copy (the day's document is replaced, not appended to).
+    return planSaves.run(dateKey, () => Store.setScheduleOutfits(dateKey, next), {
+        onOk: (latest) => { if (latest) delete unsavedDays[dateKey]; },
+        onFail: (err, latest) => {
+            console.error('Saving the plan failed', err);
+            if (!latest) return;                       // a newer edit to this day has replaced it
+            unsavedDays[dateKey] = next;
+            if (next.length) plannerOutfits[dateKey] = next; else delete plannerOutfits[dateKey];
+            plannerSchedule = Store.flattenSchedule(plannerOutfits);
+            renderCalendar();
+        }
+    });
 }
 
 // Shabbos (Saturdays) and Yom Tov count as activities on their own when the
@@ -845,7 +885,7 @@ function buildOutfitCard({ outfit, isActive, ctx, autoLabel, catById, chips }) {
         const link = document.createElement('button');
         link.type = 'button';
         link.className = 'link-btn flag-toggle';
-        link.textContent = outfit.flagsOff ? 'Repeat warnings are off for this outfit — turn them back on' : 'It\'s fine — hide warnings for this outfit';
+        link.textContent = outfit.flagsOff ? 'Repeat warnings are off for this outfit — turn them back on' : 'Don’t warn about repeats for this outfit.';
         link.addEventListener('click', () => {
             updateDay(selectedDateKey, outfits => {
                 const o = outfits.find(y => y.id === outfit.id);
@@ -873,7 +913,7 @@ function renderOutfitCards(prefs, location, labelOf) {
     if (outfits.length === 0) {
         const empty = document.createElement('p');
         empty.className = 'planning-empty';
-        empty.textContent = 'No outfit planned yet — add pieces below, or start an outfit to give it an activity.';
+        empty.textContent = 'Nothing planned yet. Add a piece below, or choose Add an outfit to start planning.';
         box.appendChild(empty);
     }
     outfits.forEach(outfit => {

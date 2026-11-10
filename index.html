@@ -37,8 +37,8 @@
             <div id="auth-error" class="auth-error hidden"></div>
             <input type="email" id="auth-email" placeholder="Email" autocomplete="email">
             <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
-            <button id="auth-signin-btn" class="primary-btn">Sign In</button>
-            <button id="auth-signup-btn" class="secondary-btn">Create Account</button>
+            <button id="auth-signin-btn" class="primary-btn">Sign in</button>
+            <button id="auth-signup-btn" class="secondary-btn">Create account</button>
             <button id="auth-google-btn" class="google-btn">Sign in with Google</button>
             <button id="auth-reset-btn" class="link-btn">Forgot password?</button>
             <p class="auth-legal"><a href="privacy.html">Privacy Policy</a></p>
@@ -60,7 +60,7 @@
         </nav>
 
         <div class="header-actions">
-            <button id="tag-queue-btn" class="tag-pill hidden">0 to tag</button>
+            <button id="tag-queue-btn" class="tag-pill hidden">0 items to tag</button>
             <div class="add-menu" id="add-menu">
                 <button id="add-clothes-btn" class="upload-btn" type="button" aria-haspopup="menu" aria-expanded="false">+ Add clothes &#9662;</button>
                 <div id="add-menu-list" class="add-menu-list hidden" role="menu">
@@ -108,6 +108,9 @@
                         </div>
                     </div>
 
+                    <!-- Plans save as you go; this shows the state of a save when the day popup is closed (js/save-state.js). -->
+                    <p id="calendar-save-status" class="save-status hidden" role="status" aria-live="polite"></p>
+
                     <div class="weekday-row">
                         <span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span>
                     </div>
@@ -124,7 +127,7 @@
 
                 <aside class="planning-panel">
                     <button id="back-to-calendar-btn" class="link-btn back-to-calendar" type="button">&times; Close</button>
-                    <p class="eyebrow">PLANNING</p>
+                    <p class="eyebrow">Planning</p>
                     <h2 id="planning-date">&mdash;</h2>
                     <p id="planning-weather" class="planning-weather"></p>
                     <p id="planning-weather-note" class="planning-weather-note hidden" role="status">
@@ -132,6 +135,8 @@
                         <button id="planning-weather-retry" class="link-btn hidden" type="button">Try again</button>
                     </p>
                     <p id="planning-holiday" class="planning-holiday hidden"></p>
+                    <!-- Saving... / Saved / Couldn't save - try again, for this day's plan (js/save-state.js). -->
+                    <p id="plan-save-status" class="save-status hidden" role="status" aria-live="polite"></p>
 
                     <div id="planning-items" class="planning-items"></div>
                     <button id="add-outfit-btn" class="link-btn add-outfit-btn" type="button">+ Add an outfit</button>
@@ -144,7 +149,7 @@
                         <button id="apply-undo-btn" class="link-btn" type="button">Undo</button>
                     </div>
 
-                    <h3 id="piece-picker-heading" class="panel-subhead">Add a single piece</h3>
+                    <h3 id="piece-picker-heading" class="panel-subhead">Add a piece</h3>
                     <div id="planning-category-tabs" class="category-tabs"></div>
                     <div id="planning-piece-grid" class="piece-grid" role="group" aria-labelledby="piece-picker-heading"></div>
                 </aside>
@@ -155,17 +160,20 @@
         <!-- Closet View -->
         <section id="closet-view" class="view-section">
             <div class="closet-header-actions">
-                <h2>Wardrobe Collection</h2>
+                <h2>Your closet</h2>
                 <div class="closet-header-controls">
                     <select id="season-filter" class="filter-dropdown" aria-label="Filter by season">
-                        <option value="all">All Seasons</option>
+                        <option value="all">All seasons</option>
                         <option value="summer">Summer</option>
                         <option value="winter">Winter</option>
-                        <option value="all-season">All-Season</option>
+                        <option value="all-season">All-season</option>
                     </select>
                     <button type="button" class="primary-btn build-trigger" aria-controls="build-bar" aria-expanded="false">Build an outfit</button>
                 </div>
             </div>
+
+            <!-- Where an item edit is still saving, or failed, after its window was closed (js/save-state.js). -->
+            <p id="closet-save-status" class="save-status hidden" role="status" aria-live="polite"></p>
 
             <div class="category-tabs" id="category-tabs">
                 <button class="tab-btn active" data-category="all">All</button>
@@ -200,20 +208,20 @@
             <div id="full-closet-grid" class="full-closet-grid"></div>
 
             <div class="saved-header-row">
-                <h2 class="section-subhead-lg">Saved Outfits</h2>
+                <h2 class="section-subhead-lg">Saved outfits</h2>
                 <button type="button" class="secondary-btn build-trigger" aria-controls="build-bar" aria-expanded="false">Build an outfit</button>
             </div>
             <div id="saved-outfits-list" class="saved-outfits-list"></div>
         </section>
 
-        <!-- Analytics / Wear Stats View -->
+        <!-- Analytics / Wear stats view -->
         <section id="analytics-view" class="view-section">
-            <h2>Wear Stats</h2>
+            <h2>Wear stats</h2>
             <p class="setting-hint">Only outfits you mark as worn count here. Planning an outfit doesn't.</p>
             <div class="stats-grid">
                 <div class="stat-card">
                     <span id="stat-total-items" class="stat-number">0</span>
-                    <span class="stat-label">Total Closet Items</span>
+                    <span class="stat-label">Total closet items</span>
                 </div>
                 <div class="stat-card">
                     <span id="stat-total-wears" class="stat-number">0</span>
@@ -221,11 +229,11 @@
                 </div>
                 <div class="stat-card">
                     <span id="stat-planned" class="stat-number">0</span>
-                    <span class="stat-label">Outfits Planned Ahead</span>
+                    <span class="stat-label">Outfits planned ahead</span>
                 </div>
                 <div class="stat-card">
-                    <span id="stat-top-category" class="stat-number">&mdash;</span>
-                    <span class="stat-label">Top Category Worn</span>
+                    <span id="stat-top-category" class="stat-number">None yet</span>
+                    <span class="stat-label">Top category worn</span>
                 </div>
             </div>
 
@@ -234,7 +242,7 @@
                 <button id="wear-mark-past-btn" class="secondary-btn" type="button">Mark them as worn</button>
             </div>
 
-            <h3 class="section-subhead">Most Worn Pieces</h3>
+            <h3 class="section-subhead">Most worn pieces</h3>
             <div id="analytics-most-worn" class="analytics-worn-grid"></div>
         </section>
 
@@ -242,6 +250,8 @@
         <section id="settings-view" class="view-section">
             <div class="settings-page">
                 <h2>Settings</h2>
+                <!-- Settings save as you change them: Saving... / Saved / Couldn't save - try again. -->
+                <p id="settings-save-status" class="save-status settings-save-status hidden" role="status" aria-live="polite"></p>
 
                 <div class="settings-card" id="help-card">
                     <h3>How to use The Rack</h3>
@@ -297,7 +307,7 @@
                     <label class="setting-row" for="pref-hijri">
                         <span class="setting-text">
                             <strong>Islamic (Hijri) calendar</strong>
-                            <small id="hijri-hint">The Hijri date on each day, plus Ramadan, Eid and other important dates. A date can differ by a day depending on moon sighting.</small>
+                            <small id="hijri-hint">The Hijri date on each day, plus Ramadan, Eid and other important dates. Dates can vary by a day depending on moon sighting.</small>
                         </span>
                         <input type="checkbox" id="pref-hijri" class="switch" role="switch">
                     </label>
@@ -517,13 +527,13 @@
                 <label for="link-import-occasion">Occasion</label>
                 <select id="link-import-occasion">
                     <option value="casual">Casual</option>
-                    <option value="work">Work / Professional</option>
-                    <option value="formal">Formal / Evening</option>
-                    <option value="workout">Workout / Active</option>
+                    <option value="work">Work / professional</option>
+                    <option value="formal">Formal / evening</option>
+                    <option value="workout">Workout / active</option>
                 </select>
                 <label for="link-import-season">Season</label>
                 <select id="link-import-season">
-                    <option value="all-season">All-Season</option>
+                    <option value="all-season">All-season</option>
                     <option value="summer">Summer</option>
                     <option value="winter">Winter</option>
                 </select>
@@ -541,7 +551,7 @@
     <div id="edit-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
         <div class="modal-content">
             <div class="modal-header-row">
-                <h3 id="edit-modal-title">Edit Item Details</h3>
+                <h3 id="edit-modal-title">Edit item details</h3>
                 <button type="button" id="edit-close-btn" class="modal-close-btn" aria-label="Close without saving">&times;</button>
             </div>
             <!-- Choose what part of the photo shows: drag to move, zoom to focus on one piece. -->
@@ -554,9 +564,9 @@
                 <input type="range" id="crop-zoom" min="100" max="400" value="100" step="1">
             </div>
             <p class="setting-hint crop-hint">Drag the photo to choose what shows. Zoom in to focus on one piece, like just the shirt.</p>
-            <label for="modal-name">Item Name:</label>
+            <label for="modal-name">Item name</label>
             <input type="text" id="modal-name">
-            <label for="modal-category">Category:</label>
+            <label for="modal-category">Category</label>
             <select id="modal-category">
                 <option value="tops">Tops</option>
                 <option value="bottoms">Bottoms</option>
@@ -567,23 +577,24 @@
             </select>
             <!-- Says when the category shown is only a suggestion (guessed, remembered, or not chosen yet). -->
             <p id="modal-category-note" class="category-note hidden" role="status"></p>
-            <label for="modal-occasion">Occasion:</label>
+            <label for="modal-occasion">Occasion</label>
             <select id="modal-occasion">
                 <option value="casual">Casual</option>
-                <option value="work">Work / Professional</option>
-                <option value="formal">Formal / Evening</option>
-                <option value="workout">Workout / Active</option>
+                <option value="work">Work / professional</option>
+                <option value="formal">Formal / evening</option>
+                <option value="workout">Workout / active</option>
             </select>
-            <label for="modal-season">Season:</label>
+            <label for="modal-season">Season</label>
             <select id="modal-season">
-                <option value="all-season">All-Season</option>
+                <option value="all-season">All-season</option>
                 <option value="summer">Summer</option>
                 <option value="winter">Winter</option>
             </select>
-            <label for="modal-color">Color:</label>
+            <label for="modal-color">Color</label>
             <input type="color" id="modal-color" value="#cccccc">
             <!-- Only for items added from a link: where it came from. -->
             <p id="modal-source" class="setting-hint hidden">Added from: <a id="modal-source-link" target="_blank" rel="noopener noreferrer"></a></p>
+            <p id="edit-save-status" class="save-status hidden" role="status" aria-live="polite"></p>
             <div class="modal-actions">
                 <button id="save-item-btn" class="primary-btn" type="button">Save</button>
                 <button id="cancel-item-btn" class="secondary-btn" type="button">Cancel</button>
@@ -633,6 +644,7 @@
     <script src="js/photo-frame.js"></script>
     <script src="js/dialog.js"></script>
     <script src="js/confirm.js"></script>
+    <script src="js/save-state.js"></script>
     <script src="js/features.js"></script>
     <script src="js/help-content.js"></script>
     <script src="js/item-name.js"></script>

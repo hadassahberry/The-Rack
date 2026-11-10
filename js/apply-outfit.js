@@ -38,17 +38,17 @@ function describeApply(plan, savedName, outfit) {
     switch (plan.action) {
         case 'already':
             return plan.isActive
-                ? `Already planned: ${name} is already in this outfit. Nothing was changed.`
-                : `Already planned: ${name} is already in ${activity ? `your ${activity} outfit` : 'another outfit on this day'}. Nothing was changed.`;
+                ? `${name} is already planned here. Nothing changed.`
+                : `${name} is already planned here, in ${activity ? `your ${activity} outfit` : 'another outfit on this day'}. Nothing changed.`;
         case 'create':
             return `Added ${name} to this day.`;
         case 'fill':
             return `Added ${name} to your ${activity ? activity + ' ' : ''}outfit.`;
         case 'replace':
             return `Replaced the pieces in ${activity ? `your ${activity} outfit` : 'this outfit'} with ${name}.` +
-                (activity ? ` The activity ${activity} was kept.` : '');
+                (activity ? ` Kept the ${activity} activity.` : '');
         case 'add':
-            return `${activity ? `Your ${activity} outfit is` : 'This outfit is'} marked as worn, so it was left as it was. ${name} was added as another outfit.`;
+            return `${activity ? `Your ${activity} outfit is` : 'This outfit is'} marked as worn, so it was left unchanged. ${name} was added as another outfit.`;
         default:
             return '';
     }

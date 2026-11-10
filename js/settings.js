@@ -84,6 +84,24 @@ function syncSettingsUI(prefs) {
     renderCredits(prefs);
 }
 
+// ---- Saving feedback (js/save-state.js) ----
+// Each switch saves to the account the moment it changes. One line at the top of the page says
+// Saving… / Saved / Couldn’t save – try again; a failed switch is shown as the person set it and
+// "try again" saves that same choice again.
+const prefSaves = createSaveTracker({ onChange: (state) => { if (prefSaveView) prefSaveView.render(state); } });
+warnBeforeLeavingWhileSaving(prefSaves);
+let prefSaveView = null;
+
+function savePref(patch) {
+    const key = 'pref:' + Object.keys(patch).join(',');
+    return prefSaves.run(key, () => Store.savePrefs(patch), {
+        onFail: (err, latest) => {
+            console.error('Saving a setting failed', err);
+            if (latest) syncSettingsUI({ ...Store.getPrefs(), ...patch });      // keep showing what they chose
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const $ = (id) => document.getElementById(id);
     const status = $('location-status');
@@ -92,44 +110,45 @@ document.addEventListener('DOMContentLoaded', () => {
         status.classList.toggle('is-error', isError);
     };
 
+    prefSaveView = createSaveStatusView($('settings-save-status'), { onRetry: () => prefSaves.retryFailed() });
     syncSettingsUI(Store.getPrefs());
     setLocationField(Location.get());
 
     // Switches. The change is saved to the account; js/app.js reacts to it.
     $('pref-weather').addEventListener('change', (e) => {
-        Store.savePrefs({ weatherEnabled: e.target.checked }).catch(console.error);
+        savePref({ weatherEnabled: e.target.checked });
     });
     $('pref-hebrew').addEventListener('change', (e) => {
-        Store.savePrefs({ hebrewCalendarEnabled: e.target.checked }).catch(console.error);
+        savePref({ hebrewCalendarEnabled: e.target.checked });
     });
     $('pref-temp').addEventListener('change', (e) => {
-        Store.savePrefs({ tempUnit: e.target.value }).catch(console.error);
+        savePref({ tempUnit: e.target.value });
     });
     $('pref-weekstart').addEventListener('change', (e) => {
-        Store.savePrefs({ weekStart: e.target.value }).catch(console.error);
+        savePref({ weekStart: e.target.value });
     });
     $('pref-photos').addEventListener('change', (e) => {
-        Store.savePrefs({ showOutfitPhotos: e.target.checked }).catch(console.error);
+        savePref({ showOutfitPhotos: e.target.checked });
     });
     $('pref-public').addEventListener('change', (e) => {
-        Store.savePrefs({ publicHolidays: e.target.checked }).catch(console.error);
+        savePref({ publicHolidays: e.target.checked });
     });
     $('pref-christian').addEventListener('change', (e) => {
-        Store.savePrefs({ christianHolidays: e.target.checked }).catch(console.error);
+        savePref({ christianHolidays: e.target.checked });
     });
     $('pref-christian-style').addEventListener('change', (e) => {
-        Store.savePrefs({ christianStyle: e.target.value }).catch(console.error);
+        savePref({ christianStyle: e.target.value });
     });
     $('pref-hijri').addEventListener('change', (e) => {
-        Store.savePrefs({ hijriCalendar: e.target.checked }).catch(console.error);
+        savePref({ hijriCalendar: e.target.checked });
     });
 
     // Repeat warnings: switch, how many past times, and which categories count.
     $('pref-repeat').addEventListener('change', (e) => {
-        Store.savePrefs({ repeatWarnings: e.target.checked }).catch(console.error);
+        savePref({ repeatWarnings: e.target.checked });
     });
     $('pref-lookback').addEventListener('change', (e) => {
-        Store.savePrefs({ repeatLookBack: Number(e.target.value) }).catch(console.error);
+        savePref({ repeatLookBack: Number(e.target.value) });
     });
     const categoryBoxes = $('repeat-categories');
     CATEGORIES.forEach(cat => {
@@ -145,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     categoryBoxes.addEventListener('change', () => {
         const chosen = [...categoryBoxes.querySelectorAll('input:checked')].map(b => b.value);
-        Store.savePrefs({ repeatCategories: chosen }).catch(console.error);
+        savePref({ repeatCategories: chosen });
     });
     syncSettingsUI(Store.getPrefs());          // the category boxes now exist, so tick them
 

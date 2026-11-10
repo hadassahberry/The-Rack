@@ -32,7 +32,25 @@ let currentEditingItemId = null;
 let editFromTagQueue = false;
 let editSnapshot = null;          // the edit form as it was when opened, to tell if anything changed
 let lastTaggedCategory = null;    // the category confirmed on the last item tagged this session (suggested for the next one, never saved by itself)
-let editBusy = false;             // a save or delete is in progress
+let editSaving = false;           // the open edit window's Save is waiting for the server
+let editSession = 0;              // counts how many times the edit window has been opened, so a late answer can tell it is out of date
+let editSaveStarted = false;      // Save was pressed in the open edit window (so its status line shows that save)
+
+// ---- Saving feedback for item edits (js/save-state.js) ----
+// Save waits for the server to confirm before the window closes. If that fails the window stays open with
+// everything as typed and "Couldn’t save – try again"; if the connection is slow the window can be closed and
+// the same line continues above the closet.
+let closetSaveState = { status: 'idle', slow: false, failedCount: 0 };
+let closetSaveViews = null;
+const closetSaves = createSaveTracker({ onChange: (state) => { closetSaveState = state; renderClosetSaveStatus(); } });
+warnBeforeLeavingWhileSaving(closetSaves);
+
+function renderClosetSaveStatus() {
+    if (!closetSaveViews) return;
+    const modalOpen = !document.getElementById('edit-modal').classList.contains('hidden');
+    closetSaveViews.modal.render(modalOpen && editSaveStarted ? closetSaveState : { status: 'idle' });
+    closetSaveViews.page.render(modalOpen ? { status: 'idle' } : closetSaveState);
+}
 let outfitBuilderSelectedIds = [];
 let outfitBuilderBusy = false;
 let buildMode = false;            // "Build an outfit": tapping a card selects it instead of opening it
@@ -256,6 +274,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('modal-category').addEventListener('change', () => showCategoryNote({ text: '' }));
+    closetSaveViews = {
+        modal: createSaveStatusView(document.getElementById('edit-save-status'), { onRetry: () => saveEditModal() }),      // saves what is in the form now
+        page: createSaveStatusView(document.getElementById('closet-save-status'), { onRetry: () => closetSaves.retryFailed() })
+    };
     document.getElementById('save-item-btn').addEventListener('click', saveEditModal);
     document.getElementById('cancel-item-btn').addEventListener('click', requestCloseEditModal);
     document.getElementById('edit-close-btn').addEventListener('click', requestCloseEditModal);
@@ -395,7 +417,7 @@ function updateTagQueueUI() {
     const btn = document.getElementById('tag-queue-btn');
     if (!btn) return;
     const count = liveCloset.filter(i => !i.tagged).length;
-    btn.textContent = `${count} to tag`;
+    btn.textContent = `${pluralize(count, 'item')} to tag`;
     btn.classList.toggle('hidden', count === 0);
 }
 
@@ -432,7 +454,12 @@ function openEditModal(itemId) {
     document.getElementById('modal-season').value = item.season;
     document.getElementById('modal-color').value = item.color || '#cccccc';
 
+    editSession++;
+    editSaveStarted = false;
+    editSaving = false;
+    document.getElementById('save-item-btn').disabled = false;
     document.getElementById('edit-modal').classList.remove('hidden');
+    renderClosetSaveStatus();
     PhotoFrame.load(item);          // after the popup is visible: the frame needs a size
     editSnapshot = readEditForm();  // what "unchanged" means for this popup
     // Focus moves into the window (the name field; on a phone just the first control, so the
@@ -481,7 +508,7 @@ function isEditDirty() {
 // at once; unsaved changes ask before they're thrown away.
 async function requestCloseEditModal() {
     if (document.getElementById('edit-modal').classList.contains('hidden')) return;
-    if (isEditDirty()) {
+    if (isEditDirty() && !editSaving) {          // (a save in flight is not thrown away by closing)
         const discard = await confirmDialog({
             title: 'Discard your changes?',
             message: 'You changed this item but haven’t saved. If you close now, those changes are lost.',
@@ -500,10 +527,14 @@ function closeEditModal() {
     currentEditingItemId = null;
     editFromTagQueue = false;
     editSnapshot = null;
+    editSaving = false;
+    editSaveStarted = false;
+    document.getElementById('save-item-btn').disabled = false;
+    renderClosetSaveStatus();                       // anything still saving or failed continues above the closet
 }
 
 async function saveEditModal() {
-    if (!currentEditingItemId) return;
+    if (!currentEditingItemId || editSaving) return;
     const existing = liveCloset.find(i => i.id === currentEditingItemId);
     if (!existing) return;
 
@@ -517,13 +548,23 @@ async function saveEditModal() {
         ...(existing.categoryGuess ? { categoryGuess: null } : {}),   // saving confirms it: no longer a guess
         ...PhotoFrame.buildPatch()      // the framed picture, only if it was changed
     };
-    // Tagging an item remembers its category as the suggestion for the next untagged one.
-    if (!existing.tagged) lastTaggedCategory = patch.category;
-
     const id = currentEditingItemId;
     const wasTagQueue = editFromTagQueue;
+    const wasTagged = existing.tagged;
+    const session = editSession;
+    // The window stays open (with everything as typed) until the server confirms; Save can't be pressed twice meanwhile.
+    editSaving = true;
+    editSaveStarted = true;
+    document.getElementById('save-item-btn').disabled = true;
+    const op = () => Store.updateClosetItem(id, patch);       // one item document, merged: running it again changes nothing twice
+    const ok = await closetSaves.run('item:' + id, op, { onFail: (err) => console.error('Saving the item failed', err) });
+    if (editSession !== session || currentEditingItemId !== id) return;      // the window was closed (or moved on) while it saved: the line above the closet carries on
+    editSaving = false;
+    document.getElementById('save-item-btn').disabled = false;
+    if (!ok) return;                                          // stays open: "Couldn’t save – try again"; nothing typed is lost
+    // Tagging an item remembers its category as the suggestion for the next untagged one.
+    if (!wasTagged) lastTaggedCategory = patch.category;
     closeEditModal();
-    await Store.updateClosetItem(id, patch);
     if (wasTagQueue) openNextUntaggedItem();
 }
 
@@ -572,7 +613,7 @@ async function deleteEditingItem() {
     }
 }
 
-// --- Saved Outfits builder (Closet tab) ---
+// --- Saved outfits builder (Closet tab) ---
 
 // "Build an outfit" mode. The closet cards themselves become the picker: each shows
 // its name and a checkbox, tapping one selects it (it doesn't open the editor), and a
@@ -698,15 +739,24 @@ function renderBuildBar() {
     });
 }
 
-// The line under the pieces that says why Save Outfit didn't save, or that it did.
+// The line under the pieces that says why Save outfit didn't save, or that it did.
 // kind: 'error' | 'success' | '' (empty text hides it).
-function setBuilderMessage(text, kind = '') {
+function setBuilderMessage(text, kind = '', retry = null) {
     const el = document.getElementById('outfit-builder-message');
     if (!el) return;
     el.textContent = text;
     el.classList.toggle('hidden', !text);
     el.classList.toggle('is-error', kind === 'error');
     el.classList.toggle('is-success', kind === 'success');
+    if (retry) {                                    // "try again" after a failed save
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'link-btn save-status-retry';
+        btn.textContent = 'try again';
+        btn.setAttribute('aria-label', 'Try saving the outfit again');
+        btn.addEventListener('click', retry);
+        el.append(' ', btn);
+    }
     if (kind !== 'error') document.getElementById('outfit-name-input').removeAttribute('aria-invalid');
 }
 
@@ -717,6 +767,16 @@ function outfitBuilderProblem(name, pieceCount) {
     if (!name) return 'Give the outfit a name first.';
     return '';
 }
+
+// ---- Saving feedback for saved outfits (js/save-state.js) ----
+// "Saved" only appears once the server has confirmed the outfit (not the moment Save outfit is pressed).
+let lastBuilderOutfitName = '';
+const outfitSaves = createSaveTracker({ onChange: (state) => {
+    if (state.status === 'saving') setBuilderMessage(state.slow ? SAVE_TEXT.slow : `Saving “${lastBuilderOutfitName}”…`);
+    else if (state.status === 'saved') setBuilderMessage(`Saved “${lastBuilderOutfitName}”. Pick more pieces to build another outfit, or press Done.`, 'success');
+    else if (state.status === 'failed') setBuilderMessage('Couldn’t save the outfit –', 'error', () => outfitSaves.retryFailed());
+} });
+warnBeforeLeavingWhileSaving(outfitSaves);
 
 async function saveOutfitFromBuilder() {
     if (outfitBuilderBusy) return;
@@ -737,25 +797,31 @@ async function saveOutfitFromBuilder() {
     outfitBuilderBusy = true;
     const itemIds = [...outfitBuilderSelectedIds];
     const rawName = nameInput.value;
-    const saving = Store.addSavedOutfit({ id: 'outfit_' + Date.now(), name, itemIds });
+    // The id is fixed here, so "try again" overwrites this same saved outfit instead of adding a second one.
+    const outfit = { id: 'outfit_' + Date.now() + Math.random().toString(36).slice(2, 6), name, itemIds };
+    lastBuilderOutfitName = name;
+    const saving = outfitSaves.run(outfit.id, () => Store.addSavedOutfit(outfit));
     nameInput.value = '';
     outfitBuilderSelectedIds = [];
     renderCloset();
     renderBuildBar();
-    setBuilderMessage(`Saved “${name}”. Pick more pieces to build another outfit, or press Done.`, 'success');
     outfitBuilderBusy = false;
 
     // If the save fails, give the user their pieces and name back.
-    saving.catch(err => {
-        console.error('Saving an outfit failed', err);
+    saving.then(ok => {
+        if (ok) return;
+        console.error('Saving an outfit failed');
         if (!nameInput.value && outfitBuilderSelectedIds.length === 0) {
             setBuildMode(true);                  // (in case they pressed Done in the meantime)
             nameInput.value = rawName;
             outfitBuilderSelectedIds = itemIds;
             renderCloset();
             renderBuildBar();
+            // The pieces and name are back in the form, so pressing Save outfit IS the retry. The failed attempt is
+            // forgotten so a second "try again" can't save the same outfit twice.
+            outfitSaves.forget(outfit.id);
+            setBuilderMessage(`Couldn’t save “${name}”. Your pieces and the name are back – press Save outfit to try again.`, 'error');
         }
-        setBuilderMessage('Couldn’t save the outfit. Please try again.', 'error');
     });
 }
 

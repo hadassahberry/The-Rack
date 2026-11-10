@@ -506,11 +506,9 @@ button.month-cell {
 
 /* ---------- Planning panel ---------- */
 .eyebrow {
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
     color: var(--accent-pink);
-    text-transform: uppercase;
     margin-bottom: 4px;
 }
 
@@ -729,10 +727,8 @@ button.month-cell {
 }
 
 .panel-subhead {
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     color: var(--text-muted);
     margin: 16px 0 8px;
 }
@@ -1326,7 +1322,7 @@ button.piece-card {
 .confirm-details li { margin-bottom: 4px; }
 #confirm-modal .modal-actions button { flex: 1; padding: 10px; }
 
-/* Save Outfit: why it didn't save (or that it did) */
+/* Save outfit: why it didn't save (or that it did) */
 .builder-message { font-size: 0.85rem; line-height: 1.4; margin: 4px 0 0; }
 .builder-message.is-error { color: #c81e1e; font-weight: 600; }
 .builder-message.is-success { color: #2f6b3b; }
@@ -1560,10 +1556,8 @@ button.piece-card {
 }
 
 .settings-card h3 {
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
     color: var(--text-muted);
     margin-bottom: 10px;
 }
@@ -2021,3 +2015,12 @@ body.planning-open .planning-panel {
 @media (prefers-reduced-motion: no-preference) {
     .tour-spotlight { transition: left 0.2s ease, top 0.2s ease, width 0.2s ease, height 0.2s ease; }
 }
+
+/* Save state next to what autosaves: Saving... / Saved / Couldn't save - try again (js/save-state.js) */
+.save-status { margin: 6px 0; font-size: 0.85rem; line-height: 1.4; color: var(--text-muted); }
+.save-status[data-state="saved"] { color: #2f6b3b; }
+.save-status.is-error { color: #b42318; font-weight: 600; }
+.save-status .link-btn { font-size: inherit; font-weight: 700; color: inherit; text-decoration: underline; padding: 10px 6px; }
+.builder-message .save-status-retry { font-size: inherit; font-weight: 700; color: inherit; text-decoration: underline; padding: 10px 6px; }
+.settings-save-status { position: sticky; top: 0; z-index: 5; margin: 0 0 10px; padding: 6px 10px; border-radius: 8px; background: var(--bg-color); }
+.save-status.hidden { display: none; }

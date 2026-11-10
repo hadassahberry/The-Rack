@@ -63,7 +63,7 @@ async function renderAnalytics() {
     document.getElementById('stat-total-items').textContent = stats.totalItems;
     document.getElementById('stat-total-wears').textContent = stats.totalWears;
     document.getElementById('stat-planned').textContent = stats.plannedOutfits;
-    document.getElementById('stat-top-category').textContent = stats.topCategory ? stats.topCategory.toUpperCase() : '—';
+    document.getElementById('stat-top-category').textContent = stats.topCategory ? stats.topCategory.toUpperCase() : 'None yet';
 
     // Past plans nobody marked: offered, never assumed.
     wearUnmarkedPast = stats.unmarkedPast;
@@ -103,10 +103,15 @@ async function markPastOutfitsWorn() {
     });
     if (!sure) return;
 
-    const schedule = await Store.getScheduleDetail();            // fresh copy, not the one on screen
-    const idsByDate = {};
-    todo.forEach(t => (idsByDate[t.date] = idsByDate[t.date] || new Set()).add(t.outfitId));
+    const btn = document.getElementById('wear-mark-past-btn');
+    if (btn.disabled) return;
+    btn.disabled = true;                                           // one run at a time; the writes below finish only when the server confirms each day
+    btn.textContent = 'Marking…';
+
     try {
+        const schedule = await Store.getScheduleDetail();        // fresh copy, not the one on screen
+        const idsByDate = {};
+        todo.forEach(t => (idsByDate[t.date] = idsByDate[t.date] || new Set()).add(t.outfitId));
         for (const [date, ids] of Object.entries(idsByDate)) {
             const outfits = (schedule[date] || []).map(o => ids.has(o.id) ? { ...o, worn: true } : o);
             await Store.setScheduleOutfits(date, outfits);
@@ -114,6 +119,9 @@ async function markPastOutfitsWorn() {
     } catch (err) {
         console.error('Marking outfits as worn failed', err);
         await confirmDialog({ title: 'Couldn’t mark them', message: 'Something went wrong. Please try again.', confirmLabel: 'OK', cancelLabel: '', danger: false });
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Mark them as worn';
     }
     renderAnalytics();
 }

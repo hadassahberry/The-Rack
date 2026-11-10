@@ -43,7 +43,7 @@ function weatherAvailability({ dateKey, todayKey, hasForecast, status }) {
     }
     const last = forecastLastDay(todayKey);
     if (dateKey > last) {
-        return { kind: 'beyond', text: `Forecast not available yet. Forecasts cover today through ${shortDayLabel(last)}.` };
+        return { kind: 'beyond', text: `Forecast not available yet. Forecasts are available from today through ${shortDayLabel(last)}.` };
     }
     if (hasForecast) return { kind: 'available', text: '', stale: status === 'failed' };
     if (status === 'failed') return { kind: 'failed', text: 'Couldn’t load the forecast. Check your connection and try again.' };
@@ -72,7 +72,7 @@ function weatherLegend({ visibleKeys, todayKey, hasForecastFor, status }) {
     if (kinds.has('loading')) return { text: 'Loading the weather forecast…', retry: false };
     if (kinds.has('past') || kinds.has('beyond') || kinds.has('missing')) {
         return {
-            text: `Weather forecasts cover today through ${shortDayLabel(forecastLastDay(todayKey))}. Past days and later dates have none.`,
+            text: `Forecasts are available from today through ${shortDayLabel(forecastLastDay(todayKey))}.`,
             retry: false
         };
     }
