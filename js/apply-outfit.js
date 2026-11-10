@@ -54,6 +54,21 @@ function describeApply(plan, savedName, outfit) {
     }
 }
 
+// A fingerprint of everything on a day that an apply (or its Undo) can touch: each outfit's id,
+// activity, pieces (in order), repeat-warning switch and worn mark.
+function outfitsSignature(dayOutfits) {
+    return JSON.stringify((dayOutfits || []).map(o =>
+        [o.id, o.label || '', [...(o.itemIds || [])], !!o.flagsOff, !!o.worn]));
+}
+
+// The "Added…" notice (and its Undo) describe the day as it was right after the apply. Once the day
+// is any different (an outfit added or removed, a piece changed, an activity edited, a change that
+// arrived from another device) the notice is out of date and its Undo would be working from an old
+// snapshot, so it must go. `notice.signature` is outfitsSignature() taken right after the apply.
+function applyNoticeIsCurrent(notice, dayOutfits) {
+    return !!notice && notice.signature === outfitsSignature(dayOutfits);
+}
+
 if (typeof module !== 'undefined') {
-    module.exports = { sameItemSet, planApplySavedOutfit, describeApply };
+    module.exports = { sameItemSet, planApplySavedOutfit, describeApply, outfitsSignature, applyNoticeIsCurrent };
 }

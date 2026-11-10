@@ -619,6 +619,7 @@ function updateDay(dateKey, mutate) {
     // from the server then builds on this change instead of overwriting it.
     if (next.length) plannerOutfits[dateKey] = next; else delete plannerOutfits[dateKey];
     plannerSchedule = Store.flattenSchedule(plannerOutfits);
+    renderApplyStatus();      // any change to a day makes an earlier "Added…" notice (and its Undo) out of date, right away
     return Store.setScheduleOutfits(dateKey, next).catch(console.error);
 }
 
@@ -894,6 +895,10 @@ let applyStatus = null;      // { dateKey, text, kind: 'info' | 'already', undo 
 function renderApplyStatus() {
     const box = document.getElementById('apply-status');
     if (!box) return;
+    // The notice describes the day as it was right after the apply. If the day has changed since (an
+    // outfit added or removed, a piece changed, anything), it is out of date: drop it, and its Undo
+    // with it, so Undo can never work from an old snapshot and wipe out later edits.
+    if (applyStatus && !applyNoticeIsCurrent(applyStatus, plannerOutfits[applyStatus.dateKey])) applyStatus = null;
     const show = !!applyStatus && applyStatus.dateKey === selectedDateKey;
     box.classList.toggle('hidden', !show);
     box.classList.toggle('is-already', show && applyStatus.kind === 'already');
@@ -933,15 +938,20 @@ function applySavedOutfit(saved) {
         });
     }
 
-    applyStatus = { dateKey, text: describeApply(plan, saved.name, target), kind: plan.action === 'already' ? 'already' : 'info', undo };
+    // The day has already been updated locally by now, so this is how the day looks right after the apply.
+    applyStatus = {
+        dateKey, text: describeApply(plan, saved.name, target), kind: plan.action === 'already' ? 'already' : 'info', undo,
+        signature: outfitsSignature(plannerOutfits[dateKey])
+    };
     renderApplyStatus();
 }
 
 function undoApply() {
+    renderApplyStatus();                                   // drops a notice that has gone out of date
     if (!applyStatus || !applyStatus.undo) return;
-    const { dateKey } = applyStatus;
-    applyStatus.undo();
-    applyStatus = { dateKey, text: 'Undone.', kind: 'info', undo: null };
+    const { dateKey, undo } = applyStatus;
+    undo();                                                // (changes the day, which clears the old notice)
+    applyStatus = { dateKey, text: 'Undone.', kind: 'info', undo: null, signature: outfitsSignature(plannerOutfits[dateKey]) };
     renderApplyStatus();
 }
 
