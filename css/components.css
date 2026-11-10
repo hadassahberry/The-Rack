@@ -1922,7 +1922,7 @@ body.planning-open .planning-panel {
 .link-photo-check {
     display: none;
     position: absolute; top: 6px; right: 6px;
-    width: 22px; height: 22px; border-radius: 50%;
+    width: 28px; height: 28px; border-radius: 50%;
     background: var(--accent-pink); color: #fff;
     font-size: 0.75rem; font-weight: 700;
     align-items: center; justify-content: center;
@@ -1945,12 +1945,14 @@ body.planning-open .planning-panel {
 .help-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 14px 8px 8px;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
     background: var(--card-bg);
     color: var(--primary);
     border: 1px solid var(--primary);
-    border-radius: 20px;
+    border-radius: 50%;
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
@@ -1959,9 +1961,9 @@ body.planning-open .planning-panel {
 .help-btn:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
 .help-btn-mark {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 22px; height: 22px; border-radius: 50%;
+    width: 28px; height: 28px; border-radius: 50%;
     background: var(--primary); color: #fff;
-    font-size: 0.8rem; font-weight: 700; line-height: 1;
+    font-size: 1rem; font-weight: 700; line-height: 1;
 }
 .help-btn:hover .help-btn-mark { background: #fff; color: var(--primary); }
 .help-menu .add-menu-list { min-width: 220px; }
