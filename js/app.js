@@ -18,6 +18,10 @@ async function applyPrefs(prefs) {
     const was = appliedPrefs;
     appliedPrefs = prefs;
 
+    // The first time this page hears the account's saved preferences (from the server, not the local copy),
+    // a brand-new empty account may be shown the welcome card. Anyone else is left alone (js/welcome.js).
+    if (!was) Welcome.consider(prefs);
+
     syncSettingsUI(prefs);
     renderCalendar();
 

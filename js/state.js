@@ -210,6 +210,16 @@ const Store = {
         await dbFns.setDoc(await this._doc('settings', 'prefs'), next);
         return next;
     },
+    // Records that this account has been shown the welcome card (js/welcome.js), on the account itself so it
+    // holds on every device. Written as a MERGE: it adds this one field to the prefs document and cannot
+    // overwrite the other settings. (welcomeSeen is deliberately not in PREF_DEFAULTS: an account without
+    // it reads as "unknown", which is how accounts that predate the welcome card are told apart.)
+    async markWelcomeSeen() {
+        const next = { ...this.getPrefs(), welcomeSeen: true };
+        localStorage.setItem('rack_prefs', JSON.stringify(next));
+        const { dbFns } = await waitForFirebase();
+        await dbFns.setDoc(await this._doc('settings', 'prefs'), { welcomeSeen: true }, { merge: true });
+    },
     onPrefsChange(callback) {
         this._subscribe('settings', (snap) => {
             const doc = snap.docs.find(d => d.id === 'prefs');

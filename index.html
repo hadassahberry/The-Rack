@@ -72,6 +72,17 @@
             </div>
             <input type="file" id="item-upload" accept="image/*" multiple style="display: none;">
             <input type="file" id="item-camera" accept="image/*" capture="environment" style="display: none;">
+            <!-- ? Help: in the header's own row, so it never sits on top of the calendar, the closet or a dialog's buttons.
+                 The visible "?" is decoration; the button's name is "Help". -->
+            <div class="add-menu help-menu" id="help-menu">
+                <button id="help-btn" class="help-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="help-menu-list" title="Help">
+                    <span class="help-btn-mark" aria-hidden="true">?</span><span class="help-btn-text">Help</span>
+                </button>
+                <div id="help-menu-list" class="add-menu-list hidden" role="menu">
+                    <button id="help-tour-btn" type="button" role="menuitem">Walk me through this page</button>
+                    <button id="help-start-btn" type="button" role="menuitem">Getting started</button>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -231,6 +242,12 @@
         <section id="settings-view" class="view-section">
             <div class="settings-page">
                 <h2>Settings</h2>
+
+                <div class="settings-card" id="help-card">
+                    <h3>How to use The Rack</h3>
+                    <p class="setting-hint">A short guide to adding clothes, planning outfits and tracking what you wear. The ? Help button at the top of every page opens it too.</p>
+                    <button id="settings-help-btn" class="secondary-btn" type="button">Show getting started</button>
+                </div>
 
                 <div class="settings-card" id="location-card">
                     <h3>Location</h3>
@@ -435,6 +452,31 @@
         </div>
     </div>
 
+    <!-- First-time welcome (js/welcome.js): short and skippable. Both buttons dismiss it. -->
+    <div id="welcome-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="welcome-title" aria-describedby="welcome-steps">
+        <div class="modal-content welcome-content">
+            <h3 id="welcome-title">Welcome to The Rack</h3>
+            <div id="welcome-steps"></div>
+            <div class="modal-actions">
+                <button type="button" id="welcome-add-btn" class="primary-btn">Add my first item</button>
+                <button type="button" id="welcome-skip-btn" class="secondary-btn">Skip for now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- How to use The Rack (js/welcome.js): the same steps as the welcome card, plus explanations. -->
+    <div id="help-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
+        <div class="modal-content help-content-box">
+            <div class="modal-header-row">
+                <h3 id="help-title">How to use The Rack</h3>
+            </div>
+            <div id="help-content"></div>
+            <div class="modal-actions">
+                <button type="button" id="help-close-btn" class="primary-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Add from a link (js/link-import.js) -->
     <div id="link-import-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="link-import-title">
         <div class="modal-content link-import-content">
@@ -592,9 +634,12 @@
     <script src="js/dialog.js"></script>
     <script src="js/confirm.js"></script>
     <script src="js/features.js"></script>
+    <script src="js/help-content.js"></script>
     <script src="js/item-name.js"></script>
     <script src="js/category-guess.js"></script>
     <script src="js/link-import.js"></script>
+    <script src="js/welcome.js"></script>
+    <script src="js/tour.js"></script>
     <script src="js/closet.js"></script>
     <script src="js/analytics.js"></script>
     <script src="js/calendar-access.js"></script>
