@@ -10,15 +10,22 @@
       "**/.*",
       "**/.git/**",
       "**/node_modules/**",
-      ".claude/**"
+      ".claude/**",
+      "functions/**"
     ],
     "headers": [
       {
         "source": "**/*.@(html|js|css|webmanifest)",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache" }
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
         ]
       }
     ]
+  },
+  "functions": {
+    "source": "functions"
   }
 }
