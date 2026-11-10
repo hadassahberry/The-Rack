@@ -1395,13 +1395,13 @@ button.piece-card {
     position: fixed;
     inset: 0;
     display: flex;
-    align-items: center;
-    justify-content: center;
     background: var(--bg-color);
     padding: 20px;
+    overflow-y: auto;      /* a short screen (a phone on its side) scrolls instead of cutting off the top of the card */
 }
 
 .auth-card {
+    margin: auto;          /* centred when it fits; when it doesn't, no negative offset hides the top */
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -1428,6 +1428,15 @@ button.piece-card {
     color: var(--text-muted);
     font-size: 0.9rem;
     margin-bottom: 8px;
+}
+
+/* One plain sentence under the subtitle saying what an account is for. */
+.auth-explainer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    line-height: 1.45;
+    margin: -4px 0 8px;
 }
 
 .auth-card input {
