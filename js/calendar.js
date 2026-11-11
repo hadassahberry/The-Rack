@@ -461,6 +461,7 @@ function renderCalendarGrid() {
             isToday,
             isSelected: dateKey === selectedDateKey,
             outfits: plannerOutfits[dateKey] || [],
+            hijriDate: formatHijri(extra.hijri, 'full'),
             holidayNames: [...holidayTitles.filter(t => t !== 'Shabbos'), ...extra.notes.map(n => n.text)]   // real holidays, not the weekly Shabbos
         }));
         cell.addEventListener('click', () => {
@@ -504,13 +505,13 @@ function renderCalendarGrid() {
             const h = extra.hijri;
             const hijri = document.createElement('span');
             hijri.className = 'cell-hijri';
-            hijri.title = `${h.day} ${h.monthName} ${h.year} AH`;
+            hijri.title = formatHijri(h, 'full');
             const full = document.createElement('span');
             full.className = 'hijri-full';
-            full.textContent = h.day === 1 ? `1 ${h.monthName} ${h.year}` : `${h.day} ${h.monthName}`;
+            full.textContent = formatHijri(h, 'compact');
             const short = document.createElement('span');          // phone month view: no room for words
             short.className = 'hijri-short';
-            short.textContent = h.day === 1 ? `1 ${h.monthName.slice(0, 3)}` : String(h.day);
+            short.textContent = formatHijri(h, 'short');
             hijri.append(full, short);
             topRow.after(hijri);
         }
@@ -808,6 +809,14 @@ function buildOutfitCard({ outfit, isActive, ctx, autoLabel, catById, chips }) {
     if (!outfit.label && chips.length) {
         const row = document.createElement('div');
         row.className = 'label-chips';
+        // "Recent:" says these are suggestions to pick from, not an activity already saved on this outfit.
+        const lead = document.createElement('span');
+        lead.className = 'label-chips-lead';
+        lead.id = `chips-lead-${outfit.id}`;
+        lead.textContent = 'Recent:';
+        row.setAttribute('role', 'group');
+        row.setAttribute('aria-labelledby', lead.id);
+        row.appendChild(lead);
         chips.forEach(text => {
             const chip = document.createElement('button');
             chip.type = 'button';
@@ -1036,7 +1045,7 @@ function renderPicker() {
         const empty = document.createElement('p');
         empty.className = 'planning-empty';
         empty.textContent = (dayHasPlan ? 'This day’s plan isn’t a saved outfit. ' : '') +
-            'Saved outfits are reusable sets of pieces you can add to any day, and you don’t have any yet. To make one, press Build an outfit in the Closet tab.';
+            'Saved outfits are reusable sets of pieces you can add to any day, and you don’t have any yet. To make one, press Build from pieces in the Closet tab.';
         outfitsRow.appendChild(empty);
     }
     plannerSavedOutfits.forEach(saved => {
@@ -1207,7 +1216,7 @@ function renderPlanningPanel() {
             holidayInfo && holidayInfo.candleLighting ? `🕯 Candle lighting ${holidayInfo.candleLighting}` : ''
         ].filter(Boolean).join(' · '),
         extra.notes.map(n => n.text).join(' · '),
-        extra.hijri ? `${extra.hijri.day} ${extra.hijri.monthName} ${extra.hijri.year} AH` : ''
+        formatHijri(extra.hijri, 'full')
     ].filter(Boolean).join('\n');          // one line per calendar
     holidayLine.textContent = holidayText;
     holidayLine.classList.toggle('hidden', !holidayText);

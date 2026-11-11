@@ -27,7 +27,7 @@ function caAddDays(key, n) {
 //   outfits: the day's outfits [{ label, itemIds }]; holidayNames: real holidays and observances only
 //   (not the weekly Shabbos). Days with nothing planned don't say "nothing planned" (it would be
 //   repeated on most days); only things that are true and useful are spoken.
-function dayAccessibleName({ date, isToday, isSelected, outfits, holidayNames }) {
+function dayAccessibleName({ date, isToday, isSelected, outfits, holidayNames, hijriDate }) {
     const parts = [`${CA_WEEKDAYS[date.getDay()]}, ${CA_MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}.`];
     if (isToday) parts.push('Today.');
     if (isSelected) parts.push('Selected.');
@@ -50,6 +50,7 @@ function dayAccessibleName({ date, isToday, isSelected, outfits, holidayNames })
         const more = holidays.length > 3 ? `, and ${holidays.length - 3} more` : '';
         parts.push(`${holidays.length === 1 ? 'Holiday' : 'Holidays'}: ${holidays.slice(0, 3).join(', ')}${more}.`);
     }
+    if (hijriDate) parts.push(`Hijri date: ${hijriDate}.`);      // the full form, with the year (the cell itself shows a short one)
     return parts.join(' ');
 }
 

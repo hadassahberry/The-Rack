@@ -112,6 +112,19 @@ const HIJRI_HOLIDAYS = {
     '12-10': 'Eid al-Adha'
 };
 
+// How a Hijri date is written, by rule (never ad hoc):
+//   'full'    "30 Jumada al-ula 1448 AH"  the day's popup, tooltips and screen-reader names
+//   'compact' "30 Jumada al-ula"          calendar cells (the year is in the full form)
+//   'short'   "30", or "1 Jum II" on the first of a month   a phone's month cells, where there is no room for words
+// (the short month names are all different, so a month start is never ambiguous)
+const HIJRI_MONTHS_SHORT = ['Muh', 'Saf', 'Rab I', 'Rab II', 'Jum I', 'Jum II', 'Raj', 'Sha', 'Ram', 'Shaw', 'DhQ', 'DhH'];
+function formatHijri(h, style = 'full') {
+    if (!h) return '';
+    if (style === 'short') return h.day === 1 ? `1 ${HIJRI_MONTHS_SHORT[h.month - 1]}` : String(h.day);
+    if (style === 'compact') return `${h.day} ${h.monthName}`;
+    return `${h.day} ${h.monthName} ${h.year} AH`;
+}
+
 let hijriFormatter;      // undefined = not tried yet, null = this browser can't do it
 function getHijriFormatter() {
     if (hijriFormatter !== undefined) return hijriFormatter;
@@ -239,6 +252,6 @@ function extraCalendarNotes(date, prefs, location) {
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = { easterWestern, easterOrthodox, adventStart, christianHolidaysForYear, hijriFor, hijriSupported,
+    module.exports = { easterWestern, easterOrthodox, adventStart, christianHolidaysForYear, hijriFor, hijriSupported, formatHijri, HIJRI_MONTHS_SHORT,
         parsePublicHolidays, publicHolidayCountry, extraCalendarNotes, calKey };
 }

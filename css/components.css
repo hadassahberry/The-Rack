@@ -644,7 +644,8 @@ button.month-cell {
 .outfit-delete { background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 4px; opacity: 0.6; }
 .outfit-delete:hover { opacity: 1; }
 
-.label-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.label-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.label-chips-lead { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
 
 .label-chip {
     background: #fff;

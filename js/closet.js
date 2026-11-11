@@ -831,7 +831,7 @@ function renderSavedOutfitsList() {
     list.innerHTML = '';
 
     if (liveSavedOutfits.length === 0) {
-        list.innerHTML = '<p style="color:#888; font-size:0.85rem;">No saved outfits yet. Press “Build an outfit”, tap the pieces you want, name the outfit and save it.</p>';
+        list.innerHTML = '<p style="color:#888; font-size:0.85rem;">No saved outfits yet. Press “New saved outfit”, tap the pieces you want, name the outfit and save it.</p>';
         return;
     }
 

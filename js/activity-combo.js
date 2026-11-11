@@ -27,7 +27,9 @@ function createActivityCombo({ value, getActivities, onCommit, onFocus }) {
     input.className = 'outfit-label';
     input.maxLength = 40;
     input.value = value || '';
-    input.placeholder = 'Activity (optional)';
+    // Says you can type a new activity or pick a recent one (the chips under an outfit with none yet, or the arrow);
+    // with no saved activities there is nothing to pick, so it only invites typing.
+    input.placeholder = getActivities().length ? 'Type an activity, or pick a recent one' : 'Type an activity (optional)';
     input.autocomplete = 'off';
     input.spellcheck = false;
     input.setAttribute('enterkeyhint', 'done');
