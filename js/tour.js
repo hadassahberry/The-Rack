@@ -15,7 +15,7 @@ const TOURS = {
               text: 'Use the arrows to go to earlier or later dates. Press Today to jump back to today.' },
             { target: () => document.querySelector('#month-grid .month-cell.today') || document.querySelector('#month-grid .month-cell:not(.not-current)'),
               title: 'Plan a day',
-              text: 'Click a day, or press Enter on it, to open it. There you add pieces from your closet and give the outfit an activity. On today or a past day you can also press Mark as worn. Planning an outfit does not count as wearing it.' },
+              text: 'Click a day, or press Enter on it, to open it. There you add pieces from your closet and give the outfit an activity. On today or a past day, an outfit that has pieces also gets a Mark as worn button. Planning an outfit does not count as wearing it.' },
             { target: () => document.getElementById('add-clothes-btn'), title: 'Add clothes first',
               text: 'You plan outfits from your closet, so start with + Add clothes.' }
         ]

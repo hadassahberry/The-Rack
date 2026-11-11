@@ -24,7 +24,7 @@ const HELP_CONTENT = {
         },
         {
             heading: 'Mark it as worn',
-            text: 'To record a wear, open today or a past day in the Planner and press Mark as worn on that outfit. ' +
+            text: 'To record a wear, open today or a past day in the Planner and press Mark as worn on an outfit that has pieces (the button appears once it has at least one). ' +
                 'Future days can’t be marked. Only outfits you mark count, and they are what Wear stats is built from.'
         },
         {

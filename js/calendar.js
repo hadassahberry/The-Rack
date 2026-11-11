@@ -270,8 +270,10 @@ function buildCellItems(outfits, closetById, showPhotos) {
         .map(o => ({
             label: o.label || '',
             items: sortHeadToToe(o.itemIds.map(id => closetById[id]).filter(Boolean))
-        }))
-        .filter(g => g.items.length > 0);
+        }));
+    // An outfit with no pieces yet (just an activity, or nothing at all) is still on the day, so it still
+    // shows: as a dashed tag with its activity, never as a blank day.
+    const withPieces = groups.filter(g => g.items.length > 0).length;
 
     // (spans, not divs: the whole day is a <button>, which may only hold inline elements)
     const box = document.createElement('span');
@@ -283,6 +285,16 @@ function buildCellItems(outfits, closetById, showPhotos) {
     groups.forEach(group => {
         const groupEl = document.createElement('span');
         groupEl.className = 'cell-group';
+        if (group.items.length === 0) {
+            groupEl.classList.add('is-empty');
+            const tag = document.createElement('span');
+            tag.className = 'cell-empty-outfit';
+            tag.textContent = group.label || 'Outfit';
+            tag.title = `${group.label || 'Outfit'}: no pieces yet`;
+            groupEl.appendChild(tag);
+            box.appendChild(groupEl);
+            return;
+        }
         if (group.label) {
             const label = document.createElement('span');
             label.className = 'cell-group-label';
@@ -324,7 +336,7 @@ function buildCellItems(outfits, closetById, showPhotos) {
     // CSS sizes the photos from these: as big as the day's width and height allow,
     // smaller with more pieces or more outfits.
     if (showPhotos) {
-        box.style.setProperty('--per-row', String(Math.min(2, Math.max(1, groups.length))));   // outfits beyond two wrap underneath
+        box.style.setProperty('--per-row', String(Math.min(2, Math.max(1, withPieces))));   // outfits beyond two wrap underneath
         box.style.setProperty('--n', String(tallestStack));
     }
     return box;
@@ -509,7 +521,8 @@ function renderCalendarGrid() {
             hasWeather: !!weather,
             weatherIcon: weather ? weatherInfo(weather.code).icon : '',
             hasHoliday: holidayTitles.some(t => t !== 'Shabbos') || extra.notes.length > 0,   // not the weekly Shabbos
-            hasCandles: !!(holidayInfo && holidayInfo.candleLighting)
+            hasCandles: !!(holidayInfo && holidayInfo.candleLighting),
+            hasEmptyOutfit: (plannerOutfits[dateKey] || []).some(o => !o.itemIds.some(id => closetById[id]))   // planned, but no pieces yet
         });
         if (markers.length) {
             const row = document.createElement('span');
@@ -1017,7 +1030,14 @@ function renderPicker() {
     // Saved outfits: replace the active outfit's pieces (or start a new outfit)
     outfitsRow.innerHTML = '';
     if (plannerSavedOutfits.length === 0) {
-        outfitsRow.innerHTML = '<p class="planning-empty">No saved outfits yet.</p>';
+        // Saved outfits are reusable sets of pieces, separate from what is planned on this day, so this must not
+        // read as "nothing is planned": say what they are, and (when the day has a plan) that the plan isn't one.
+        const dayHasPlan = (plannerOutfits[selectedDateKey] || []).length > 0;
+        const empty = document.createElement('p');
+        empty.className = 'planning-empty';
+        empty.textContent = (dayHasPlan ? 'This day’s plan isn’t a saved outfit. ' : '') +
+            'Saved outfits are reusable sets of pieces you can add to any day, and you don’t have any yet. To make one, press Build an outfit in the Closet tab.';
+        outfitsRow.appendChild(empty);
     }
     plannerSavedOutfits.forEach(saved => {
         const pill = document.createElement('button');

@@ -77,7 +77,7 @@ async function renderAnalytics() {
     wornGrid.innerHTML = '';
     const worn = stats.perItem.filter(p => p.worn > 0).sort((a, b) => b.worn - a.worn).slice(0, 4);
     if (worn.length === 0) {
-        wornGrid.innerHTML = '<p class="planning-empty">Nothing marked as worn yet. Open today or a past day in the Planner and press “Mark as worn” on an outfit.</p>';
+        wornGrid.innerHTML = '<p class="planning-empty">Nothing marked as worn yet. Add pieces to an outfit on today or a past day in the Planner, then press “Mark as worn” on it. The button appears once an outfit has at least one piece.</p>';
         return;
     }
     worn.forEach(p => {

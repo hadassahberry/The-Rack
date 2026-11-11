@@ -32,12 +32,17 @@ function dayAccessibleName({ date, isToday, isSelected, outfits, holidayNames })
     if (isToday) parts.push('Today.');
     if (isSelected) parts.push('Selected.');
 
-    const planned = (outfits || []).filter(o => o.itemIds && o.itemIds.length > 0);
+    // Every outfit on the day counts, including one that has an activity but no pieces yet (it is easy to
+    // lose track of otherwise); those are said to have no pieces yet.
+    const planned = outfits || [];
     if (planned.length > 0) {
+        const empty = planned.filter(o => !(o.itemIds && o.itemIds.length > 0)).length;
+        const allEmpty = empty === planned.length;
         const labels = [...new Set(planned.map(o => String(o.label || '').trim()).filter(Boolean))];
         const shown = labels.slice(0, 3).join(', ');
         const more = labels.length > 3 ? `, and ${labels.length - 3} more` : '';
-        parts.push(`${planned.length} ${planned.length === 1 ? 'outfit' : 'outfits'} planned${labels.length ? `: ${shown}${more}` : ''}.`);
+        parts.push(`${planned.length} ${planned.length === 1 ? 'outfit' : 'outfits'} planned${allEmpty ? ', no pieces yet' : ''}${labels.length ? `: ${shown}${more}` : ''}.`);
+        if (empty > 0 && !allEmpty) parts.push(`${empty} ${empty === 1 ? 'has' : 'have'} no pieces yet.`);
     }
 
     const holidays = [...new Set((holidayNames || []).filter(Boolean))];
@@ -85,12 +90,14 @@ function anchorToShow(viewMode, dateKey) {
 }
 
 // The small markers on a phone's month cells, in a fixed order, each a different SHAPE (so they
-// don't depend on colour): the forecast's icon, a star for a holiday, a candle for candle lighting.
-function dayMarkers({ hasWeather, weatherIcon, hasHoliday, hasCandles }) {
+// don't depend on colour): the forecast's icon, a star for a holiday, a candle for candle lighting, a diamond for an outfit
+// that is planned but has no pieces yet (so that day can't be mistaken for an empty one).
+function dayMarkers({ hasWeather, weatherIcon, hasHoliday, hasCandles, hasEmptyOutfit }) {
     const out = [];
     if (hasWeather && weatherIcon) out.push({ kind: 'weather', glyph: weatherIcon });
     if (hasHoliday) out.push({ kind: 'holiday', glyph: '★' });
     if (hasCandles) out.push({ kind: 'candle', glyph: '🕯' });
+    if (hasEmptyOutfit) out.push({ kind: 'plan', glyph: '◇' });     // an outfit is planned but has no pieces yet
     return out;
 }
 
@@ -111,6 +118,7 @@ function markerKeyText(kinds) {
     if (has('weather')) parts.push('weather icon = forecast');
     if (has('holiday')) parts.push('★ holiday');
     if (has('candle')) parts.push('🕯 candle lighting');
+    if (has('plan')) parts.push('◇ outfit planned, no pieces yet');
     return parts.length ? `${parts.join(' · ')}. Tap a day for details.` : '';
 }
 
