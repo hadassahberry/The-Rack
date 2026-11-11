@@ -166,10 +166,7 @@ function viewLabel(dates) {
 }
 
 async function stepView(direction) {
-    const a = anchorDate;
-    anchorDate = viewMode === 'month'
-        ? new Date(a.getFullYear(), a.getMonth() + direction, 1)
-        : new Date(a.getFullYear(), a.getMonth(), a.getDate() + direction * (viewMode === 'week' ? 7 : 14));
+    anchorDate = stepAnchor(viewMode, anchorDate, direction);      // 2 weeks moves by ONE week (the other week stays on screen)
     renderCalendar();
     await refreshHolidaysForView(Store.getLocation());
     renderCalendar();
@@ -408,7 +405,7 @@ function renderCalendarGrid() {
     const weekStart = weekStartIndex();
     document.querySelector('.weekday-row').innerHTML = Array.from({ length: 7 }, (_, i) =>
         `<span>${WEEKDAY_NAMES[(weekStart + i) % 7].slice(0, 3).toUpperCase()}</span>`).join('');
-    const unit = viewMode === 'month' ? 'month' : viewMode === 'week' ? 'week' : '2 weeks';
+    const unit = viewMode === 'month' ? 'month' : 'week';          // the 2-week view also steps by one week
     document.getElementById('prev-month-btn').setAttribute('aria-label', `Previous ${unit}`);
     document.getElementById('next-month-btn').setAttribute('aria-label', `Next ${unit}`);
     document.querySelectorAll('#view-switcher [data-view]').forEach(btn => {

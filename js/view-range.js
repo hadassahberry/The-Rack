@@ -13,6 +13,18 @@ function vrParse(key) {
     return new Date(y, m - 1, d);
 }
 
+// Where the Previous / Next arrows take the view. The anchor is the date the range is built around (the
+// range always starts on the first day of the week that contains it, for either week-start setting), so
+// moving the anchor by whole weeks moves the range by whole weeks:
+//   month    one month, to the 1st
+//   week     one week
+//   2 weeks  ONE week too, so the two weeks on screen overlap by one: A+B becomes B+C going forward,
+//            and (the week before A)+A going back. Going forward then back returns to the same range.
+function stepAnchor(mode, anchor, direction) {
+    if (mode === 'month') return new Date(anchor.getFullYear(), anchor.getMonth() + direction, 1);
+    return new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + direction * 7);
+}
+
 // Whole days since 1970 for a calendar date (immune to daylight-saving shifts).
 function vrDay(date) {
     return Math.round(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000);
@@ -62,5 +74,5 @@ function describeViewRange(mode, dates, today) {
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = { pickSwitchAnchor, describeViewRange, vrKey, vrParse };
+    module.exports = { pickSwitchAnchor, describeViewRange, stepAnchor, vrKey, vrParse };
 }
