@@ -349,6 +349,7 @@ function openPlanningPopup() {
     renderApplyStatus();
     const panel = document.querySelector('.planning-panel');
     document.body.classList.add('planning-open');
+    planSaves.clearSaved();                // a freshly opened day shows no save status until something in it is saved
     renderPlanSaveStatus();
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'true');

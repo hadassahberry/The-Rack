@@ -2050,3 +2050,9 @@ body.planning-open .planning-panel {
     .month-grid.view-month .cell-group.is-empty { display: none; }
     .cell-markers .cm-plan { color: var(--accent-pink); font-size: 0.65rem; }
 }
+
+/* Wear stats, "Most worn pieces" explainer: on wide screens it spans the whole row (not one narrow grid column),
+   capped at a readable line length. Phones are unchanged. */
+@media (min-width: 641px) {
+    .analytics-worn-grid > .planning-empty { grid-column: 1 / -1; max-width: 640px; font-size: 0.9rem; line-height: 1.5; }
+}

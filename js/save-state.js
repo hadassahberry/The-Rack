@@ -15,7 +15,7 @@
 //     a fixed id, so running it again overwrites rather than duplicates anything.
 
 function createSaveTracker({ slowAfterMs = 6000, setTimer = setTimeout, clearTimer = clearTimeout, onChange = () => {} } = {}) {
-    let pending = 0, seq = 0, saved = false, slow = false, timer = null;
+    let pending = 0, seq = 0, saved = false, savedAt = 0, slow = false, timer = null;
     const newest = new Map();      // key -> the newest write started for it
     const failed = new Map();      // key -> { seq, retry }
 
@@ -23,7 +23,8 @@ function createSaveTracker({ slowAfterMs = 6000, setTimer = setTimeout, clearTim
         return {
             status: pending > 0 ? 'saving' : failed.size ? 'failed' : saved ? 'saved' : 'idle',
             slow: pending > 0 && slow,
-            failedCount: failed.size
+            failedCount: failed.size,
+            savedAt: pending === 0 && saved ? savedAt : 0       // when the last save was confirmed ("Saved" is only news for a few seconds)
         };
     }
     const emit = () => onChange(state());
@@ -52,6 +53,7 @@ function createSaveTracker({ slowAfterMs = 6000, setTimer = setTimeout, clearTim
                 if (timer) { clearTimer(timer); timer = null; }
                 slow = false;
                 saved = failed.size === 0;
+                if (saved) savedAt = Date.now();
             }
             emit();
             try { (ok ? opts.onOk : opts.onFail) && (ok ? opts.onOk(latest) : opts.onFail(err, latest)); } catch (e) { console.error(e); }
@@ -65,13 +67,18 @@ function createSaveTracker({ slowAfterMs = 6000, setTimer = setTimeout, clearTim
         return Promise.all(todo.map(([key, f]) => run(key, f.retry, { ...f.opts, retry: f.retry })));
     }
 
+    // "Saved" is news only right after a save: opening another day or window must not bring an old one back.
+    function clearSaved() {
+        if (pending === 0 && failed.size === 0 && saved) { saved = false; emit(); }
+    }
+
     // Drops a failure the person has dealt with some other way (so "try again" won't repeat it).
     function forget(key) {
         if (failed.delete(key) && pending === 0) saved = false;
         emit();
     }
 
-    return { run, retryFailed, forget, state, isBusy: () => pending > 0, isSlow: () => pending > 0 && slow };
+    return { run, retryFailed, forget, clearSaved, state, isBusy: () => pending > 0, isSlow: () => pending > 0 && slow };
 }
 
 // ---- the visible line ----
@@ -107,7 +114,11 @@ function createSaveStatusView(el, { onRetry, savedForMs = 4000 } = {}) {
         textEl.textContent = SAVE_TEXT[key] || '';
         retryBtn.classList.toggle('hidden', s.status !== 'failed');
         if (s.status === 'saved' && savedForMs) {
-            fadeTimer = setTimeout(() => { if (el.dataset.state === 'saved') el.classList.add('hidden'); }, savedForMs);
+            // Shown only for the few seconds after the save was confirmed; an old "Saved" (a re-render when a window
+            // opens or closes) stays hidden, so nothing reads "Saved" when nothing has just been saved.
+            const left = s.savedAt ? savedForMs - (Date.now() - s.savedAt) : savedForMs;
+            if (left <= 0) { el.classList.add('hidden'); return; }
+            fadeTimer = setTimeout(() => { if (el.dataset.state === 'saved') el.classList.add('hidden'); }, left);
         }
     }
     return { render };
