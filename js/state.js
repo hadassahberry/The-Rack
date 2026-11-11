@@ -15,6 +15,10 @@ let currentUid = null;
 const Store = {
     setUid(uid) {
         currentUid = uid;
+        // Before preferences were kept per account, one device-wide copy lived under "rack_prefs". It could belong to
+        // any account that had used this browser, so it is never read again: removed, and each account's own
+        // settings arrive from the account (and are then remembered under that account's own key, below).
+        try { localStorage.removeItem('rack_prefs'); } catch (e) { /* storage unavailable */ }
     },
 
     async _collection(name) {
@@ -196,18 +200,32 @@ const Store = {
         repeatCategories: ['tops', 'bottoms', 'dresses']
     },
 
+    // The local copy that makes the first paint instant is kept PER ACCOUNT ("rack_prefs_<uid>"): a browser used by
+    // several accounts must never paint one account's settings (calendars, week start...) onto another. Before
+    // anyone is signed in there is no copy to read, so the plain defaults are used (nothing is visible yet).
+    _localPrefsKey() {
+        return currentUid ? 'rack_prefs_' + currentUid : null;
+    },
+    _readLocalPrefs() {
+        const key = this._localPrefsKey();
+        if (!key) return {};
+        try { return JSON.parse(localStorage.getItem(key)) || {}; } catch { return {}; }
+    },
+    _writeLocalPrefs(prefs) {
+        const key = this._localPrefsKey();
+        if (!key) return;
+        try { localStorage.setItem(key, JSON.stringify(prefs)); } catch (e) { /* storage full or unavailable: the account copy still saves */ }
+    },
     getPrefs() {
-        try {
-            return { ...this.PREF_DEFAULTS, ...(JSON.parse(localStorage.getItem('rack_prefs')) || {}) };
-        } catch {
-            return { ...this.PREF_DEFAULTS };
-        }
+        return { ...this.PREF_DEFAULTS, ...this._readLocalPrefs() };
     },
     async savePrefs(patch) {
         const next = { ...this.getPrefs(), ...patch };
-        localStorage.setItem('rack_prefs', JSON.stringify(next));
+        this._writeLocalPrefs(next);
         const { dbFns } = await waitForFirebase();
-        await dbFns.setDoc(await this._doc('settings', 'prefs'), next);
+        // Merged: only the setting that changed is written, so a device that hasn't yet heard this account's saved
+        // settings (the local copy is per account, and empty on a new device) can't overwrite the others with defaults.
+        await dbFns.setDoc(await this._doc('settings', 'prefs'), patch, { merge: true });
         return next;
     },
     // Records that this account has been shown the welcome card (js/welcome.js), on the account itself so it
@@ -216,7 +234,7 @@ const Store = {
     // it reads as "unknown", which is how accounts that predate the welcome card are told apart.)
     async markWelcomeSeen() {
         const next = { ...this.getPrefs(), welcomeSeen: true };
-        localStorage.setItem('rack_prefs', JSON.stringify(next));
+        this._writeLocalPrefs(next);
         const { dbFns } = await waitForFirebase();
         await dbFns.setDoc(await this._doc('settings', 'prefs'), { welcomeSeen: true }, { merge: true });
     },
@@ -225,7 +243,7 @@ const Store = {
             const doc = snap.docs.find(d => d.id === 'prefs');
             return { ...this.PREF_DEFAULTS, ...(doc ? doc.data() : {}) };
         }, (prefs) => {
-            localStorage.setItem('rack_prefs', JSON.stringify(prefs));
+            this._writeLocalPrefs(prefs);
             callback(prefs);
         });
     },

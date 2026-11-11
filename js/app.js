@@ -11,6 +11,11 @@ let appliedPrefs = null;
 document.addEventListener('DOMContentLoaded', async () => {
     renderCredits(Store.getPrefs());
     await window.waitForAuth();
+    // Now that we know whose account this is, paint from THIS account's remembered settings (or the defaults, for
+    // a new account or device) until its saved settings arrive. Nothing from another account can be shown.
+    renderCredits(Store.getPrefs());
+    syncSettingsUI(Store.getPrefs());
+    renderCalendar();
     Store.onPrefsChange(applyPrefs);
 });
 
