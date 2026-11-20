@@ -167,7 +167,7 @@ const HelpChoose = (function () {
             refine.append(button('More casual', 'casual'), button('More dressy', 'dressy'), button('Warmer', 'warmer'), button('Lighter', 'lighter'));
             const first = result.suggestions[0];
             // the pieces an outfit is built around: the dress, or the bottom and the top (not its cardigan or coat)
-            const main = first.pieces.filter(p => p.category === 'dresses' || p.category === 'bottoms' || (p.category === 'tops' && p.layer !== 'mid')).sort((a, b) => ['dresses', 'bottoms', 'tops'].indexOf(a.category) - ['dresses', 'bottoms', 'tops'].indexOf(b.category)).slice(0, 2);
+            const main = first.pieces.filter(p => p.category === 'dresses' || p.category === 'bottoms' || p.category === 'tops').sort((a, b) => ['dresses', 'bottoms', 'tops'].indexOf(a.category) - ['dresses', 'bottoms', 'tops'].indexOf(b.category)).slice(0, 2);
             main.forEach(p => {
                 const kept = state.refine.keepIds.includes(p.id);
                 refine.appendChild(button(kept ? `Stop keeping the ${p.name}` : `Keep the ${p.name}, change the rest`, `keep:${p.id}`));

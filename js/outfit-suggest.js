@@ -13,20 +13,27 @@
 //   formality  1 (athletic) .. 5 (formal)             optional    |  NEW, all optional. When one isn't set it is
 //   length     short | mid | long                     optional    |  ESTIMATED from the fields above (see
 //   fit        fitted | regular | loose               optional    |  describePiece), never invented silently.
-//   layer      base | mid | outer                     optional   /
+//   layer      base | mid | outer                     optional   /   (a "mid" top, such as a sweater, is estimated warmer)
+//
+// ---- What an outfit is ----
+// Exactly ONE top and ONE bottom, or ONE dress instead of both. Outerwear, shoes and an accessory are separate
+// optional slots (one piece each). A sweater or cardigan is simply a top when it is chosen: a second top is never
+// stacked on another. When it is cold the answer is a warmer single top or outerwear, never another top.
 //
 // ---- How an outfit is scored (0 to 100; every part is 0..1, weights add up to 10.5) ----
-//   weather   3.0  how close the outfit's insulation is to what the day needs; a layer or outerwear is expected
-//                  when it is cold, outerwear when it is wet, and layers are discouraged in the heat
+//   weather   3.0  how close the outfit's insulation is to what the day needs; outerwear is required when it is
+//                  wet (and when it is cold unless the single top is already warm), and discouraged in the heat
 //   formality 2.5  how close the outfit's formality is to what the day's activities and holidays ask for
 //   recency   1.5  pieces worn lately score low, pieces not worn for a while score high; an outfit that repeats
 //                  one planned on the same Shabbos / Yom Tov weekend, or worn in the last 7 days, is pushed down hard
 //   color     1.5  neutrals go with anything; two or three colours are scored by how far apart their hues are
-//   fit       1.0  length and layering rules (a long top with a short bottom, a fitted jacket over a loose sweater...)
+//   fit       1.0  length and fit rules (a long top with a short bottom, a fitted jacket over a loose top...)
 //   season    0.5  a summer piece in the cold, a winter piece in the heat
 //   tag       0.5  the pieces' own occasion tag matches the kind of day
 // Pieces worn in the last 7 days (tops, bottoms, dresses, outerwear) are left out altogether when the closet has
-// anything else in that category. The best outfits are then picked so that they are genuinely different.
+// anything else in that category. The 2-3 ideas are then picked so that NO piece appears in more than one of them;
+// if the closet is too small for that, fewer ideas are shown (only shoes and accessories may repeat, and only when
+// that is the only way to show at least two ideas).
 
 const SUGGEST_CATEGORIES = ['tops', 'bottoms', 'dresses', 'outerwear', 'shoes', 'accessories'];
 const SUGGEST_LENGTHS = ['short', 'mid', 'long'];
@@ -96,9 +103,11 @@ function describePiece(item) {
     let layer = SUGGEST_LAYERS.includes(item.layer) ? item.layer : null;
     const layerSet = !!layer;
     if (!layer) layer = cat === 'outerwear' ? 'outer' : cat === 'tops' ? (SUGGEST_MID_NAME.test(item.name || '') ? 'mid' : 'base') : null;
+    // a sweater, cardigan or hoodie is a warmer top than a tee (when the person has not set the warmth themselves)
+    const sweaterBonus = cat === 'tops' && layer === 'mid' ? 1 : 0;
     return {
         item, id: item.id, cat, season, occasion: item.occasion || 'casual',
-        warmth: setWarmth !== null ? setWarmth : ((warmthByCat[cat] || warmthByCat.tops)[season]),
+        warmth: setWarmth !== null ? setWarmth : Math.min(5, (warmthByCat[cat] || warmthByCat.tops)[season] + sweaterBonus),
         formality: setFormality !== null ? setFormality : (formalityByOccasion[item.occasion] || 2.5),
         length: SUGGEST_LENGTHS.includes(item.length) ? item.length : null,
         fit: SUGGEST_FITS.includes(item.fit) ? item.fit : null,
@@ -186,10 +195,9 @@ function sgFitScore(o) {
     const top = o.top, bottom = o.bottom;
     if (top && bottom && top.length === 'long' && bottom.length === 'short') s -= 0.4;                  // a long top over a short bottom
     if (top && bottom && top.fit === 'loose' && bottom.fit === 'loose') s -= 0.15;                      // both loose: shapeless
-    const inner = o.mid || top || o.dress;
-    if (o.outer && inner && o.outer.fit && inner.fit && SG_LOOSE[inner.fit] - SG_LOOSE[o.outer.fit] >= 2) s -= 0.25;   // a fitted jacket over a loose sweater
+    const inner = top || o.dress;
+    if (o.outer && inner && o.outer.fit && inner.fit && SG_LOOSE[inner.fit] - SG_LOOSE[o.outer.fit] >= 2) s -= 0.25;   // a fitted jacket over a loose top
     if (o.outer && top && o.outer.length === 'short' && top.length === 'long') s -= 0.15;               // the top hangs out below the jacket
-    if (o.outer && o.mid && o.outer.length === 'short' && o.mid.length === 'long') s -= 0.1;
     return sgClamp(s, 0, 1);
 }
 
@@ -236,10 +244,9 @@ function suggestOutfits(ctx, options) {
 
     // ---- the pool for each category ----
     const keptIn = (cat) => all.filter(p => p.cat === cat && keepIds.includes(p.id));
-    const hasLayerPieces = all.some(p => p.cat === 'outerwear' || (p.cat === 'tops' && p.layer === 'mid'));
     const hasOuterPieces = all.some(p => p.cat === 'outerwear');
     const relaxed = [];
-    const K = { tops: 6, bottoms: 6, dresses: 4, outerwear: 4, shoes: 4, accessories: 3, mid: 4 };
+    const K = { tops: 8, bottoms: 8, dresses: 6, outerwear: 6, shoes: 6, accessories: 4 };
     const pieceKey = (p) => {
         const fit = 1 - Math.abs(p.formality - formalityNeed.target) / 3;
         return -(0.6 * fit + 0.4 * fresh(p));
@@ -250,52 +257,56 @@ function suggestOutfits(ctx, options) {
         let list = all.filter(p => p.cat === cat && (!filterFn || filterFn(p)));
         const rested = list.filter(p => !recentlyWorn(p));
         if (rested.length) list = rested; else if (list.length && SUGGEST_RECENCY_CATEGORIES.includes(cat)) relaxed.push(cat);
+        // a summer piece is not offered in the cold, nor a winter piece in the heat, when something else will do
+        const inSeason = list.filter(p => !(weatherNeed.has && ((weatherNeed.cold && p.season === 'summer') || (weatherNeed.hot && p.season === 'winter'))));
+        if (inSeason.length) list = inSeason;
         return list.sort((a, b) => pieceKey(a) - pieceKey(b) || (a.id < b.id ? -1 : 1)).slice(0, K[cat] || 4);
     };
 
+    // One top and one bottom, or one dress; plus at most one each of outerwear, shoes and an accessory.
+    const bodyWarmth = (o) => (o.dress ? o.dress.warmth : o.top.warmth * 0.6 + o.bottom.warmth * 0.4);     // the top counts most
     const buildAll = () => {
-        let baseTops = pool('tops', p => p.layer !== 'mid');
-        let midTops = pool('tops', p => p.layer === 'mid');
-        if (baseTops.length === 0) { baseTops = midTops; midTops = []; }
-        const bottoms = pool('bottoms'), dresses = pool('dresses');
+        const tops = pool('tops'), bottoms = pool('bottoms'), dresses = pool('dresses');
         const outers = pool('outerwear'), shoes = pool('shoes'), accessories = pool('accessories');
         const keptOuter = keptIn('outerwear').length > 0;
-        const keptMidPieces = midTops.filter(p => keepIds.includes(p.id));
         const cores = [];
-        baseTops.forEach(t => bottoms.forEach(b => cores.push({ top: t, bottom: b })));
+        tops.forEach(t => bottoms.forEach(b => cores.push({ top: t, bottom: b })));
         dresses.forEach(d => cores.push({ dress: d }));
         const shoeOpts = shoes.length ? shoes : [null];
         const outerOpts = keptOuter ? outers : [null, ...outers];
-        const midOpts = keptMidPieces.length ? keptMidPieces : [null, ...midTops];
-        const out = [];
-        for (const core of cores) for (const shoe of shoeOpts) for (const outer of outerOpts) for (const mid of midOpts) {
-            if (mid && core.top && mid.id === core.top.id) continue;
-            out.push({ ...core, shoes: shoe, outer, mid, acc: null });
+        let out = [];
+        for (const core of cores) for (const shoe of shoeOpts) for (const outer of outerOpts) out.push({ ...core, shoes: shoe, outer, acc: null });
+        // The weather rules are requirements, not hints: when it is wet, outerwear (if the closet has any); when it
+        // is cold, outerwear unless the single top is already a warm one.
+        if (weatherNeed.has && outers.length) {
+            const needs = (o) => (weatherNeed.wet && !o.outer) || (weatherNeed.cold && !o.outer && bodyWarmth(o) < 3.5);
+            const ok = out.filter(o => !needs(o));
+            if (ok.length) out = ok;
         }
         return { candidates: out, accessories };
     };
 
-    const members = (o) => [o.top, o.bottom, o.dress, o.mid, o.outer, o.shoes, o.acc].filter(Boolean);
+    const members = (o) => [o.top, o.bottom, o.dress, o.outer, o.shoes, o.acc].filter(Boolean);
     const mainIds = (o) => [o.top, o.bottom, o.dress].filter(Boolean).map(p => p.id);
     const signature = (o) => members(o).map(p => p.id).sort().join('+');
 
     const score = (o) => {
         const ms = members(o);
         const mainPieces = [o.top, o.bottom, o.dress].filter(Boolean);
-        // weather: insulation = the body layer(s) plus half a mid layer plus 0.6 of the outerwear
-        const body = mainPieces.reduce((a, p) => a + p.warmth, 0) / Math.max(1, mainPieces.length);
-        const insulation = body + (o.mid ? o.mid.warmth * 0.5 : 0) + (o.outer ? o.outer.warmth * 0.6 : 0);
+        // weather: insulation = the body (the top counts most) plus 0.6 of the outerwear's warmth
+        const body = bodyWarmth(o);
+        const insulation = body + (o.outer ? o.outer.warmth * 0.6 : 0);
         let weather;
         if (!weatherNeed.has) {
-            weather = (o.mid || o.outer) ? 0.4 : 0.6;                              // no forecast: layers are optional, not encouraged
+            weather = o.outer ? 0.4 : 0.6;                                         // no forecast: outerwear is optional, not encouraged
         } else {
             weather = sgClamp(1 - Math.abs(insulation - weatherNeed.target) / 4, 0, 1);
-            if (weatherNeed.cold && !o.mid && !o.outer && hasLayerPieces) weather *= 0.5;       // cold: a layer or outerwear is expected
-            if (weatherNeed.wet && !o.outer && hasOuterPieces) weather *= 0.6;                  // wet: outerwear is expected
-            if (weatherNeed.hot) { if (o.outer) weather *= 0.6; if (o.mid) weather *= 0.8; }
+            if (weatherNeed.cold && !o.outer && body < 3.5 && hasOuterPieces) weather *= 0.5;   // cold: outerwear or a warm top
+            if (weatherNeed.wet && !o.outer && hasOuterPieces) weather *= 0.5;                  // wet: outerwear
+            if (weatherNeed.hot && o.outer) weather *= 0.6;
         }
         // formality: core pieces count fully, shoes a bit less, layers and accessories least
-        const wts = ms.map(p => (p === o.shoes ? 0.6 : p === o.outer ? 0.6 : p === o.mid ? 0.4 : p === o.acc ? 0.2 : 1));
+        const wts = ms.map(p => (p === o.shoes ? 0.6 : p === o.outer ? 0.6 : p === o.acc ? 0.2 : 1));
         const wsum = wts.reduce((a, b) => a + b, 0) || 1;
         const outfitFormality = ms.reduce((a, p, i) => a + p.formality * wts[i], 0) / wsum;
         const formality = sgClamp(1 - Math.abs(outfitFormality - formalityNeed.target) / 3, 0, 1);
@@ -309,7 +320,7 @@ function suggestOutfits(ctx, options) {
         const weekendShared = weekendOutfits.reduce((a, set) => a + tracked.filter(p => set.has(p.id)).length, 0);
         recency = sgClamp(recency - 0.2 * weekendShared, 0, 1);
         const color = sgColorScore(ms);
-        const fit = sgFitScore({ top: o.top, bottom: o.bottom, dress: o.dress, mid: o.mid, outer: o.outer });
+        const fit = sgFitScore({ top: o.top, bottom: o.bottom, dress: o.dress, outer: o.outer });
         // season: summer pieces in the cold, winter pieces in the heat
         let season = 1;
         if (weatherNeed.has) {
@@ -330,7 +341,7 @@ function suggestOutfits(ctx, options) {
         const scored = cands.map(o => ({ o, s: score(o) }));
         scored.sort((a, b) => b.s.total - a.s.total || (signature(a.o) < signature(b.o) ? -1 : 1));
         // an accessory is added to the best few when it helps (colours and formality still fit)
-        const top = scored.slice(0, 60);
+        const top = scored.slice(0, 250);                    // deep enough to find ideas that share no piece
         if (accessories.length) {
             const forced = accessories.some(a => keepIds.includes(a.id));        // a kept accessory is always worn
             top.forEach(entry => {
@@ -364,19 +375,35 @@ function suggestOutfits(ctx, options) {
     const fresher = ranked.filter(e => !excluded.has(signature(e.o)));
     if (fresher.length > 0) ranked = fresher; else if (excluded.size) notes.push('That is everything I can put together from your closet.');
 
-    // ---- choose up to three that are genuinely different ----
-    const chosen = [];
-    const take = (okFn) => { for (const e of ranked) { if (chosen.length >= opt.max) break; if (chosen.includes(e)) continue; if (chosen.every(c => okFn(c, e))) chosen.push(e); } };
-    const sharedMain = (a, b) => { const A = new Set(mainIds(a.o)); return mainIds(b.o).filter(id => A.has(id)).length; };
-    take((c, e) => sharedMain(c, e) === 0);                                             // nothing in common
-    if (chosen.length < Math.min(2, opt.max)) take((c, e) => sharedMain(c, e) < Math.max(mainIds(c.o).length, mainIds(e.o).length));   // at least one main piece differs
-    if (chosen.length < Math.min(2, opt.max)) take((c, e) => signature(c.o) !== signature(e.o));
+    // ---- choose up to three that share NO piece ----
+    // A piece appears in at most one idea (a piece you asked to keep is the one exception: it is in all of them).
+    // If the closet is too small for that, fewer ideas are shown rather than repeating pieces. Only shoes and
+    // accessories may repeat, and only when that is the only way to show at least two ideas.
+    const sharesAPiece = (a, b, cats) => members(a.o).some(p => cats.includes(p.cat) && !keepIds.includes(p.id) && members(b.o).some(q => q.id === p.id));
+    const pickDistinct = (cats) => {
+        const picked = [];
+        for (const e of ranked) { if (picked.length >= opt.max) break; if (picked.every(c => !sharesAPiece(c, e, cats))) picked.push(e); }
+        return picked;
+    };
+    let chosen = pickDistinct(SUGGEST_CATEGORIES);
+    if (chosen.length < Math.min(2, opt.max)) {
+        const garmentsOnly = pickDistinct(['tops', 'bottoms', 'dresses', 'outerwear']);
+        if (garmentsOnly.length > chosen.length) {
+            chosen = garmentsOnly;
+            notes.push('Some ideas share shoes or an accessory because your closet doesn’t have enough of them to give each idea its own.');
+        }
+    }
     chosen.sort((a, b) => b.s.total - a.s.total || (signature(a.o) < signature(b.o) ? -1 : 1));
 
     if (!all.some(p => p.cat === 'dresses') && !(all.some(p => p.cat === 'tops') && all.some(p => p.cat === 'bottoms'))) {
         notes.push('Add at least a top and a bottom (or a dress) to your closet and I can suggest outfits.');
     } else if (chosen.length === 1) {
-        notes.push('That is the only complete outfit your closet can make right now. Add more pieces for more ideas.');
+        notes.push('That is the only idea I can make without repeating a piece. Add more pieces for more ideas.');
+    } else if (chosen.length < opt.max && chosen.length > 1 && !excluded.size) {
+        notes.push('Your closet is too small for more ideas that don’t repeat a piece.');
+    }
+    if (weatherNeed.has && !hasOuterPieces && (weatherNeed.wet || weatherNeed.cold)) {
+        notes.push(`You don’t have any outerwear in your closet yet, so I couldn’t add a coat or jacket for the ${weatherNeed.wet ? (weatherNeed.snow ? 'snow' : 'rain') : 'cold'}.`);
     }
     if (ctx.skippedUntagged > 0) notes.push(`${ctx.skippedUntagged} ${ctx.skippedUntagged === 1 ? 'piece still needs' : 'pieces still need'} tagging, so I left ${ctx.skippedUntagged === 1 ? 'it' : 'them'} out.`);
     if (relaxed.length) notes.push(`Most of your ${relaxed.join(' and ')} were worn in the last week, so some are repeated here.`);
@@ -397,10 +424,7 @@ function suggestOutfits(ctx, options) {
 
 const SG_ORDER = { outerwear: 0, tops: 1, dresses: 2, bottoms: 3, shoes: 4, accessories: 5 };
 function sortForDisplay(pieces) {
-    return [...pieces].sort((a, b) => {
-        const am = a.layer === 'mid' && a.cat === 'tops' ? 0.5 : 0, bm = b.layer === 'mid' && b.cat === 'tops' ? 0.5 : 0;
-        return (SG_ORDER[a.cat] + am) - (SG_ORDER[b.cat] + bm) || (a.id < b.id ? -1 : 1);
-    });
+    return [...pieces].sort((a, b) => SG_ORDER[a.cat] - SG_ORDER[b.cat] || (a.id < b.id ? -1 : 1));
 }
 
 // One short plain sentence: the piece it is built around, then the clauses that mattered most.
@@ -409,11 +433,11 @@ function reasonFor(o, s, need, sinceWorn, formalityNeed) {
     const w = need.weather;
     const clauses = [];
     if (w.has) {
-        const layer = o.outer || o.mid;
         if (w.wet && o.outer) clauses.push(`adds your ${sgName(o.outer)} for the ${w.snow ? 'snow' : 'rain'}`);
-        else if (w.cold && layer) clauses.push(`adds your ${sgName(layer)} for the cold`);
-        else if (w.hot && !o.outer && !o.mid) clauses.push('keeps it light for the heat');
-        else if (!w.cold && !w.wet && !layer && w.feels < 72) clauses.push('is right for a mild day');
+        else if (w.cold && o.outer) clauses.push(`adds your ${sgName(o.outer)} for the cold`);
+        else if (w.cold && o.top && o.top.warmth >= 4) clauses.push(`uses your warm ${sgName(o.top)} for the cold`);
+        else if (w.hot && !o.outer) clauses.push('keeps it light for the heat');
+        else if (!w.cold && !w.wet && !o.outer && w.feels < 72) clauses.push('is right for a mild day');
     }
     const ev = formalityNeed.events;
     if (ev.length) {
@@ -424,7 +448,7 @@ function reasonFor(o, s, need, sinceWorn, formalityNeed) {
     } else if (need.formalityShift > 0) clauses.push('is a little dressier');
     else if (need.formalityShift < 0) clauses.push('is more relaxed');
     if (clauses.length < 2) {
-        const tracked = [o.top, o.bottom, o.dress, o.outer, o.mid].filter(Boolean);
+        const tracked = [o.top, o.bottom, o.dress, o.outer].filter(Boolean);
         const worn = tracked.filter(p => sinceWorn.has(p.id));
         if (tracked.length && worn.length === 0) clauses.push('uses pieces you haven’t worn lately');
         else if (worn.length && worn.every(p => sinceWorn.get(p.id) > SUGGEST_RECENT_DAYS)) clauses.push('avoids anything worn this week');

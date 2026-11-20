@@ -12,8 +12,8 @@ const ctx = vm.createContext({ console, Date, Math, JSON, Object, Array, Set, Ma
 for (const f of ['js/outfit-suggest.js', 'js/help-choose.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), ctx, { filename: f });
 }
-vm.runInContext('this.api = { suggestOutfits, buildDayContext, parseRefineText, specialRunOthers, describePiece, sgColor, sgColorScore };', ctx);
-const { suggestOutfits, buildDayContext, parseRefineText, specialRunOthers, describePiece, sgColor, sgColorScore } = ctx.api;
+vm.runInContext('this.api = { suggestOutfits, buildDayContext, parseRefineText, specialRunOthers, describePiece, sgColor, sgColorScore, sgWeatherNeed };', ctx);
+const { suggestOutfits, buildDayContext, parseRefineText, specialRunOthers, describePiece, sgColor, sgColorScore, sgWeatherNeed } = ctx.api;
 const clone = (x) => JSON.parse(JSON.stringify(x));
 // objects made inside the sandbox have the sandbox's own Array/Object, so compare them by value, not by prototype
 const same = (a, b, msg) => assert.strictEqual(JSON.stringify(a), JSON.stringify(b), msg);
@@ -46,7 +46,10 @@ const base = (over = {}) => ({ items: CLOSET, dateKey: '2026-11-12', weather: { 
 const byId = Object.fromEntries(CLOSET.map(i => [i.id, i]));
 const cats = (s) => s.itemIds.map(id => byId[id].category);
 const meanFormality = (s) => s.itemIds.reduce((a, id) => a + describePiece(byId[id]).formality, 0) / s.itemIds.length;
-const insulation = (s) => { const r = s.itemIds.map(id => describePiece(byId[id])); const main = r.filter(p => ['tops', 'bottoms', 'dresses'].includes(p.cat) && p.layer !== 'mid'); const mid = r.find(p => p.cat === 'tops' && p.layer === 'mid'); const out = r.find(p => p.cat === 'outerwear'); return main.reduce((a, p) => a + p.warmth, 0) / Math.max(1, main.length) + (mid ? mid.warmth * 0.5 : 0) + (out ? out.warmth * 0.6 : 0); };
+// the same rule the scoring uses: the body (a dress, or the top weighted 0.6 and the bottom 0.4) plus 0.6 of the outerwear
+const insulation = (s) => { const r = s.itemIds.map(id => describePiece(byId[id])); const top = r.find(p => p.cat === 'tops'), bottom = r.find(p => p.cat === 'bottoms'), dress = r.find(p => p.cat === 'dresses'), out = r.find(p => p.cat === 'outerwear'); return (dress ? dress.warmth : top.warmth * 0.6 + bottom.warmth * 0.4) + (out ? out.warmth * 0.6 : 0); };
+const topsIn = (s) => s.itemIds.filter(id => byId[id].category === 'tops');
+const allIds = (r) => r.suggestions.flatMap(s => s.itemIds);
 
 // ---- owned pieces only, complete outfits, 2-3 distinct ----
 check('every suggested piece is in the closet', () => {
@@ -300,6 +303,146 @@ check('Different ideas: nothing already shown comes back', () => {
     const next = suggestOutfits(base(), { exclude: seen });
     next.suggestions.forEach(s => assert(!seen.includes(s.signature)));
     assert(next.suggestions.length >= 2);
+});
+
+// ---- one slot per piece: exactly one top and one bottom (or one dress), never a second top ----
+const SCENARIOS = [];
+for (const weather of [null, { high: 30, low: 20, code: 73 }, { high: 44, low: 36, code: 63 }, { high: 58, low: 50, code: 61 }, { high: 62, low: 50, code: 2 }, { high: 92, low: 78, code: 0 }]) {
+    for (const texts of [[], ['Teaching'], ['Wedding'], ['Gym']]) SCENARIOS.push({ weather, texts });
+}
+check('no suggestion ever has two tops, or a top with a dress, or two of anything else (every weather, every kind of day)', () => {
+    for (const sc of SCENARIOS) for (const o of [{}, { warmthShift: 2 }, { warmthShift: -2 }, { formalityShift: 2 }, { keepIds: ['t5'] }]) {
+        const r = suggestOutfits(base(sc), o);
+        assert(r.suggestions.length >= 1, JSON.stringify(sc));
+        r.suggestions.forEach(s => {
+            const c = cats(s);
+            const count = (k) => c.filter(x => x === k).length;
+            assert(count('tops') <= 1, 'two tops: ' + s.pieces.map(p => p.name) + ' ' + JSON.stringify(sc) + JSON.stringify(o));
+            ['bottoms', 'dresses', 'outerwear', 'shoes', 'accessories'].forEach(k => assert(count(k) <= 1, 'two of one kind: ' + k));
+            assert((c.includes('dresses') && !c.includes('tops') && !c.includes('bottoms')) || (c.includes('tops') && c.includes('bottoms') && !c.includes('dresses')), 'not exactly top+bottom or a dress: ' + c);
+        });
+    }
+});
+check('a closet made mostly of sweaters still never stacks two tops', () => {
+    const items = [P('w1', 'Wool sweater', 'tops', '#9a9a9a', { season: 'winter' }), P('w2', 'Cardigan', 'tops', '#1f2a52'), P('w3', 'Hoodie', 'tops', '#222222'), P('w4', 'Fleece pullover', 'tops', '#c62828'),
+        P('b1', 'Jeans', 'bottoms', '#4a6fa5'), P('b2', 'Black trousers', 'bottoms', '#222222'), P('b3', 'Grey skirt', 'bottoms', '#9a9a9a'), P('s1', 'Boots', 'shoes', '#7b5233'), P('s2', 'Sneakers', 'shoes', '#f5f5f5'), P('s3', 'Loafers', 'shoes', '#222222')];
+    for (const weather of [{ high: 25, low: 15, code: 0 }, { high: 50, low: 40, code: 61 }, null]) {
+        const r = suggestOutfits(base({ items, weather }));
+        assert(r.suggestions.length >= 2);
+        r.suggestions.forEach(s => assert.strictEqual(s.itemIds.filter(id => items.find(i => i.id === id).category === 'tops').length, 1, 'tops in ' + s.itemIds));
+    }
+});
+check('a sweater counts as the top when it is chosen, and is a warmer top than a tee', () => {
+    assert(describePiece(P('z', 'Wool sweater', 'tops', '#999')).warmth > describePiece(P('z', 'Tee', 'tops', '#999')).warmth);
+    assert.strictEqual(describePiece(P('z', 'Wool sweater', 'tops', '#999', { warmth: 2 })).warmth, 2, 'what the person set always wins');
+    const cold = suggestOutfits(base({ weather: { high: 36, low: 28, code: 0 }, items: CLOSET.filter(i => i.category !== 'outerwear') }));
+    assert(cold.suggestions.length >= 1);
+    assert(cold.suggestions[0].itemIds.includes('t5'), 'with no outerwear, the warm sweater is the single top chosen for the cold');
+    assert(/for the cold/.test(cold.suggestions[0].reason) && /warm Grey sweater/.test(cold.suggestions[0].reason), cold.suggestions[0].reason);
+});
+
+// ---- a piece appears in at most one suggestion ----
+check('no piece is in more than one suggestion when the closet can support distinct ones', () => {
+    for (const sc of SCENARIOS) {
+        const r = suggestOutfits(base(sc));
+        const ids = allIds(r);
+        assert.strictEqual(new Set(ids).size, ids.length, 'a piece repeated: ' + JSON.stringify(sc) + ' ' + r.suggestions.map(s => s.pieces.map(p => p.name).join(',')).join(' | '));
+        assert(r.suggestions.length >= 2, 'fewer than two ideas for ' + JSON.stringify(sc));
+    }
+});
+check('the sweater (or any one piece) is not in all three suggestions', () => {
+    const r = suggestOutfits(base({ weather: { high: 40, low: 30, code: 0 } }));
+    ['t5', 'o1', 'o2', 'o3', 's1', 's2'].forEach(id => assert(allIds(r).filter(x => x === id).length <= 1, id + ' repeated'));
+});
+check('refinements and "Different ideas" keep the same rule (a kept piece is the one exception)', () => {
+    for (const o of [{ formalityShift: -1 }, { warmthShift: 1 }, { exclude: suggestOutfits(base()).suggestions.map(s => s.signature) }, { text: 'teaching then going out' }]) {
+        const ids = allIds(suggestOutfits(base(), o));
+        assert.strictEqual(new Set(ids).size, ids.length, JSON.stringify(o));
+    }
+    const kept = suggestOutfits(base(), { keepIds: ['b1'] });
+    assert(kept.suggestions.every(s => s.itemIds.includes('b1')));
+    const others = kept.suggestions.flatMap(s => s.itemIds.filter(id => id !== 'b1'));
+    assert.strictEqual(new Set(others).size, others.length, 'everything except the kept piece is different');
+});
+check('a closet too small for three distinct ideas shows fewer, never the same piece again', () => {
+    const items = [P('t1', 'Tee', 'tops', '#f5f5f5'), P('t2', 'Blouse', 'tops', '#1f2a52'), P('b1', 'Jeans', 'bottoms', '#4a6fa5'), P('b2', 'Skirt', 'bottoms', '#222222'), P('s1', 'Sneakers', 'shoes', '#f5f5f5'), P('s2', 'Flats', 'shoes', '#222222')];
+    const r = suggestOutfits(base({ items }));
+    assert.strictEqual(r.suggestions.length, 2);
+    const ids = allIds(r); assert.strictEqual(new Set(ids).size, ids.length);
+    assert(/too small|only idea/.test(r.notes.join(' ')), r.notes.join(' | '));
+});
+check('too few shoes: shoes are the only thing that may repeat, and only to still give two ideas, with a note', () => {
+    const items = [P('t1', 'Tee', 'tops', '#f5f5f5'), P('t2', 'Blouse', 'tops', '#1f2a52'), P('t3', 'Tank', 'tops', '#c62828'), P('b1', 'Jeans', 'bottoms', '#4a6fa5'), P('b2', 'Skirt', 'bottoms', '#222222'), P('b3', 'Trousers', 'bottoms', '#d9c7a7'), P('s1', 'Sneakers', 'shoes', '#f5f5f5')];
+    const r = suggestOutfits(base({ items }));
+    assert(r.suggestions.length >= 2);
+    const garments = r.suggestions.flatMap(s => s.itemIds.filter(id => id !== 's1'));
+    assert.strictEqual(new Set(garments).size, garments.length, 'no top or bottom repeated');
+    assert(/share shoes/.test(r.notes.join(' ')));
+});
+check('one top and one bottom: just one idea, not the same piece twice', () => {
+    const r = suggestOutfits(base({ items: [P('x1', 'Tee', 'tops', '#fff'), P('x2', 'Jeans', 'bottoms', '#4a6fa5'), P('x3', 'Sneakers', 'shoes', '#fff')] }));
+    assert.strictEqual(r.suggestions.length, 1);
+});
+
+// ---- cold and rainy days: warm enough, one top, outerwear ----
+check('cold and rainy: one top and one bottom plus outerwear, and warm enough', () => {
+    const r = suggestOutfits(base({ weather: { high: 38, low: 30, code: 63 } }));
+    assert(r.suggestions.length >= 2);
+    r.suggestions.forEach(s => {
+        assert(topsIn(s).length === 1 || (topsIn(s).length === 0 && cats(s).includes('dresses')), 'one top, or a dress instead');
+        assert(cats(s).includes('outerwear'), 'no outerwear: ' + s.pieces.map(p => p.name));
+        assert(insulation(s) >= 3.8, 'too thin for 38°F: insulation ' + insulation(s));
+    });
+    const mild = suggestOutfits(base({ weather: { high: 75, low: 62, code: 1 } }));
+    const avg = (x) => x.suggestions.reduce((a, s) => a + insulation(s), 0) / x.suggestions.length;
+    assert(avg(r) > avg(mild) + 1.5);
+});
+check('cold and dry: outerwear, or a single warm top', () => {
+    const r = suggestOutfits(base({ weather: { high: 30, low: 20, code: 0 } }));
+    r.suggestions.forEach(s => assert(cats(s).includes('outerwear') || topsIn(s).some(id => describePiece(byId[id]).warmth >= 4), s.pieces.map(p => p.name).join()));
+});
+
+// ---- rain always asks for outerwear (the gap that let a sweater stand in for it) ----
+check('rain on a mild day still gets outerwear in every idea, even when a sweater is available', () => {
+    for (const weather of [{ high: 58, low: 50, code: 61 }, { high: 66, low: 58, code: 80 }, { high: 52, low: 46, code: 53 }, { high: 40, low: 33, code: 71 }]) {
+        const r = suggestOutfits(base({ weather }));
+        assert(r.suggestions.length >= 2, JSON.stringify(weather));
+        r.suggestions.forEach(s => assert(cats(s).includes('outerwear'), 'no outerwear in the rain ' + JSON.stringify(weather) + ': ' + s.pieces.map(p => p.name)));
+        r.suggestions.forEach(s => assert(/rain|snow/.test(s.reason), s.reason));
+    }
+});
+check('every forecast code for rain, drizzle, showers, snow and storms counts as wet', () => {
+    for (const code of [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99]) assert.strictEqual(sgWeatherNeed({ high: 60, low: 50, code }, 0).wet, true, 'code ' + code);
+    for (const code of [0, 1, 2, 3, 45, 48]) assert.strictEqual(sgWeatherNeed({ high: 60, low: 50, code }, 0).wet, false, 'code ' + code);
+});
+check('rain with all the outerwear worn this week: it is repeated rather than leaving the rain unprotected', () => {
+    const worn = [wornOn('2026-11-10', ['o1', 'o2', 'o3'])];
+    const r = suggestOutfits(base({ weather: { high: 58, low: 50, code: 61 }, worn }));
+    assert(r.suggestions.length >= 1);
+    r.suggestions.forEach(s => assert(cats(s).includes('outerwear')));
+});
+check('rain with no outerwear in the closet: still suggests outfits, and says why there is no coat', () => {
+    const r = suggestOutfits(base({ weather: { high: 58, low: 50, code: 61 }, items: CLOSET.filter(i => i.category !== 'outerwear') }));
+    assert(r.suggestions.length >= 2);
+    r.suggestions.forEach(s => assert(!cats(s).includes('outerwear')));
+    assert(/don’t have any outerwear/.test(r.notes.join(' ')) && /rain/.test(r.notes.join(' ')), r.notes.join(' | '));
+    const dry = suggestOutfits(base({ weather: { high: 62, low: 50, code: 2 }, items: CLOSET.filter(i => i.category !== 'outerwear') }));
+    assert(!/outerwear/.test(dry.notes.join(' ')), 'no complaint about a missing coat on a mild dry day');
+});
+check('a summer piece is not offered in the cold, nor a winter piece in the heat, when something else will do', () => {
+    const cold = suggestOutfits(base({ weather: { high: 38, low: 30, code: 0 } }));
+    allIds(cold).forEach(id => assert.notStrictEqual(byId[id].season, 'summer', byId[id].name));
+    const hot = suggestOutfits(base({ weather: { high: 92, low: 78, code: 0 } }));
+    allIds(hot).forEach(id => assert.notStrictEqual(byId[id].season, 'winter', byId[id].name));
+});
+
+// ---- names are never cut ----
+check('a piece\'s full name is shown, however long', () => {
+    const long = 'Black A-line midi skirt with side pockets and a soft elastic waistband, moa';
+    const items = [P('t1', 'Tee', 'tops', '#f5f5f5'), P('b1', long, 'bottoms', '#222222'), P('s1', 'Sneakers', 'shoes', '#f5f5f5')];
+    const r = suggestOutfits(base({ items }));
+    assert.strictEqual(r.suggestions[0].pieces.find(p => p.id === 'b1').name, long);
+    assert(r.suggestions[0].reason.includes(long), r.suggestions[0].reason);
 });
 
 // ---- colours ----
