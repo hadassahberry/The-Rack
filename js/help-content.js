@@ -20,7 +20,7 @@ const HELP_CONTENT = {
         {
             heading: 'Plan an outfit',
             text: 'In the Planner, click a day (or press Enter on it), then pick pieces from your closet or apply a saved outfit. ' +
-                'A day can hold several outfits, each with an optional activity such as “Class”. Planning an outfit does not record that you wore it.'
+                'A day can hold several outfits, each with an optional activity such as “Class”. Not sure what to wear? Press Help me choose for ideas from your own closet. Planning an outfit does not record that you wore it.'
         },
         {
             heading: 'Mark it as worn',

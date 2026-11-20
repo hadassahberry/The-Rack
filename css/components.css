@@ -2056,3 +2056,46 @@ body.planning-open .planning-panel {
 @media (min-width: 641px) {
     .analytics-worn-grid > .planning-empty { grid-column: 1 / -1; max-width: 640px; font-size: 0.9rem; line-height: 1.5; }
 }
+
+/* ---------- Help me choose: suggestions built from the closet ---------- */
+.help-choose-btn { margin: 8px 0 4px; }
+.choose-panel {
+    margin: 8px 0 12px;
+    padding: 12px;
+    background: #fff7f3;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+.choose-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.choose-head strong { font-size: 0.9rem; color: var(--primary); }
+.choose-head strong:focus { outline: none; }
+.choose-head .link-btn { flex: none; padding: 8px 6px; }
+.choose-basis, .choose-notes { margin: 4px 0 10px; font-size: 0.78rem; line-height: 1.4; color: var(--text-muted); }
+.choose-empty { margin: 8px 0; font-size: 0.85rem; }
+.choose-cards { display: flex; flex-direction: column; gap: 10px; }
+.choose-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.choose-thumbs { display: flex; flex-wrap: wrap; gap: 4px; }
+.choose-thumb { width: 44px; height: 56px; object-fit: contain; background: #faf3ee; border-radius: 6px; }
+.choose-names { margin: 0; font-size: 0.82rem; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.choose-reason { margin: 0; font-size: 0.82rem; line-height: 1.4; color: var(--text-main); }
+.choose-card .primary-btn { align-self: flex-start; padding: 8px 14px; }
+.choose-refine { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
+.choose-refine .choose-btn { padding: 8px 12px; font-size: 0.8rem; text-align: left; }
+.choose-text { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.choose-text input { flex: 1 1 180px; min-width: 0; }
+.choose-text .choose-btn { padding: 8px 14px; }
+.modal-details { margin: 14px 0 4px; border-top: 1px solid var(--border); padding-top: 8px; }
+.modal-details summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--primary); padding: 6px 0; }
+@media (min-width: 641px) {
+    .choose-cards { flex-direction: row; flex-wrap: wrap; }
+    .choose-card { flex: 1 1 200px; min-width: 0; }
+}
+.choose-panel, .choose-head strong { scroll-margin-top: 56px; }     /* clear of the day window's sticky Close button */

@@ -453,6 +453,16 @@ function openEditModal(itemId) {
     document.getElementById('modal-occasion').value = item.occasion;
     document.getElementById('modal-season').value = item.season;
     document.getElementById('modal-color').value = item.color || '#cccccc';
+    // "More details" (used by Help me choose): what was set, else "Not set"; opened only when something is set.
+    const detailFields = { warmth: 'modal-warmth', formality: 'modal-formality', length: 'modal-length', fit: 'modal-fit', layer: 'modal-layer' };
+    let anyDetail = false;
+    Object.entries(detailFields).forEach(([field, id]) => {
+        const v = item[field] === null || item[field] === undefined ? '' : String(item[field]);
+        document.getElementById(id).value = v;
+        if (document.getElementById(id).value !== v) document.getElementById(id).value = '';      // an unknown stored value reads as not set
+        if (document.getElementById(id).value !== '') anyDetail = true;
+    });
+    document.getElementById('modal-details').open = anyDetail;
 
     editSession++;
     editSaveStarted = false;
@@ -493,7 +503,12 @@ function readEditForm() {
         category: document.getElementById('modal-category').value,
         occasion: document.getElementById('modal-occasion').value,
         season: document.getElementById('modal-season').value,
-        color: document.getElementById('modal-color').value
+        color: document.getElementById('modal-color').value,
+        warmth: document.getElementById('modal-warmth').value,
+        formality: document.getElementById('modal-formality').value,
+        length: document.getElementById('modal-length').value,
+        fit: document.getElementById('modal-fit').value,
+        layer: document.getElementById('modal-layer').value
     };
 }
 
@@ -544,6 +559,12 @@ async function saveEditModal() {
         occasion: document.getElementById('modal-occasion').value,
         season: document.getElementById('modal-season').value,
         color: document.getElementById('modal-color').value,
+        // optional details for Help me choose: a number, a word, or null when left as "Not set" (then it is estimated)
+        warmth: document.getElementById('modal-warmth').value === '' ? null : Number(document.getElementById('modal-warmth').value),
+        formality: document.getElementById('modal-formality').value === '' ? null : Number(document.getElementById('modal-formality').value),
+        length: document.getElementById('modal-length').value || null,
+        fit: document.getElementById('modal-fit').value || null,
+        layer: document.getElementById('modal-layer').value || null,
         tagged: true,
         ...(existing.categoryGuess ? { categoryGuess: null } : {}),   // saving confirms it: no longer a guess
         ...PhotoFrame.buildPatch()      // the framed picture, only if it was changed
@@ -641,6 +662,7 @@ function setBuildMode(on) {
         b.setAttribute('aria-expanded', String(on));
     });
     if (!on) {
+        if (typeof HelpChoose !== 'undefined') HelpChoose.reset();
         outfitBuilderSelectedIds = [];
         document.getElementById('outfit-name-input').value = '';
         setBuilderMessage('');

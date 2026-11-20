@@ -140,6 +140,9 @@
 
                     <div id="planning-items" class="planning-items"></div>
                     <button id="add-outfit-btn" class="link-btn add-outfit-btn" type="button">+ Add an outfit</button>
+                    <!-- Suggestions built only from pieces you own (js/outfit-suggest.js); nothing is added until you press Use this outfit. -->
+                    <button id="help-choose-btn" class="secondary-btn help-choose-btn" type="button" aria-controls="choose-panel">Help me choose</button>
+                    <div id="choose-panel" class="choose-panel hidden" role="region" aria-live="polite"></div>
 
                     <h3 class="panel-subhead">Saved outfits you can reuse</h3>
                     <div id="planning-saved-outfits" class="pill-row"></div>
@@ -198,6 +201,8 @@
                 </div>
                 <p class="build-hint">Tap the pieces below to add them to this outfit, and tap again to take one out. (Tapping a piece here selects it; it doesn&rsquo;t open it.)</p>
                 <div id="build-selected" class="build-selected" aria-label="Selected pieces"></div>
+                <button id="build-help-btn" class="secondary-btn help-choose-btn" type="button" aria-controls="build-choose-panel">Help me choose</button>
+                <div id="build-choose-panel" class="choose-panel hidden" role="region" aria-live="polite"></div>
                 <div class="build-bar-save">
                     <input type="text" id="outfit-name-input" placeholder="Name this outfit (e.g. Studio casual)" aria-label="Outfit name" aria-describedby="outfit-builder-message" />
                     <button id="save-outfit-btn" class="primary-btn" type="button">Save outfit</button>
@@ -592,6 +597,38 @@
             </select>
             <label for="modal-color">Color</label>
             <input type="color" id="modal-color" value="#cccccc">
+            <!-- Used by Help me choose. Anything left as "Not set" is estimated from the category, season and occasion. -->
+            <details id="modal-details" class="modal-details">
+                <summary>More details (optional)</summary>
+                <p class="setting-hint">These help Help me choose pick outfits. Anything you leave as “Not set” is estimated from the category, season and occasion.</p>
+                <label for="modal-warmth">Warmth</label>
+                <select id="modal-warmth">
+                    <option value="">Not set</option>
+                    <option value="1">1 – Very light</option><option value="2">2 – Light</option><option value="3">3 – Medium</option>
+                    <option value="4">4 – Warm</option><option value="5">5 – Very warm</option>
+                </select>
+                <label for="modal-formality">Formality</label>
+                <select id="modal-formality">
+                    <option value="">Not set</option>
+                    <option value="1">1 – Athletic</option><option value="2">2 – Casual</option><option value="3">3 – Smart casual</option>
+                    <option value="4">4 – Dressy</option><option value="5">5 – Formal</option>
+                </select>
+                <label for="modal-length">Length</label>
+                <select id="modal-length">
+                    <option value="">Not set</option><option value="short">Short</option><option value="mid">Mid</option><option value="long">Long</option>
+                </select>
+                <label for="modal-fit">Fit</label>
+                <select id="modal-fit">
+                    <option value="">Not set</option><option value="fitted">Fitted</option><option value="regular">Regular</option><option value="loose">Loose</option>
+                </select>
+                <label for="modal-layer">Layer</label>
+                <select id="modal-layer">
+                    <option value="">Not set</option>
+                    <option value="base">Base layer (worn against the body)</option>
+                    <option value="mid">Mid layer (cardigan, sweater)</option>
+                    <option value="outer">Outer layer (coat, jacket)</option>
+                </select>
+            </details>
             <!-- Only for items added from a link: where it came from. -->
             <p id="modal-source" class="setting-hint hidden">Added from: <a id="modal-source-link" target="_blank" rel="noopener noreferrer"></a></p>
             <p id="edit-save-status" class="save-status hidden" role="status" aria-live="polite"></p>
@@ -656,6 +693,8 @@
     <script src="js/analytics.js"></script>
     <script src="js/calendar-access.js"></script>
     <script src="js/calendar.js"></script>
+    <script src="js/outfit-suggest.js"></script>
+    <script src="js/help-choose.js"></script>
     <script src="js/navigation.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/account.js"></script>
