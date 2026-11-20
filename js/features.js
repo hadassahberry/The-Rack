@@ -4,8 +4,14 @@
 // which needs the paid Firebase Blaze plan, so it is OFF until that has been set up and approved.
 // While it is off the button is hidden, so nobody meets a feature that can't work yet.
 // To turn it on for everyone: set `linkImport: true` below after deploying the function.
+//
+// visionCheck: "Help me choose" can ask a vision model (Google Gemini, via the function in /functions) whether the
+// pieces in each idea look good together. It needs the same Firebase Blaze plan and a Gemini API key kept as a
+// server secret (functions/README.md), so it is OFF until those are set up and approved. While it is off,
+// "Help me choose" works exactly as before and nothing is ever sent anywhere.
 const RACK_FEATURES = {
-    linkImport: false
+    linkImport: false,
+    visionCheck: false
 };
 
 // A feature is on when it is switched on above, or when this browser has it switched on for testing

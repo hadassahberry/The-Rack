@@ -73,3 +73,87 @@ browser with no product data in the HTML. In those cases the app says so plainly
 Not covered (worth knowing): the function can be asked for any public photo address by a signed-in
 person, so in principle it can fetch any public picture up to 4 MB, within the rate limit. Sites also
 change their pages, so an import that works today can stop working later.
+
+---
+
+# The visual check for "Help me choose" (`judgeOutfits`)
+
+The rule-based "Help me choose" (`js/outfit-suggest.js`) only sees metadata (colour, warmth, formality, recency),
+so it can pair a striped shirt with a plaid skirt. `judgeOutfits` is a second callable function that asks a
+**vision model (Google Gemini)** to *look at the photos* of the pieces in each candidate outfit and say whether
+they go together (patterns, colours, formality, proportions, overall look). The app uses the verdicts to drop or
+push down outfits that clash and to break ties; the rules still choose the candidates.
+
+**Nothing here is deployed, and the feature is OFF.** `RACK_FEATURES.visionCheck` in `js/features.js` is `false`,
+so "Help me choose" works exactly as before and nothing is ever sent anywhere, until you finish the steps below.
+
+## How it works
+
+1. You press **Help me choose**. The rules pick up to five candidate outfits from pieces you own.
+2. The app makes **one** call: it sends small copies (about 320 px, a few KB each) of the photos of the pieces in
+   those candidates (each piece once), their names and kinds, and one line about the day ("Teaching; 52F high, rain").
+   Nothing else: no account details, no rest of the closet, no history.
+3. The function checks the request (real pictures only, decided from their bytes; size and count limits), asks
+   Gemini for a JSON verdict per outfit (`score` 0-10, `clash` true/false, a short reason), cleans the reply and
+   returns it. A score of 4 or less counts as a clash.
+4. The app drops clashing outfits (or, if too few are left, shows the least bad ones marked "may not look right
+   together"), orders the rest by the rules' score with the vision score deciding ties, and shows the top 2-3.
+5. **If anything goes wrong** (off, offline, slow, busy, not set up, an unusable reply) the rules' ranking is shown
+   as always, with a line saying the visual check was unavailable. Verdicts are remembered while the panel is open,
+   so "Warmer", "More casual" etc. only send *new* candidates, and re-showing the same ones sends nothing.
+
+The panel tells the person what is sent: "photos of the pieces in these ideas are sent to Google's Gemini AI, only
+when you press Help me choose; on Google's free tier Google may use them to improve its products."
+
+## Where the key lives
+
+The Gemini API key is a **Firebase secret** (Google Secret Manager), named `GEMINI_API_KEY`. It is read only by the
+function at run time, sent to Google in a request header, and never put in the app, the repository, a log or a reply
+(there is a test for each). The model is a parameter, `GEMINI_MODEL` (default `gemini-3.5-flash-lite`, set in
+`index.js`), so it can be changed without editing code.
+
+## API and free tier (checked 2026-11-20, from Google's own pages)
+
+- **Model:** `gemini-3.5-flash-lite` is listed on Google's pricing page with a **Free tier** for text and image
+  input ("Free of charge"); `gemini-3.6-flash` and `gemini-3.8-flash` also show a free tier. The REST endpoint is
+  `https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent` with the key in the
+  `x-goog-api-key` header. *I could not run a real call from here, so the request shape follows Google's published
+  REST pattern but has only been tested against a fake. Make one real call before relying on it.*
+- **Limits:** Google does **not** publish the free-tier request limits for these models on its public pages; they are
+  shown per project in Google AI Studio and "are not guaranteed". Forum posts reported about 20 requests a day for
+  a full Flash model and about 500 a day for Flash-Lite (unofficial; check AI Studio). Limits are **per project, not
+  per person**, so they are shared by everyone who uses the app. The app is built for that: one call per tap,
+  verdicts cached, its own per-person limit (6 a minute, 80 a day per running copy), and the rules' ranking is shown
+  whenever Google says "busy" (HTTP 429).
+- **Privacy on the free tier:** Google's pricing page says free-tier content **is used to improve Google's products**
+  (paid tier: not). Photos of clothes are sent, so the privacy page (`privacy.html`) must say so before this is
+  switched on. I did not edit it: it is legal text that is yours to approve.
+- **EEA / UK / Switzerland:** the pages I read state no restriction, but I could not read all of the pricing page;
+  check the current terms.
+
+## What it costs and the limits
+
+- **Gemini:** free tier, no card needed for the API key (create one in Google AI Studio). Expected use: one call per
+  "Help me choose" tap (plus one per tap that shows *different* candidates), roughly 10-30 KB per photo and 4-8
+  photos per call. A person using it a few times a day makes a few calls a day.
+- **Firebase function:** Cloud Functions needs the **Blaze plan** (a billing account on the project), even though
+  Blaze includes a monthly free allowance (about 2 million calls, 400,000 GB-seconds, 200,000 CPU-seconds, 5 GB
+  outbound; **check Firebase's pricing page**). A check is one call lasting a few seconds at 256 MB, so personal use
+  is far inside that. `maxInstances: 2` caps cost and abuse. Secret Manager's free allowance covers a couple of secret
+  versions; deployed images sit in Artifact Registry (cents per GB beyond the free amount).
+- **So "free" means free in practice, but not free of a billing account.** Set a budget alert (for example $1)
+  first. If you would rather not add a billing account, the same `lib/outfit-judge.js` could run on another free host.
+
+## Setup (when you decide to)
+
+1. Upgrade the project to Blaze and add a budget alert.
+2. Create a key in Google AI Studio (free tier). Then, from the project folder:
+   `firebase functions:secrets:set GEMINI_API_KEY` (paste the key when asked).
+3. `cd functions && npm install`, then `firebase deploy --only functions:judgeOutfits`
+   (the GitHub Action that deploys the website never deploys functions).
+4. Make one real call and confirm it answers (if the model name has changed, set `GEMINI_MODEL`).
+5. Update `privacy.html` to say photos of pieces are sent to Google's Gemini API when the person uses Help me choose.
+6. In `js/features.js` set `visionCheck: true`, commit and push.
+7. To switch it off: set the flag back to `false` (nothing is sent), and/or `firebase functions:delete judgeOutfits`.
+
+Tests: `npm test` in `functions/` (the model call is faked); the app side is `tests/outfit-vision.test.js`.

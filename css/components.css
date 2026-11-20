@@ -2087,6 +2087,10 @@ body.planning-open .planning-panel {
 .choose-names { margin: 0; font-size: 0.82rem; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 .choose-reason { margin: 0; font-size: 0.82rem; line-height: 1.4; color: var(--text-main); }
 .choose-card .primary-btn { align-self: flex-start; padding: 8px 14px; }
+.choose-look { margin: 0; font-size: 0.8rem; line-height: 1.4; color: #2f6b3b; }
+.choose-look.is-flagged { color: #b42318; }
+.choose-checking { margin: 8px 0; font-size: 0.85rem; font-weight: 600; color: var(--primary); }
+.choose-privacy { margin: 6px 0 4px; font-size: 0.72rem; line-height: 1.4; color: var(--text-muted); }
 .choose-refine { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
 .choose-refine .choose-btn { padding: 8px 12px; font-size: 0.8rem; text-align: left; }
 .choose-text { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }

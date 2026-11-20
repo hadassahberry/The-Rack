@@ -399,7 +399,7 @@ function suggestOutfits(ctx, options) {
         notes.push('Add at least a top and a bottom (or a dress) to your closet and I can suggest outfits.');
     } else if (chosen.length === 1) {
         notes.push('That is the only idea I can make without repeating a piece. Add more pieces for more ideas.');
-    } else if (chosen.length < opt.max && chosen.length > 1 && !excluded.size) {
+    } else if (chosen.length < Math.min(opt.max, 3) && chosen.length > 1 && !excluded.size) {
         notes.push('Your closet is too small for more ideas that don’t repeat a piece.');
     }
     if (weatherNeed.has && !hasOuterPieces && (weatherNeed.wet || weatherNeed.cold)) {

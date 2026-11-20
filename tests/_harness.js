@@ -37,7 +37,7 @@ async function done() {
 // sandbox and returns the sandbox. `expose` lists top-level names to hand back (they are `const`/`function`
 // declarations, which a script does not put on the global object by itself).
 function loadScript(file, globals = {}, expose = []) {
-    const sandbox = vm.createContext({ console, Date, Math, JSON, Object, Array, Set, Map, Number, String, Promise, RegExp, Error, isNaN, parseInt, parseFloat, ...globals });
+    const sandbox = vm.createContext({ console, Date, Math, JSON, Object, Array, Set, Map, Number, String, Promise, RegExp, Error, isNaN, parseInt, parseFloat, setTimeout, clearTimeout, ...globals });
     const code = fs.readFileSync(path.join(root, file), 'utf8') + '\n;' + expose.map(n => `this.${n} = ${n};`).join('\n');
     vm.runInContext(code, sandbox, { filename: file });
     return sandbox;

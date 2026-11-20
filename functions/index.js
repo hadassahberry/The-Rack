@@ -65,3 +65,56 @@ exports.importProduct = onCall({
         throw new HttpsError('internal', 'Something went wrong importing that link.', { reason: 'INTERNAL' });
     }
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+// "Help me choose" visual check: asks a vision model (Google Gemini, free tier) whether the pieces in each
+// candidate outfit go together. One call per tap of "Help me choose", judging all the candidates at once.
+// The API key is a Firebase SECRET (never in the app, never in the repo):
+//     firebase functions:secrets:set GEMINI_API_KEY
+// The model is a parameter (default in lib/outfit-judge.js) so it can be changed without touching code.
+const { defineSecret, defineString } = require('firebase-functions/params');
+const { judgeOutfits: runJudge, JudgeError } = require('./lib/outfit-judge');
+
+const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
+const GEMINI_MODEL = defineString('GEMINI_MODEL', { default: 'gemini-3.5-flash-lite' });
+
+// Per person (per running instance): 6 checks a minute and 80 a day, so nobody can run up the free quota.
+const JUDGE_MINUTE = { windowMs: 60 * 1000, max: 6 };
+const JUDGE_DAY = { windowMs: 24 * 60 * 60 * 1000, max: 80 };
+const judgeRecent = new Map();
+function withinJudgeLimit(uid) {
+    const now = Date.now();
+    const times = (judgeRecent.get(uid) || []).filter(t => now - t < JUDGE_DAY.windowMs);
+    const lastMinute = times.filter(t => now - t < JUDGE_MINUTE.windowMs).length;
+    if (lastMinute >= JUDGE_MINUTE.max || times.length >= JUDGE_DAY.max) { judgeRecent.set(uid, times); return false; }
+    times.push(now);
+    judgeRecent.set(uid, times);
+    return true;
+}
+
+const JUDGE_STATUS = {
+    BAD_REQUEST: 'invalid-argument', BAD_IMAGE: 'invalid-argument', TOO_LARGE: 'out-of-range',
+    RATE_LIMITED: 'resource-exhausted', TIMEOUT: 'deadline-exceeded', UNAVAILABLE: 'unavailable',
+    NOT_CONFIGURED: 'failed-precondition', BAD_REPLY: 'unavailable'
+};
+
+exports.judgeOutfits = onCall({
+    region: 'us-central1',
+    timeoutSeconds: 40,
+    memory: '256MiB',
+    maxInstances: 2,                // caps cost and abuse
+    secrets: [GEMINI_API_KEY]
+}, async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in to use the visual check.', { reason: 'UNAUTHENTICATED' });
+    if (!withinJudgeLimit(request.auth.uid)) throw new HttpsError('resource-exhausted', 'Too many checks. Try again in a minute.', { reason: 'RATE_LIMITED' });
+    try {
+        return await runJudge(request.data, { apiKey: GEMINI_API_KEY.value(), model: GEMINI_MODEL.value() });
+    } catch (err) {
+        if (err instanceof JudgeError) {
+            logger.info('outfit check refused', { reason: err.code });           // only a short reason: never photos, names or the key
+            throw new HttpsError(JUDGE_STATUS[err.code] || 'internal', err.message, { reason: err.code });
+        }
+        logger.error('outfit check failed', { kind: err && err.name });
+        throw new HttpsError('internal', 'The visual check failed.', { reason: 'INTERNAL' });
+    }
+});

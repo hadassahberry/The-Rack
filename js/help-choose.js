@@ -87,13 +87,72 @@ const HelpChoose = (function () {
         return `Based on: ${bits.join(' · ')}.`;
     }
 
-    function run(focusAction) {
+    // One line about the day for the visual check (it is told the occasion and the weather, nothing else about the person).
+    function dayLine(ctx, result) {
+        const bits = [];
+        const w = result.need.weather;
+        if (w.has && ctx.weather) bits.push(`${Math.round(ctx.weather.high)}F high${w.snow ? ', snow' : w.rain ? ', rain' : ''}`);
+        result.need.formality.events.slice(0, 3).forEach(e => bits.push(e.text));
+        return bits.join('; ');
+    }
+
+    // The rules pick the candidates; if the visual check is on, it judges them (one call) and may veto or re-rank
+    // them. If it is off, unavailable or fails, the rules' own ranking is shown, as it always was.
+    async function run(focusAction) {
+        const mine = state;
         const env = liveEnv();
-        const ctx = buildDayContext(state.dateKey, env);
-        const result = suggestOutfits(ctx, { ...state.refine, exclude: state.exclude });
-        state.result = result;
-        state.ctx = ctx;
+        const ctx = buildDayContext(mine.dateKey, env);
+        const deps = liveVisionDeps();
+        const visionOn = deps.enabled();
+        const result = suggestOutfits(ctx, { ...mine.refine, exclude: mine.exclude, max: visionOn ? 5 : 3 });    // a few extra, so a vetoed one can be replaced
+        mine.ctx = ctx;
+        mine.visionNote = '';
+        mine.vetoNote = '';
+        if (!visionOn || result.suggestions.length === 0) { mine.result = result; render(focusAction); return; }
+
+        const token = ++mine.token;
+        mine.result = result;
+        renderChecking();
+        const closetById = Object.fromEntries((ctx.items || []).map(i => [i.id, i]));
+        const check = await runVisionCheck({ suggestions: result.suggestions, closetById, context: dayLine(ctx, result), deps, cache: mine.cache });
+        if (state !== mine || mine.token !== token) return;                       // closed, or run again, while it was checking
+        mine.cache = check.verdicts;
+        if (check.sent) mine.sent = true;
+        const final = finalizeSuggestions(result.suggestions, check, { show: 3 });        // vetoed and re-ranked, or the rules' own ranking if the check didn't work
+        mine.result = { ...result, suggestions: final.shown };
+        mine.vetoNote = final.vetoNote;
+        mine.visionNote = final.visionNote;
         render(focusAction);
+    }
+
+    function renderChecking() {
+        const box = state.box;
+        box.innerHTML = '';
+        box.classList.remove('hidden');
+        const head = document.createElement('div');
+        head.className = 'choose-head';
+        const title = document.createElement('strong');
+        title.id = `${box.id}-title`;
+        title.tabIndex = -1;
+        title.textContent = `Ideas from your closet for ${state.kind === 'builder' ? 'today' : dayLabel(state.dateKey)}`;
+        head.append(title, button('Close', 'close', 'link-btn'));
+        box.appendChild(head);
+        box.setAttribute('aria-labelledby', title.id);
+        const p = document.createElement('p');
+        p.className = 'choose-checking';
+        p.setAttribute('role', 'status');
+        p.textContent = 'Checking how these look together…';
+        box.appendChild(p);
+        box.appendChild(privacyNote());
+        title.focus({ preventScroll: true });
+    }
+
+    function privacyNote() {
+        const p = document.createElement('p');
+        p.className = 'choose-privacy';
+        p.textContent = 'To check how they look together, photos of the pieces in these ideas are sent to Google’s Gemini AI. ' +
+            'Only those photos, and only when you press Help me choose. On Google’s free tier, Google may use them to improve its products.';
+        return p;
     }
 
     // ---- drawing ----
@@ -152,9 +211,17 @@ const HelpChoose = (function () {
             const reason = document.createElement('p');
             reason.className = 'choose-reason';
             reason.textContent = s.reason;
+            let look = null;
+            if (s.vision && s.vision.reason) {                           // what the visual check said about these pieces together
+                look = document.createElement('p');
+                look.className = 'choose-look' + (s.flagged ? ' is-flagged' : '');
+                look.textContent = (s.flagged ? 'May not look right together: ' : 'Looks good together: ') + s.vision.reason;
+            }
             const use = button('Use this outfit', `use:${n}`, 'primary-btn');
             use.setAttribute('aria-label', `Use idea ${n + 1}: ${s.pieces.map(p => p.name).join(', ')}`);
-            card.append(thumbs, names, reason, use);
+            card.append(thumbs, names, reason);
+            if (look) card.appendChild(look);
+            card.appendChild(use);
             cards.appendChild(card);
         });
         box.appendChild(cards);
@@ -193,6 +260,8 @@ const HelpChoose = (function () {
         if (hasChanges) box.appendChild(button('Start over', 'reset', 'link-btn'));
 
         const notes = [...result.notes.slice(result.suggestions.length === 0 ? 1 : 0)];
+        if (state.vetoNote) notes.push(state.vetoNote);
+        if (state.visionNote) notes.push(state.visionNote);
         if (result.heard.length) notes.unshift(`I used: ${result.heard.join(', ')}.`);
         if (notes.length) {
             const p = document.createElement('p');
@@ -200,6 +269,7 @@ const HelpChoose = (function () {
             p.textContent = notes.join(' ');
             box.appendChild(p);
         }
+        if (state.sent) box.appendChild(privacyNote());
 
         // the cards were redrawn, so put keyboard focus back on what was pressed (or on the heading)
         const target = focusAction && box.querySelector(`[data-action="${focusAction}"]`);
@@ -252,7 +322,7 @@ const HelpChoose = (function () {
     }
 
     function open(kind, button, box, dateKey) {
-        state = { kind, dateKey, box, button, refine: freshRefine(), exclude: [], result: null, ctx: null };
+        state = { kind, dateKey, box, button, refine: freshRefine(), exclude: [], result: null, ctx: null, token: 0, cache: {}, sent: false, visionNote: '', vetoNote: '' };
         run();
     }
 
