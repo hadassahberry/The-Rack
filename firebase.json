@@ -11,7 +11,8 @@
       "**/.git/**",
       "**/node_modules/**",
       ".claude/**",
-      "functions/**"
+      "functions/**",
+      "tests/**"
     ],
     "headers": [
       {

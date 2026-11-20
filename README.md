@@ -62,7 +62,7 @@
 - `js/link-import.js` — the "Add from a link" window; `js/features.js` — switches for features that need setup first.
 - `js/save-state.js` — the Saving… / Saved / Couldn’t save line and the logic behind it (pure, tested on its own).
 - `js/outfit-suggest.js` — the "Help me choose" logic (pure, deterministic; the scoring is explained at the top of the file); `js/help-choose.js` — its buttons, cards and refinements.
-- `tests/outfit-suggest.test.js` — checks for it; run with `node tests/outfit-suggest.test.js` (no packages needed).
+- `tests/` — the automated checks, one file per area (the "Help me choose" logic, the calendars and holidays, wear stats, save feedback, settings per account, the welcome card and tours, the service worker, the page's wiring, the item editor's fields...). Run them all with `node tests/run-all.js`, or one with `node tests/<name>.test.js`. They need no packages and never touch a page, storage or the network; `tests/` is not published with the site.
 - `js/help-content.js` — the getting-started text shared by the welcome card and Settings; `js/welcome.js` — the first-time welcome card and the "How to use" window; `js/tour.js` — the ? Help menu and the page tours.
 - `functions/` — the one server-side piece (a Firebase Cloud Function that reads product pages safely); not deployed. See `functions/README.md`.
 - `js/closet.js` — closet CRUD, tagging queue, saved-outfit builder.
