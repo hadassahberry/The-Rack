@@ -142,13 +142,20 @@ function patternStrengthPatch(existing, selected) {
     return normalizePatternStrength(existing && existing.patternStrength) === 'unknown' ? {} : { patternStrength: null };
 }
 
-// What the item editor saves for the Pattern field, as a patch for the stored piece. A piece that has no pattern saved
-// stays exactly as it is when the field is left unset (nothing is written), so existing pieces are never touched just
-// because they were opened and saved; choosing a pattern saves it; clearing a saved one writes null.
-function patternPatch(existing, selected) {
+// What the item editor saves for the Pattern field, as a patch for the stored piece.
+//   - A pattern that was chosen is saved.
+//   - A piece whose pattern field was NEVER SET (the key is absent) stays exactly as it is when the field is left on Unknown, so
+//     existing pieces are never touched just because they were opened and saved...
+//   - ...unless the owner CHOSE Unknown themselves in the editor (explicit = true): that is a decision, so it is written as null.
+//     A present field (null, "unknown", anything) means "decided", while an absent one means "never set"; that difference is what
+//     keeps a name-based suggestion from coming back for a piece whose owner already said Unknown.
+//   - Clearing a saved pattern writes null; a piece that already has a decided Unknown is left exactly as it is.
+function patternPatch(existing, selected, explicit = false) {
     const v = SUGGEST_PATTERNS.includes(selected) ? selected : '';
     if (v) return { pattern: v };
-    return normalizePattern(existing && existing.pattern) === 'unknown' ? {} : { pattern: null };
+    const neverSet = !existing || existing.pattern === undefined;
+    if (neverSet) return explicit ? { pattern: null } : {};
+    return normalizePattern(existing.pattern) === 'unknown' ? {} : { pattern: null };
 }
 const SUGGEST_OPEN_SHOE_NAME = /\b(sandals?|flip[- ]?flops?|slides?|sliders?|slingbacks?|mules?|espadrilles?|gladiators?|huaraches|jellies|jelly|crocs|open[- ]toe[d]?|peep[- ]toe[d]?|thongs?)\b/i;
 const SUGGEST_BOOT_NAME = /\b(boots?|booties|bootie|chelsea|wellies|wellingtons)\b/i;

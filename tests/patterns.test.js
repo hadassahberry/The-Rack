@@ -335,7 +335,7 @@ check('the editor refills both fields, notices a change in them, and saves them 
     const form = src.slice(src.indexOf('function readEditForm'));
     assert(/pattern: document\.getElementById\('modal-pattern'\)\.value,/.test(form) && /patternStrength: document\.getElementById\('modal-pattern-strength'\)\.value,/.test(form), 'part of "did anything change?"');
     const patch = src.slice(src.indexOf('async function saveEditModal'), src.indexOf('async function deleteEditingItem'));
-    assert(/\.\.\.patternPatch\(existing, document\.getElementById\('modal-pattern'\)\.value\)/.test(patch) && /\.\.\.patternStrengthPatch\(existing, document\.getElementById\('modal-pattern-strength'\)\.value\)/.test(patch));
+    assert(/\.\.\.patternFormPatch\(existing\)/.test(patch) && /patternPatch\(existing, document\.getElementById\('modal-pattern'\)\.value, patternTouched\)/.test(src) && /\.\.\.patternStrengthPatch\(existing, document\.getElementById\('modal-pattern-strength'\)\.value\)/.test(patch));
     assert(!/pattern: document|patternStrength: document/.test(patch), 'never writes the fields directly');
 });
 check('Help me choose shows each idea\'s pattern line, amber when the check was incomplete or the patterns compete', () => {

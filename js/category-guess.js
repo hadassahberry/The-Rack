@@ -73,12 +73,17 @@ function guessPattern(name) {
 }
 
 // What the editor's Pattern field STARTS as, and whether that is only a suggestion.
-//   name: the item's name (or what is typed now)   saved: the pattern stored on the item, if any
-// kind: 'saved' (a pattern is already saved: it always wins, even if the name says something else) | 'guess' | 'none'
+//   name: the item's name (or what is typed now)   saved: the pattern stored on the item, or undefined when the field was never set
+// kind: 'saved' (a pattern is already saved: it always wins, even if the name says something else)
+//     | 'decided' (the field exists but is Unknown: the owner already said Unknown, so the name never overrides it)
+//     | 'guess' (the field was NEVER SET and the name says a pattern) | 'none' (never set, and the name says nothing)
+// Only an ABSENT field is "never set". null, "unknown", an empty string or anything unrecognised is a decision already made (an
+// explicit Unknown is stored as null), and is never replaced by a suggestion.
 // Nothing returned here is ever saved by itself: it is what the form shows until the owner presses Save.
 function patternSuggestionFor(name, saved) {
     const stored = typeof saved === 'string' ? saved.trim().toLowerCase() : '';
     if (PATTERN_CHOICES.includes(stored)) return { pattern: stored, kind: 'saved', word: '', text: '' };
+    if (saved !== undefined) return { pattern: '', kind: 'decided', word: '', text: '' };
     const guess = guessPattern(name);
     if (!guess) return { pattern: '', kind: 'none', word: '', text: '' };
     return {

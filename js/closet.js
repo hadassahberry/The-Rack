@@ -503,11 +503,7 @@ function openEditModal(itemId) {
     colorsTouched = false;
     colorsFromName = false;
     applyColorsFromName(item.otherColors);
-    // Pattern: what was saved, else Unknown (a piece with nothing saved is only READ as unknown; it is not changed)
-    const savedPattern = normalizePattern(item.pattern);
-    document.getElementById('modal-pattern').value = savedPattern === 'unknown' ? '' : savedPattern;
-    patternTouched = false;
-    applyPatternFromName(item.pattern);      // a piece with no pattern saved whose name says one: pre-filled, and labeled as a suggestion
+    initPatternField(item);                  // what was saved; or, for a piece whose pattern was NEVER set and whose name says one, a labeled suggestion
     const savedStrength = normalizePatternStrength(item.patternStrength);
     document.getElementById('modal-pattern-strength').value = savedStrength === 'unknown' ? '' : savedStrength;
     // "More details" (used by Help me choose): what was set, else "Not set"; opened only when something is set.
@@ -612,10 +608,24 @@ async function requestCloseEditModal() {
 // The Pattern field follows the name while nothing is saved and the owner hasn't picked one: "Striped navy top" pre-fills
 // Striped (labeled as a suggestion); a name with no pattern word, or two different ones, leaves it Unknown. A pattern that is
 // already saved, or one the owner chose, is never replaced. Strength is never suggested. Nothing here saves anything.
+// Opening the editor on an item: the Pattern field shows what is saved (Unknown when nothing, or an Unknown, is saved), and only an
+// item whose pattern was NEVER set can then be given a labeled suggestion from its name (applyPatternFromName).
+function initPatternField(item) {
+    const savedPattern = normalizePattern(item.pattern);
+    document.getElementById('modal-pattern').value = savedPattern === 'unknown' ? '' : savedPattern;
+    patternTouched = false;
+    patternFromName = false;
+    applyPatternFromName(item.pattern);
+}
+// What the owner's Pattern choice writes: patternPatch, told whether Unknown was chosen by the owner in this window (patternTouched).
+function patternFormPatch(existing) {
+    return patternPatch(existing, document.getElementById('modal-pattern').value, patternTouched);
+}
+
 function applyPatternFromName(savedPattern) {
     const select = document.getElementById('modal-pattern');
     const suggestion = patternSuggestionFor(document.getElementById('modal-name').value, savedPattern);
-    if (suggestion.kind === 'saved' || patternTouched) { patternFromName = false; showPatternNote(''); return; }
+    if (suggestion.kind === 'saved' || suggestion.kind === 'decided' || patternTouched) { patternFromName = false; showPatternNote(''); return; }
     if (suggestion.kind === 'guess') { select.value = suggestion.pattern; patternFromName = true; showPatternNote(suggestion.text); return; }
     if (patternFromName) select.value = '';                    // the name no longer says one: take back what the name had put there
     patternFromName = false;
@@ -705,7 +715,7 @@ async function saveEditModal() {
         season: document.getElementById('modal-season').value,
         color: document.getElementById('modal-color').value,
         ...otherColorsPatch(existing, editOtherColors, document.getElementById('modal-color').value),      // nothing is written for a piece that never had other colors
-        ...patternPatch(existing, document.getElementById('modal-pattern').value),      // nothing is written for a piece whose pattern was never set
+        ...patternFormPatch(existing),      // nothing is written for a piece whose pattern was never set, unless the owner chose Unknown themselves
         ...patternStrengthPatch(existing, document.getElementById('modal-pattern-strength').value),
         // optional details for Help me choose: a number, a word, or null when left as "Not set" (then it is estimated).
         // Only the details SHOWN for this kind of piece are written; one that is hidden keeps whatever the piece already had.

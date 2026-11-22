@@ -60,7 +60,9 @@ check('nothing saved: the name pre-fills it, labeled as a suggestion that needs 
     const s = patternSuggestionFor('Navy striped tee', undefined);
     assert.deepStrictEqual([s.pattern, s.kind, s.word], ['striped', 'guess', 'striped']);
     assert.strictEqual(s.text, 'Suggested “Striped” from the name (“striped”). Please check it.');
-    for (const saved of [null, '', 'unknown', 'Unknown', 'mystery', 5]) assert.strictEqual(patternSuggestionFor('Navy striped tee', saved).kind, 'guess', String(saved));
+    assert.strictEqual(patternSuggestionFor('Navy striped tee').kind, 'guess', 'no second argument: never set');
+    // only an ABSENT field is "never set": anything present (including null, "unknown" and an empty string) is a decision already made
+    for (const saved of [null, '', 'unknown', 'Unknown', 'mystery', 5]) assert.deepStrictEqual(patternSuggestionFor('Navy striped tee', saved), { pattern: '', kind: 'decided', word: '', text: '' }, String(saved));
 });
 check('a pattern that is already saved always wins, even when the name says something else', () => {
     for (const saved of ['solid', 'striped', 'plaid', 'floral', 'other', ' Plaid ']) {
@@ -71,7 +73,7 @@ check('a pattern that is already saved always wins, even when the name says some
     }
 });
 check('no pattern word and nothing saved: the field stays Unknown, with no note', () => {
-    assert.deepStrictEqual(patternSuggestionFor('Navy tee', ''), { pattern: '', kind: 'none', word: '', text: '' });
+    assert.deepStrictEqual(patternSuggestionFor('Navy tee', undefined), { pattern: '', kind: 'none', word: '', text: '' });
 });
 
 // ================= the editor =================
@@ -154,13 +156,15 @@ check('the editor has a place for the suggestion note, tied to the Pattern field
 check('the editor follows the name as it is typed, and a choice in the field ends the suggestions', () => {
     assert(/getElementById\('modal-name'\)\.addEventListener\('input', \(\) => \{\s*const item = liveCloset\.find\(i => i\.id === currentEditingItemId\);\s*if \(item\) \{ applyPatternFromName\(item\.pattern\);/.test(closet));
     assert(/getElementById\('modal-pattern'\)\.addEventListener\('change', \(\) => \{ patternTouched = true; patternFromName = false; showPatternNote\(''\); \}\);/.test(closet));
-    assert(/applyPatternFromName\(item\.pattern\);/.test(closet.slice(closet.indexOf('function openEditModal'), closet.indexOf('function showCategoryNote'))), 'also when the window opens');
+    assert(/initPatternField\(item\);/.test(closet.slice(closet.indexOf('function openEditModal'), closet.indexOf('function showCategoryNote'))), 'also when the window opens');
+    assert(/function initPatternField\(item\) \{[\s\S]*?applyPatternFromName\(item\.pattern\);/.test(closet));
 });
 check('nothing is saved by the suggestion itself: adding a photo never sets a pattern, and saving goes through the same patch as before', () => {
     const add = closet.slice(closet.indexOf('async function addImageFiles'), closet.indexOf('// Closes a popup when the dark backdrop'));
     assert(!/pattern/i.test(add), 'a new piece is created without a pattern; the suggestion appears in the editor');
     const patch = closet.slice(closet.indexOf('async function saveEditModal'), closet.indexOf('async function deleteEditingItem'));
-    assert(/\.\.\.patternPatch\(existing, document\.getElementById\('modal-pattern'\)\.value\)/.test(patch));
+    assert(/\.\.\.patternFormPatch\(existing\)/.test(patch));
+    assert(/function patternFormPatch\(existing\) \{\s*return patternPatch\(existing, document\.getElementById\('modal-pattern'\)\.value, patternTouched\);/.test(closet));
     assert(!/patternSuggestionFor|guessPattern/.test(patch), 'the save reads the form, which is what the owner confirmed');
 });
 check('strength is never touched by the name', () => {
