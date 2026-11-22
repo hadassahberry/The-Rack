@@ -15,7 +15,8 @@ const Trips = (function () {
         trips: [], selectedId: null,
         forecasts: {}, statuses: {}, fetchedAt: {}, inFlight: {},      // per trip id: the destination forecast, how the last request went, when, and a request under way
         overrides: {},                                                  // 'tripId:pieceId' -> ticked (shown at once, until the save is confirmed)
-        editingId: null, chosen: null, places: [], searching: false, saving: false
+        editingId: null, chosen: null, places: [], searching: false, saving: false,
+        noticeTripId: null                                              // the trip just saved over days that already had plans: only that trip shows the notice
     };
     const WEATHER_STALE_MS = 3 * 60 * 60 * 1000;                       // a forecast younger than this is not asked for again
     const CATEGORY_LABELS = { outerwear: 'Outerwear', tops: 'Tops', dresses: 'Dresses', bottoms: 'Bottoms', shoes: 'Shoes', accessories: 'Accessories' };
@@ -83,8 +84,21 @@ const Trips = (function () {
     // ---- drawing ----
     function render() {
         if (!$('trips-view')) return;
+        renderNotice();
         renderList();
         renderDetail();
+    }
+
+    // The "these days already had outfits" notice. Never stored text: it is recomputed from the SELECTED trip and the CURRENT plans
+    // on every draw (after a plan changes, a trip is picked or deleted), so it can't outlive what it says. It is empty, and hidden,
+    // when no trip is selected, when none remain, when the selected trip isn't the one just saved, and when the plans are gone.
+    function renderNotice() {
+        const note = $('trip-notice');
+        if (!note) return;
+        const trip = selected();
+        const text = trip && trip.id === state.noticeTripId && dataReady() ? tripPlansNotice(trip, plannerOutfits) : '';
+        note.textContent = text;
+        note.classList.toggle('hidden', !text);
     }
 
     function renderList() {
@@ -118,7 +132,12 @@ const Trips = (function () {
     function renderDetail() {
         const trip = selected();
         $('trip-detail').classList.toggle('hidden', !trip);
-        if (!trip) return;
+        if (!trip) {                                      // nothing selected (or none left): nothing from a trip that is gone is kept anywhere
+            $('trip-days').innerHTML = '';
+            $('trip-pack-list').innerHTML = '';
+            $('trip-pack-summary').textContent = '';
+            return;
+        }
         $('trip-detail-title').textContent = tripTitle(trip);
         $('trip-detail-sub').textContent = `${trip.destination.label} · ${tripRangeLabel(trip.start, trip.end, todayKey())}`;
 
@@ -344,9 +363,8 @@ const Trips = (function () {
         closeForm();
         const planned = tripDates(start, end).filter(d => ((typeof plannerOutfits !== 'undefined' && plannerOutfits[d]) || []).some(o => o.itemIds.length > 0)).length;
         announce(`Trip saved.${planned ? ` ${planned === 1 ? 'One of its days already has' : planned + ' of its days already have'} outfits planned, so those pieces are on the packing list.` : ''}`);
-        const note = $('trip-notice');
-        note.textContent = planned ? `${planned === 1 ? '1 day of this trip already had outfits' : planned + ' days of this trip already had outfits'} planned in the Planner. Those pieces are on the packing list.` : '';
-        note.classList.toggle('hidden', !planned);
+        state.noticeTripId = planned ? trip.id : null;           // the notice itself is drawn (and kept up to date) by renderNotice
+        render();
         if (editing && (editing.destination.latitude !== trip.destination.latitude || editing.destination.longitude !== trip.destination.longitude)) { delete state.forecasts[trip.id]; delete state.fetchedAt[trip.id]; delete state.statuses[trip.id]; }
     }
 
@@ -364,6 +382,11 @@ const Trips = (function () {
             Object.keys(state.overrides).filter(k => k.startsWith(trip.id + ':')).forEach(k => delete state.overrides[k]);
             delete state.forecasts[trip.id]; delete state.statuses[trip.id]; delete state.fetchedAt[trip.id];
             if (state.selectedId === trip.id) state.selectedId = null;
+            if (state.noticeTripId === trip.id) state.noticeTripId = null;
+            state.trips = state.trips.filter(t => t.id !== trip.id);          // gone from the screen now, not only when the server's answer arrives
+            if (!selected()) state.selectedId = state.trips.length ? (state.trips.find(t => t.end >= todayKey()) || state.trips[0]).id : null;
+            document.dispatchEvent(new Event('trips-changed'));       // the calendar stops marking its days at once
+            render();
             announce('Trip deleted.');
         } catch (e) {
             console.error('Deleting the trip failed', e);

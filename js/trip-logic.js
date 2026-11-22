@@ -217,6 +217,16 @@ function buildPackingList({ trip, outfitsByDate = {}, closet = [], packed = null
     return { items, groups, total: items.length, packed: items.filter(i => i.checked).length };
 }
 
+// How many of a trip's days have outfits (with pieces) planned right now, and the sentence for the notice shown after a trip is
+// added or changed over days that already had plans. It is worked out from the trip and the CURRENT plans every time it is
+// drawn, so it disappears when the plans are removed; '' when there is nothing to say.
+function tripPlansNotice(trip, outfitsByDate = {}) {
+    if (!trip) return '';
+    const days = tripDates(trip.start, trip.end).filter(d => ((outfitsByDate || {})[d] || []).some(o => (o.itemIds || []).length > 0)).length;
+    if (days === 0) return '';
+    return `${days === 1 ? '1 day of this trip has' : days + ' days of this trip have'} outfits planned in the Planner. Those pieces are on the packing list.`;
+}
+
 // The day-by-day view: what is planned on each trip date (by name, head to toe), so the person can see which days still have nothing.
 function tripDaySummaries({ trip, outfitsByDate = {}, closet = [] }) {
     const closetById = new Map((closet || []).map(i => [i.id, i]));
@@ -236,6 +246,6 @@ if (typeof module !== 'undefined') {
         isIsoDate, tripAddDays, tripDaysBetween, tripDates, tripShortDate, tripWeekdayDate, tripRangeLabel, describeTripDates,
         normalizeGeoResults, disambiguatePlaces, destinationFromPlace, validDestination,
         normalizeTrip, tripTitle, tripOnDate, tripLocation, validateTrip,
-        parseTripForecast, tripWeatherAvailability, weatherSourceFor, buildPackingList, tripDaySummaries
+        parseTripForecast, tripWeatherAvailability, weatherSourceFor, buildPackingList, tripDaySummaries, tripPlansNotice
     };
 }
