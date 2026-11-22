@@ -445,6 +445,119 @@ check('a piece\'s full name is shown, however long', () => {
     assert(r.suggestions[0].reason.includes(long), r.suggestions[0].reason);
 });
 
+// ---- combinations you actually wore about 3-4 weeks ago ----
+const daysBefore = (n, dateKey = '2026-11-12') => { const d = new Date(dateKey + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+const COMBO = ['t3', 'b1', 's4'];                                    // Red top + Navy skirt (+ sandals): the rules rank it 4th, just outside the three shown
+const baselineSigs = (over = {}, o = {}) => suggestOutfits(base(over), o).suggestions.map(x => x.signature);
+const hasCombo = (r) => r.suggestions.find(x => x.itemIds.includes('t3') && x.itemIds.includes('b1'));
+check('baseline: without any wear history that combination is not in the three shown', () => {
+    assert(!hasCombo(suggestOutfits(base())));
+});
+check('worn about 3-4 weeks ago (18 to 31 days) it comes back, with a plain explanation', () => {
+    for (const n of [18, 21, 25, 28, 31]) {
+        const r = suggestOutfits(base({ worn: [wornOn(daysBefore(n), COMBO)] }));
+        const hit = hasCombo(r);
+        assert(hit, 'worn ' + n + ' days ago should qualify');
+        assert(hit.past && hit.past.daysAgo === n, JSON.stringify(hit.past));
+        assert(/^You wore these together about (three|four) weeks ago\.$/.test(hit.past.text), hit.past.text);
+    }
+});
+check('the wording: about three weeks up to 24 days, about four weeks after', () => {
+    const text = (n) => hasCombo(suggestOutfits(base({ worn: [wornOn(daysBefore(n), COMBO)] }))).past.text;
+    assert.strictEqual(text(21), 'You wore these together about three weeks ago.');
+    assert.strictEqual(text(24), 'You wore these together about three weeks ago.');
+    assert.strictEqual(text(28), 'You wore these together about four weeks ago.');
+});
+check('outside the window (a week, a fortnight, 17 days, 32 days, two months) there is no bonus: the list is exactly the usual one', () => {
+    const usual = baselineSigs();
+    for (const n of [8, 14, 17, 32, 45, 60]) {
+        assert.deepStrictEqual(baselineSigs({ worn: [wornOn(daysBefore(n), COMBO)] }), usual, n + ' days');
+        assert(suggestOutfits(base({ worn: [wornOn(daysBefore(n), COMBO)] })).suggestions.every(x => x.past === null), n + ' days');
+    }
+});
+check('only the MOST RECENT time counts: worn a month ago and again yesterday (or last week) is not "a month ago"', () => {
+    const usual = baselineSigs();
+    for (const recent of [1, 3, 7, 10, 15]) {
+        const r = suggestOutfits(base({ worn: [wornOn(daysBefore(26), COMBO), wornOn(daysBefore(recent), COMBO)] }));
+        assert(r.suggestions.every(x => x.past === null), 'again ' + recent + ' days ago');
+        assert.deepStrictEqual(r.suggestions.map(x => x.signature), usual, 'again ' + recent + ' days ago');
+    }
+    // the older wear does not matter when the newer one is the one in the window
+    assert(hasCombo(suggestOutfits(base({ worn: [wornOn(daysBefore(60), COMBO), wornOn(daysBefore(25), COMBO)] }))).past);
+});
+check('outfits that were only planned or saved never count (only outfits marked as worn reach the engine)', () => {
+    const planned = { '2026-10-18': [{ id: 'p', itemIds: COMBO, worn: false }], '2026-10-19': [{ id: 'q', itemIds: COMBO }] };
+    const c = buildDayContext('2026-11-12', { closet: CLOSET, outfitsByDate: planned, prefs: {} });
+    assert.strictEqual(JSON.stringify(c.worn), '[]');
+    const r = suggestOutfits(c);
+    assert(r.suggestions.every(x => x.past === null));
+    const none = suggestOutfits(buildDayContext('2026-11-12', { closet: CLOSET, outfitsByDate: {}, prefs: {} }));
+    assert.strictEqual(JSON.stringify(r.suggestions.map(x => x.signature)), JSON.stringify(none.suggestions.map(x => x.signature)), 'the same as with no history at all');
+    // marked as worn, the same outfit does count
+    const worn = { '2026-10-18': [{ id: 'p', itemIds: COMBO, worn: true }] };
+    assert(hasCombo(suggestOutfits(buildDayContext('2026-11-12', { closet: CLOSET, outfitsByDate: worn, prefs: {} }))).past);
+});
+check('only a combination counts, not any one piece: a top worn with something else does not bring back another pairing', () => {
+    const r = suggestOutfits(base({ worn: [wornOn(daysBefore(25), ['t3', 'b2', 's1'])] }));     // Red top + JEANS
+    assert(!(hasCombo(r) && hasCombo(r).past), 'Red top + Navy skirt was never worn together');
+});
+check('an old outfit that does not suit the weather is not brought back (the bonus is a nudge, not an override)', () => {
+    const summer = ['t6', 'b5', 's4'];                                // linen tank + denim shorts + sandals, worn 25 days ago
+    const cold = suggestOutfits(base({ weather: { high: 38, low: 30, code: 0 }, worn: [wornOn(daysBefore(25), summer)] }));
+    cold.suggestions.forEach(x => { assert.strictEqual(x.past, null); assert(!x.itemIds.includes('t6') && !x.itemIds.includes('b5'), 'summer pieces in the cold'); });
+    const rainy = suggestOutfits(base({ weather: { high: 58, low: 50, code: 61 }, worn: [wornOn(daysBefore(25), COMBO)] }));
+    const hit = hasCombo(rainy);
+    assert(hit && hit.past, 'a suitable old outfit still comes back in the rain...');
+    assert(hit.itemIds.some(id => byId[id].category === 'outerwear'), '...but with outerwear, as the rain rule requires');
+    const coldWithSandals = suggestOutfits(base({ weather: { high: 40, low: 33, code: 0 }, worn: [wornOn(daysBefore(25), COMBO)] }));
+    coldWithSandals.suggestions.forEach(x => assert(!x.itemIds.includes('s4'), 'sandals on a cold day, even though they were worn with this combination'));
+});
+check('a casual old outfit does not beat the occasion: for a wedding it is not suggested', () => {
+    const wedding = suggestOutfits(base({ texts: ['Wedding'], worn: [wornOn(daysBefore(25), ['t1', 'b2', 's1'])] }));
+    assert(wedding.suggestions.every(x => x.past === null), 'tee + jeans for a wedding');
+    assert.deepStrictEqual(wedding.suggestions.map(x => x.signature), baselineSigs({ texts: ['Wedding'] }));
+});
+check('recent-repeat protection still wins: if any piece of the old combination was worn in the last week, it is not brought back', () => {
+    const r = suggestOutfits(base({ worn: [wornOn(daysBefore(25), COMBO), wornOn(daysBefore(3), ['t3', 'b2'])] }));     // the Red top again, with jeans, 3 days ago
+    assert(r.suggestions.every(x => !x.itemIds.includes('t3')), 'the Red top was worn this week');
+    assert(r.suggestions.every(x => x.past === null));
+});
+check('past combinations are mixed with new ones: at most one past idea in a list of three', () => {
+    const combos = [['t1', 'b2', 's1'], ['t2', 'b4', 's2'], ['t3', 'b1', 's4'], ['t4', 'b3', 's2'], ['t5', 'b2', 's3']];
+    const r = suggestOutfits(base({ worn: combos.map((c, i) => wornOn(daysBefore(22 + i), c)) }));
+    assert(r.suggestions.length >= 2);
+    assert(r.suggestions.filter(x => x.past).length <= 1, 'filled the list with old outfits');
+    assert(r.suggestions.filter(x => !x.past).length >= 2, 'new combinations are still the majority');
+});
+check('when there are not enough new ideas to mix with, old ones may fill the list rather than leave it empty', () => {
+    const items = [P('t1', 'Tee', 'tops', '#f5f5f5'), P('t2', 'Blouse', 'tops', '#1f2a52'), P('b1', 'Jeans', 'bottoms', '#4a6fa5'), P('b2', 'Skirt', 'bottoms', '#222222'), P('s1', 'Sneakers', 'shoes', '#f5f5f5'), P('s2', 'Flats', 'shoes', '#222222')];
+    const r = suggestOutfits(base({ items, worn: [wornOn(daysBefore(25), ['t1', 'b1', 's1']), wornOn(daysBefore(26), ['t2', 'b2', 's2'])] }));
+    assert.strictEqual(r.suggestions.length, 2);
+    assert(r.suggestions.every(x => x.past));
+});
+check('a dress counts as a combination too; one with a piece you no longer own, or two tops, or no clear outfit, is ignored', () => {
+    const dress = suggestOutfits(base({ worn: [wornOn(daysBefore(25), ['d1', 's1'])] }));
+    const hit = dress.suggestions.find(x => x.itemIds.includes('d1'));
+    assert(hit && hit.past, 'the dress outfit comes back');
+    const usual = baselineSigs();
+    assert.deepStrictEqual(baselineSigs({ worn: [wornOn(daysBefore(25), ['t3', 'b1', 'gone-piece'])] }), usual, 'a deleted piece');
+    assert.deepStrictEqual(baselineSigs({ worn: [wornOn(daysBefore(25), ['t3', 't2', 'b1'])] }), usual, 'two tops');
+    assert.deepStrictEqual(baselineSigs({ worn: [wornOn(daysBefore(25), ['s1', 's2'])] }), usual, 'only shoes');
+    assert.deepStrictEqual(baselineSigs({ worn: [wornOn(daysBefore(25), [])] }), usual, 'an empty outfit');
+});
+check('a past combination keeps the other checks: its reason is still one plain sentence, and the answer is the same every time', () => {
+    const input = base({ weather: { high: 58, low: 50, code: 61 }, worn: [wornOn(daysBefore(25), COMBO)] });
+    const before = JSON.stringify(input);
+    const a = suggestOutfits(input), b = suggestOutfits(JSON.parse(before));
+    assert.strictEqual(JSON.stringify(a), JSON.stringify(b));
+    assert.strictEqual(JSON.stringify(input), before, 'the input is not changed');
+    a.suggestions.forEach(x => assert.strictEqual((x.reason.match(/\./g) || []).length, 1, x.reason));
+});
+check('the panel shows the explanation under the idea', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'js', 'help-choose.js'), 'utf8');
+    assert(/s\.past/.test(src) && /choose-past/.test(src) && /past\.textContent = s\.past\.text/.test(src));
+});
+
 // ---- colours ----
 check('neutrals go with anything; clashing colours score lower', () => {
     const pc = (hex) => ({ color: sgColor(hex) });

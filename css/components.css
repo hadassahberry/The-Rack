@@ -2094,6 +2094,7 @@ body.planning-open .planning-panel { padding-top: 0; }
 .choose-names { margin: 0; font-size: 0.82rem; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 .choose-reason { margin: 0; font-size: 0.82rem; line-height: 1.4; color: var(--text-main); }
 .choose-card .primary-btn { align-self: flex-start; padding: 8px 14px; }
+.choose-past { margin: 0; font-size: 0.8rem; line-height: 1.4; color: var(--primary); font-weight: 600; }
 .choose-look { margin: 0; font-size: 0.8rem; line-height: 1.4; color: #2f6b3b; }
 .choose-look.is-flagged { color: #b42318; }
 .choose-checking { margin: 8px 0; font-size: 0.85rem; font-weight: 600; color: var(--primary); }

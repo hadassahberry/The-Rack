@@ -241,6 +241,12 @@ const HelpChoose = (function () {
             const reason = document.createElement('p');
             reason.className = 'choose-reason';
             reason.textContent = s.reason;
+            let past = null;
+            if (s.past) {                                                // a combination you actually wore about 3-4 weeks ago
+                past = document.createElement('p');
+                past.className = 'choose-past';
+                past.textContent = s.past.text;
+            }
             let look = null;
             if (s.vision && s.vision.reason) {                           // what the visual check said about these pieces together
                 look = document.createElement('p');
@@ -250,6 +256,7 @@ const HelpChoose = (function () {
             const use = button('Use this outfit', `use:${n}`, 'primary-btn');
             use.setAttribute('aria-label', `Use idea ${n + 1}: ${s.pieces.map(p => p.name).join(', ')}`);
             card.append(thumbs, names, reason);
+            if (past) card.appendChild(past);
             if (look) card.appendChild(look);
             card.appendChild(use);
             cards.appendChild(card);

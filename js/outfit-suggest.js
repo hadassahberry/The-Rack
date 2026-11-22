@@ -33,6 +33,11 @@
 //   fit       1.0  length and fit rules (a long top with a short bottom, a fitted jacket over a loose top...)
 //   season    0.5  a summer piece in the cold, a winter piece in the heat
 //   tag       0.5  the pieces' own occasion tag matches the kind of day
+// Combinations you actually wore (outfits marked as worn; planned or saved ones never count) about 3-4 weeks before
+// the day (18 to 31 days, counted from the MOST RECENT time that exact top+bottom, or dress, was worn together) get a
+// small bonus, so a favourite can come back. The bonus is only 6 points: it cannot override weather, occasion, season,
+// fit or the cold-weather footwear rule, nor the protection against recent repeats, and at most one idea in a list is a
+// past combination (the rest are new ones). With no suitable past outfit, suggestions are exactly as before.
 // Pieces worn in the last 7 days (tops, bottoms, dresses, outerwear) are left out altogether when the closet has
 // anything else in that category. The 2-3 ideas are then picked so that NO piece appears in more than one of them;
 // if the closet is too small for that, fewer ideas are shown (only shoes and accessories may repeat, and only when
@@ -48,6 +53,9 @@ const SUGGEST_BOOT_NAME = /\b(boots?|booties|bootie|chelsea|wellies|wellingtons)
 const SUGGEST_RECENT_DAYS = 7;                                    // "worn in the last 7 days"
 const SUGGEST_FRESH_DAYS = 45;                                    // after this long a piece counts as fully "rested"
 const SUGGEST_RECENCY_CATEGORIES = ['tops', 'bottoms', 'dresses', 'outerwear'];   // shoes and accessories repeat all the time
+const SUGGEST_PAST_MIN_DAYS = 18;                                 // "about 3 weeks" (21 days), three days of give either side
+const SUGGEST_PAST_MAX_DAYS = 31;                                 // "about 4 weeks" (28 days)
+const SUGGEST_PAST_BONUS = 0.06;                                  // on the 0..1 score: a nudge, never an override
 const SUGGEST_WEIGHTS = { weather: 3, formality: 2.5, recency: 1.5, color: 1.5, fit: 1, season: 0.5, tag: 0.5 };
 const SUGGEST_WEIGHT_SUM = Object.values(SUGGEST_WEIGHTS).reduce((a, b) => a + b, 0);
 
@@ -253,6 +261,31 @@ function suggestOutfits(ctx, options) {
     const recentOutfits = (ctx.worn || []).filter(w => { const d = sgDays(w.date, ctx.dateKey); return d >= 1 && d <= SUGGEST_RECENT_DAYS; }).map(w => new Set(w.itemIds || []));
     const weekendOutfits = (ctx.weekendPlanned || []).map(w => new Set(w.itemIds || []));
 
+    // ---- combinations worn about 3-4 weeks ago ----
+    // A "combination" is the top + bottom, or the dress, of an outfit marked as worn (shoes, outerwear and accessories
+    // may differ). Only the MOST RECENT time it was worn counts: one worn again last week is not "a month ago".
+    const MAIN_CATS = ['tops', 'bottoms', 'dresses'];
+    const mainKey = (ids) => [...ids].sort().join('+');
+    const lastWornCombo = new Map();                                  // main key -> { days, ids }
+    (ctx.worn || []).forEach(w => {
+        const days = sgDays(w.date, ctx.dateKey);
+        const ids = w.itemIds || [];
+        if (days < 1 || ids.length === 0 || ids.some(id => !byId.has(id))) return;       // a piece that is gone: that combination can't come back
+        const main = ids.map(id => byId.get(id)).filter(p => MAIN_CATS.includes(p.cat));
+        const dresses = main.filter(p => p.cat === 'dresses').length, tops = main.filter(p => p.cat === 'tops').length, bottoms = main.filter(p => p.cat === 'bottoms').length;
+        if (!((dresses === 1 && tops === 0 && bottoms === 0) || (dresses === 0 && tops === 1 && bottoms === 1))) return;      // not one clear outfit
+        const key = mainKey(main.map(p => p.id));
+        const seen = lastWornCombo.get(key);
+        if (!seen || days < seen.days) lastWornCombo.set(key, { days, ids: main.map(p => p.id) });
+    });
+    // still suitable today: none of its pieces worn in the last week, and none out of season for this weather
+    const stillSuitable = (p) => !recentlyWorn(p) && !(weatherNeed.has && ((weatherNeed.cold && p.season === 'summer') || (weatherNeed.hot && p.season === 'winter')));
+    const pastCombos = new Map();                                     // main key -> { days, ids }
+    lastWornCombo.forEach((v, key) => {
+        if (v.days >= SUGGEST_PAST_MIN_DAYS && v.days <= SUGGEST_PAST_MAX_DAYS && v.ids.every(id => stillSuitable(byId.get(id)))) pastCombos.set(key, v);
+    });
+    const pastText = (days) => `You wore these together about ${days <= 24 ? 'three' : 'four'} weeks ago.`;
+
     // ---- the pool for each category ----
     const keptIn = (cat) => all.filter(p => p.cat === cat && keepIds.includes(p.id));
     const hasOuterPieces = all.some(p => p.cat === 'outerwear');
@@ -285,6 +318,11 @@ function suggestOutfits(ctx, options) {
     const buildAll = () => {
         const tops = pool('tops'), bottoms = pool('bottoms'), dresses = pool('dresses');
         const outers = pool('outerwear'), shoes = pool('shoes'), accessories = pool('accessories');
+        // a past combination's pieces are always among the candidates (so it can be scored), unless the person asked to keep other pieces
+        pastCombos.forEach(v => v.ids.map(id => byId.get(id)).forEach(p => {
+            const list = p.cat === 'tops' ? tops : p.cat === 'bottoms' ? bottoms : dresses;
+            if (!keptIn(p.cat).length && !list.some(q => q.id === p.id)) list.push(p);
+        }));
         const keptOuter = keptIn('outerwear').length > 0;
         const cores = [];
         tops.forEach(t => bottoms.forEach(b => cores.push({ top: t, bottom: b })));
@@ -329,7 +367,10 @@ function suggestOutfits(ctx, options) {
         const formality = sgClamp(1 - Math.abs(outfitFormality - formalityNeed.target) / 3, 0, 1);
         // recency
         const tracked = ms.filter(p => SUGGEST_RECENCY_CATEGORIES.includes(p.cat));
-        let recency = tracked.length ? tracked.reduce((a, p) => a + fresh(p), 0) / tracked.length : 0.85;
+        // (a combination brought back from 3-4 weeks ago is not marked down for having been worn then: that is the point)
+        const pastHit = pastCombos.get(mainKey(mainIds(o))) || null;
+        const pastIds = pastHit ? new Set(pastHit.ids) : null;
+        let recency = tracked.length ? tracked.reduce((a, p) => a + (pastIds && pastIds.has(p.id) ? 0.85 : fresh(p)), 0) / tracked.length : 0.85;
         const mainSet = mainIds(o);
         const sameAs = (set) => mainSet.length > 0 && mainSet.every(id => set.has(id));
         const wornRecentlyAsOutfit = recentOutfits.some(sameAs);
@@ -350,8 +391,10 @@ function suggestOutfits(ctx, options) {
         let total = 0;
         Object.keys(SUGGEST_WEIGHTS).forEach(k => { total += SUGGEST_WEIGHTS[k] * parts[k]; });
         total = total / SUGGEST_WEIGHT_SUM;
+        const past = pastHit;
+        if (past) total += SUGGEST_PAST_BONUS;                                        // a combination you wore 3-4 weeks ago: a nudge
         if (wornRecentlyAsOutfit || weekendRepeat) total *= 0.4;                      // a repeat is the last resort
-        return { total, parts, flags: { wornRecentlyAsOutfit, weekendRepeat, insulation, outfitFormality } };
+        return { total, parts, flags: { wornRecentlyAsOutfit, weekendRepeat, insulation, outfitFormality, past } };
     };
 
     const rank = (cands, accessories) => {
@@ -397,14 +440,27 @@ function suggestOutfits(ctx, options) {
     // If the closet is too small for that, fewer ideas are shown rather than repeating pieces. Only shoes and
     // accessories may repeat, and only when that is the only way to show at least two ideas.
     const sharesAPiece = (a, b, cats) => members(a.o).some(p => cats.includes(p.cat) && !keepIds.includes(p.id) && members(b.o).some(q => q.id === p.id));
-    const pickDistinct = (cats) => {
+    // Past combinations are mixed in with new ones: at most one in three of the ideas (at least one allowed), unless
+    // there are not enough new ones to fill the list.
+    const pastCap = Math.max(1, Math.floor(opt.max / 3));
+    const pickDistinct = (cats, capPast = true) => {
         const picked = [];
-        for (const e of ranked) { if (picked.length >= opt.max) break; if (picked.every(c => !sharesAPiece(c, e, cats))) picked.push(e); }
+        let pastCount = 0;
+        for (const e of ranked) {
+            if (picked.length >= opt.max) break;
+            const isPast = !!e.s.flags.past;
+            if (capPast && isPast && pastCount >= pastCap) continue;
+            if (picked.every(c => !sharesAPiece(c, e, cats))) { picked.push(e); if (isPast) pastCount++; }
+        }
         return picked;
     };
     let chosen = pickDistinct(SUGGEST_CATEGORIES);
+    if (chosen.length < Math.min(2, opt.max)) {                       // too few new ideas to mix with: past ones may fill the list
+        const uncapped = pickDistinct(SUGGEST_CATEGORIES, false);
+        if (uncapped.length > chosen.length) chosen = uncapped;
+    }
     if (chosen.length < Math.min(2, opt.max)) {
-        const garmentsOnly = pickDistinct(['tops', 'bottoms', 'dresses', 'outerwear']);
+        const garmentsOnly = pickDistinct(['tops', 'bottoms', 'dresses', 'outerwear'], false);
         if (garmentsOnly.length > chosen.length) {
             chosen = garmentsOnly;
             notes.push('Some ideas share shoes or an accessory because your closet doesn’t have enough of them to give each idea its own.');
@@ -436,7 +492,8 @@ function suggestOutfits(ctx, options) {
             reason: reasonFor(o, e.s, need, sinceWorn, formalityNeed),
             score: Math.round(e.s.total * 100),
             parts: Object.fromEntries(Object.entries(e.s.parts).map(([k, v]) => [k, Math.round(v * 100) / 100])),
-            signature: signature(o)
+            signature: signature(o),
+            past: e.s.flags.past ? { daysAgo: e.s.flags.past.days, text: pastText(e.s.flags.past.days) } : null     // "You wore these together about three weeks ago."
         };
     });
     return { suggestions, need, notes, heard: typed.heard, keepIds };
