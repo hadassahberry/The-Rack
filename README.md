@@ -99,22 +99,20 @@ full-screen in an Android app. What is ready:
 - **Offline**: the service worker (`sw.js`) pre-caches every icon, including `icons/icon-maskable-192.png` and
   `icons/icon-maskable-512.png`. The screenshots are not pre-cached (the app never shows them).
 
-**Digital Asset Links (`.well-known/assetlinks.json`) is deliberately not filled in yet.** It proves that the Android app
-and this website belong together, and it needs two things that only exist after the Android app is built:
+**The Android app** is built with Bubblewrap from the live manifest (see `android/README.md` for how to rebuild it). Its package
+name is `app.therack`, and it is signed with the key in `android/android.keystore` (never committed: `.gitignore` excludes
+`*.keystore`, `*.jks` and everything in `android/` except `twa-manifest.json` and its README; `firebase.json` never
+publishes `android/`).
 
-1. the app's **package name** (for example `app.web.the_rack_5787.twa`, whatever Bubblewrap / PWABuilder is given), and
-2. the **SHA-256 fingerprint(s)** of the signing certificate: the one printed when the app is built and, once the app is
-   uploaded to Google Play with Play App Signing, the *app signing key* fingerprint shown in the Play Console under
-   *Setup > App signing* (use both while testing).
-
-When you have them, the file is a JSON list like:
+**Digital Asset Links (`.well-known/assetlinks.json`)** proves that the Android app and this website belong together. It lists
+the package name `app.therack` and the SHA-256 fingerprint of the signing certificate:
 
 ```json
 [{ "relation": ["delegate_permission/common.handle_all_urls"],
-   "target": { "namespace": "android_app", "package_name": "<package name>", "sha256_cert_fingerprints": ["<SHA-256 fingerprint>"] } }]
+   "target": { "namespace": "android_app", "package_name": "app.therack", "sha256_cert_fingerprints": ["<SHA-256 fingerprint>"] } }]
 ```
 
-It must be served at `https://the-rack-5787.web.app/.well-known/assetlinks.json`. Note that this repository does not
-contain a `.well-known` folder today, and `firebase.json` ignores every dot-folder (`**/.*`), so adding the file needs
-that ignore rule changed for `.well-known` too, or the site will not serve it. Until then, leave it empty or absent:
-a wrong or placeholder value would make Android refuse to open the app full-screen.
+It is served at `https://the-rack-5787.web.app/.well-known/assetlinks.json` (`firebase.json` no longer ignores dot-folders, only
+specific files and folders). **After uploading to Google Play with Play App Signing, add the *app signing key* SHA-256
+(Play Console > Setup > App signing) to `sha256_cert_fingerprints` too** (keep both while testing): Google re-signs the app
+with its own key, and without that fingerprint Android will show the app with a browser address bar.

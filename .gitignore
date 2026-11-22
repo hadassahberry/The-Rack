@@ -67,3 +67,11 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Android app (Trusted Web Activity): the SIGNING KEY must never be committed or pushed.
+# Only android/twa-manifest.json (no secrets) and android/README.md are tracked; everything else there is generated.
+*.keystore
+*.jks
+android/*
+!android/twa-manifest.json
+!android/README.md
