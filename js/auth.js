@@ -43,6 +43,17 @@ function signInServiceAvailable() {
     return false;
 }
 
+// What is wrong with what was typed, before anything is sent: blank fields get a plain "enter..." message, and the
+// "looks invalid" message is only for an email that was really entered. '' = nothing wrong.
+function authInputProblem(email, password, { needPassword = true } = {}) {
+    const e = String(email || '').trim(), p = String(password || '');
+    if (!e && needPassword && !p) return 'Enter your email and password.';
+    if (!e) return 'Enter your email.';
+    if (needPassword && !p) return 'Enter your password.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return 'That email address looks invalid.';
+    return '';
+}
+
 function friendlyAuthError(err) {
     const code = err && err.code ? err.code : '';
     if (code.includes('wrong-password') || code.includes('invalid-credential') || code.includes('invalid-login-credentials')) return 'Incorrect email or password.';
@@ -50,6 +61,7 @@ function friendlyAuthError(err) {
     if (code.includes('email-already-in-use')) return 'An account with that email already exists — try signing in instead.';
     if (code.includes('weak-password')) return 'Password should be at least 6 characters.';
     if (code.includes('invalid-email')) return 'That email address looks invalid.';
+    if (code.includes('missing-email') || code.includes('missing-password')) return 'Enter your email and password.';
     if (code.includes('popup-closed-by-user')) return '';
     return 'Something went wrong — please try again.';
 }
@@ -113,6 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('auth-signin-btn').addEventListener('click', async () => {
         showAuthError('');
+        const problem = authInputProblem(emailInput.value, passwordInput.value);
+        if (problem) { showAuthError(problem); return; }
         if (!signInServiceAvailable()) return;
         try {
             const { auth, authFns } = await waitForFirebase();
@@ -124,6 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('auth-signup-btn').addEventListener('click', async () => {
         showAuthError('');
+        const problem = authInputProblem(emailInput.value, passwordInput.value);
+        if (problem) { showAuthError(problem); return; }
         if (!signInServiceAvailable()) return;
         try {
             const { auth, authFns } = await waitForFirebase();
@@ -148,6 +164,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showAuthError('');
         if (!signInServiceAvailable()) return;
         if (!emailInput.value.trim()) { showAuthError('Enter your email above first, then click this again.'); return; }
+        const resetProblem = authInputProblem(emailInput.value, '', { needPassword: false });
+        if (resetProblem) { showAuthError(resetProblem); return; }
         try {
             const { auth, authFns } = await waitForFirebase();
             await authFns.sendPasswordResetEmail(auth, emailInput.value.trim());

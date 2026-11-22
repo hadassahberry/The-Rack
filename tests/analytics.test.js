@@ -60,4 +60,21 @@ check('the total adds up across everything', () => {
     assert.deepStrictEqual(perItem(r), { a: [2, 1], b: [1, 2], c: [1, 1] });
 });
 
+// ---- the "past outfits not marked as worn" reminder ----
+check('an outfit with no pieces is never in the reminder (an activity alone is not something you wore)', () => {
+    const r = stats({
+        '2026-11-05': [{ id: 'e1', itemIds: [], label: 'Dinner' }, { id: 'e2', itemIds: [] }, { id: 'ok', itemIds: ['a'] }],
+        '2026-11-06': [{ id: 'e3', itemIds: [], label: 'Class', worn: false }]
+    });
+    assert.deepStrictEqual(r.unmarkedPast.map(x => x.outfitId), ['ok']);
+    assert.strictEqual(r.totalWears, 0);
+});
+check('nor is an outfit whose pieces have all been deleted; a mix still counts the real ones', () => {
+    const r = stats({ '2026-11-05': [{ id: 'gone', itemIds: ['deleted-1', 'deleted-2'] }, { id: 'mixed', itemIds: ['deleted-1', 'a'] }] });
+    assert.deepStrictEqual(r.unmarkedPast.map(x => x.outfitId), ['mixed']);
+});
+check('only empty outfits in the past: no reminder at all', () => {
+    assert.strictEqual(stats({ '2026-11-05': [{ id: 'e', itemIds: [], label: 'X' }] }).unmarkedPast.length, 0);
+});
+
 done();

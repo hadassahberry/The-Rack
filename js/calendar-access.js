@@ -91,7 +91,7 @@ function anchorToShow(viewMode, dateKey) {
 }
 
 // The small markers on a phone's month cells, in a fixed order, each a different SHAPE (so they
-// don't depend on colour): the forecast's icon, a star for a holiday, a candle for candle lighting, a diamond for an outfit
+// don't depend on color): the forecast's icon, a star for a holiday, a candle for candle lighting, a diamond for an outfit
 // that is planned but has no pieces yet (so that day can't be mistaken for an empty one).
 function dayMarkers({ hasWeather, weatherIcon, hasHoliday, hasCandles, hasEmptyOutfit }) {
     const out = [];

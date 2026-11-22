@@ -1,7 +1,7 @@
 // The visual check for "Help me choose": after the rule-based engine (js/outfit-suggest.js) has picked candidate
 // outfits from pieces the person owns, the photos of those pieces are sent, in ONE call, to a vision model (Google
 // Gemini, through the Firebase function in /functions) that judges whether the pieces actually go together:
-// patterns, colours, formality, proportions, the overall look. The verdicts only ever VETO or RE-RANK the
+// patterns, colors, formality, proportions, the overall look. The verdicts only ever VETO or RE-RANK the
 // candidates; the engine still decides what is a candidate (weather, formality, recency, Shabbos).
 //
 // It must never break the feature: if the check is off, offline, slow, busy or fails for any reason, the

@@ -31,6 +31,20 @@ function planApplySavedOutfit({ dayOutfits, activeId, savedItemIds }) {
     return { action: 'replace', outfitId: active.id, previousItemIds: [...active.itemIds] };
 }
 
+// planApplySavedOutfit, plus what the person chose when the day already had pieces planned:
+//   mode 'auto'     the rules above
+//   mode 'add'      always add it as another outfit ('another'), unless the same pieces are already planned
+//   mode 'replace'  swap the pieces of the outfit targetId ('replace', with previousItemIds for Undo; 'fill' if it is empty);
+//                   an outfit marked as worn is never overwritten (it is added as another instead)
+function resolveApplyPlan({ dayOutfits, activeId, savedItemIds, mode = 'auto', targetId = null }) {
+    const plan = planApplySavedOutfit({ dayOutfits, activeId, savedItemIds });
+    if (plan.action === 'already' || mode === 'auto') return plan;
+    if (mode === 'add') return { action: 'another' };
+    const t = (dayOutfits || []).find(o => o.id === targetId);
+    if (!t || t.worn) return { action: 'another' };
+    return t.itemIds.length ? { action: 'replace', outfitId: t.id, previousItemIds: [...t.itemIds] } : { action: 'fill', outfitId: t.id };
+}
+
 // The sentence shown after applying. `outfit` is the outfit the plan is about (for its activity).
 function describeApply(plan, savedName, outfit) {
     const name = `“${savedName}”`;
@@ -42,6 +56,8 @@ function describeApply(plan, savedName, outfit) {
                 : `${name} is already planned here, in ${activity ? `your ${activity} outfit` : 'another outfit on this day'}. Nothing changed.`;
         case 'create':
             return `Added ${name} to this day.`;
+        case 'another':
+            return `Added ${name} as another outfit on this day.`;
         case 'fill':
             return `Added ${name} to your ${activity ? activity + ' ' : ''}outfit.`;
         case 'replace':
@@ -52,6 +68,13 @@ function describeApply(plan, savedName, outfit) {
         default:
             return '';
     }
+}
+
+// A saved outfit with the same name (ignoring capitals and spacing) and exactly the same pieces, or null. Saving
+// another one would be a silent duplicate, so the person is asked first.
+function findDuplicateSavedOutfit(savedOutfits, name, itemIds) {
+    const key = String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    return (savedOutfits || []).find(o => String(o.name || '').trim().replace(/\s+/g, ' ').toLowerCase() === key && sameItemSet(o.itemIds || [], itemIds || [])) || null;
 }
 
 // A fingerprint of everything on a day that an apply (or its Undo) can touch: each outfit's id,
@@ -70,5 +93,5 @@ function applyNoticeIsCurrent(notice, dayOutfits) {
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = { sameItemSet, planApplySavedOutfit, describeApply, outfitsSignature, applyNoticeIsCurrent };
+    module.exports = { sameItemSet, planApplySavedOutfit, resolveApplyPlan, describeApply, findDuplicateSavedOutfit, outfitsSignature, applyNoticeIsCurrent };
 }

@@ -479,5 +479,58 @@ check('length and layering rules push bad pairings down', () => {
     assert(r.suggestions[0].itemIds.includes('t2'), 'the regular tee should beat the tunic over a mini skirt');
 });
 
+// ---- footwear is a weather requirement: no sandals when it is cold (like outerwear for rain) ----
+const SHOE_CLOSET = [...CLOSET.filter(i => i.category !== 'shoes'), P('sd1', 'Brown leather sandals', 'shoes', '#c8a77a'), P('sd2', 'Slides', 'shoes', '#222222', { season: 'summer' }), P('sn1', 'White sneakers', 'shoes', '#f5f5f5'), P('bt1', 'Ankle boots', 'shoes', '#222222', { season: 'winter' }), P('lf1', 'Black loafers', 'shoes', '#222222', { occasion: 'work' })];
+const shoesOf = (r) => r.suggestions.flatMap(s => s.pieces.filter(p => p.category === 'shoes').map(p => p.name));
+check('shoe coverage: sandals, slides and mules are open; boots are boots; anything else is closed; what the person set wins', () => {
+    const cov = (name, extra) => describePiece(P('z', name, 'shoes', '#999', extra)).coverage;
+    ['Brown leather sandals', 'Slides', 'Flip-flops', 'Black mules', 'Espadrilles', 'Open-toe heels', 'Gladiator sandals'].forEach(n => assert.strictEqual(cov(n), 'open', n));
+    ['Ankle boots', 'Chelsea boot', 'Rain boots'].forEach(n => assert.strictEqual(cov(n), 'boot', n));
+    ['White sneakers', 'Black loafers', 'Ballet flats', 'Shoes'].forEach(n => assert.strictEqual(cov(n), 'closed', n));
+    assert.strictEqual(cov('Strappy shoes', { coverage: 'open' }), 'open', 'a set field wins over the name');
+    assert.strictEqual(cov('Sandals', { coverage: 'closed' }), 'closed');
+    assert.strictEqual(describePiece(P('z', 'Sandals', 'tops', '#999')).coverage, null, 'only shoes have it');
+});
+check('no sandals on a cold day (36-44F), in any idea, with any refinement', () => {
+    for (const weather of [{ high: 44, low: 36, code: 0 }, { high: 40, low: 33, code: 3 }, { high: 36, low: 28, code: 71 }, { high: 50, low: 42, code: 61 }]) {
+        for (const o of [{}, { formalityShift: -2 }, { warmthShift: -2 }, { text: 'casual' }]) {
+            const r = suggestOutfits(base({ items: SHOE_CLOSET, weather }), o);
+            assert(r.suggestions.length >= 1);
+            shoesOf(r).forEach(n => assert(!/sandal|slides/i.test(n), 'open shoes in the cold: ' + n + ' ' + JSON.stringify(weather)));
+        }
+    }
+});
+check('cold days use closed shoes or boots (and every idea still has shoes)', () => {
+    const r = suggestOutfits(base({ items: SHOE_CLOSET, weather: { high: 40, low: 32, code: 0 } }));
+    assert(r.suggestions.length >= 1);
+    r.suggestions.forEach(s => assert(s.pieces.some(p => p.category === 'shoes')));
+});
+check('rain on a cool day also rules out open shoes; a warm sunny day may use sandals', () => {
+    shoesOf(suggestOutfits(base({ items: SHOE_CLOSET, weather: { high: 62, low: 55, code: 61 } }))).forEach(n => assert(!/sandal|slides/i.test(n), n));
+    const warm = suggestOutfits(base({ items: SHOE_CLOSET.filter(i => !['sn1', 'bt1', 'lf1'].includes(i.id)), weather: { high: 88, low: 74, code: 0 } }));
+    assert(shoesOf(warm).some(n => /sandal|slides/i.test(n)), 'sandals are fine in the heat');
+});
+check('only open shoes in the closet on a cold day: shoes are left out (never sandals), and the panel says why', () => {
+    const items = SHOE_CLOSET.filter(i => i.category !== 'shoes' || /sandal|slides/i.test(i.name));
+    const r = suggestOutfits(base({ items, weather: { high: 38, low: 30, code: 0 } }));
+    assert(r.suggestions.length >= 1);
+    assert.strictEqual(JSON.stringify(shoesOf(r)), '[]');
+    assert(/only have open shoes/.test(r.notes.join(' ')), r.notes.join(' | '));
+});
+check('a person who explicitly keeps their sandals gets them (their choice), and no forecast means no footwear rule', () => {
+    const kept = suggestOutfits(base({ items: SHOE_CLOSET, weather: { high: 40, low: 32, code: 0 } }), { keepIds: ['sd1'] });
+    assert(kept.suggestions.every(s => s.itemIds.includes('sd1')));
+    const none = suggestOutfits(base({ items: SHOE_CLOSET, weather: null }));
+    assert(none.suggestions.length >= 2);
+});
+check('there is one spelling of color in the app (no "colour" in any script, page or stylesheet)', () => {
+    const fs = require('fs'), path = require('path');
+    const dir = path.join(__dirname, '..');
+    const files = [...fs.readdirSync(path.join(dir, 'js')).map(f => 'js/' + f), 'index.html', 'css/components.css', 'css/layout.css'];
+    const bad = files.filter(f => /colour/i.test(fs.readFileSync(path.join(dir, f), 'utf8')));
+    assert.strictEqual(JSON.stringify(bad), '[]');
+    assert(!/colour/i.test(suggestOutfits(base({ weather: null })).suggestions.map(s => s.reason).join(' ')));
+});
+
 console.log(fail === 0 ? `all ${pass} passed` : `${fail} FAILED, ${pass} passed`);
 process.exit(fail ? 1 : 0);

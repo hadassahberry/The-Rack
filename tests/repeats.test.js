@@ -68,4 +68,20 @@ check('the same whole outfit is a stronger flag, and needs at least two counted 
     assert.strictEqual(R.sameOutfitRepeat(null, ['t1', 'b1'], category), null);
 });
 
+// ---- the small "planned again nearby" tag on a piece ----
+check('"1d gap" is explained in plain English', () => {
+    assert.strictEqual(R.describeGap(1).text, 'Also planned tomorrow');
+    assert.strictEqual(R.describeGap(-1).text, 'Also planned yesterday');
+    assert.strictEqual(R.describeGap(2).text, 'Also planned in 2 days');
+    assert.strictEqual(R.describeGap(-3).text, 'Also planned 3 days ago');
+    assert(/also planned this piece tomorrow/.test(R.describeGap(1).title) && /twice close together/.test(R.describeGap(1).title));
+    for (const n of [-3, -2, -1, 1, 2, 3]) assert(!/\dd gap/.test(R.describeGap(n).text), 'no "Nd gap" jargon');
+});
+check('the page uses it for the tag (no more "1d gap")', () => {
+    const { read } = require('./_harness');
+    const cal = read('js/calendar.js');
+    assert(/describeGap\(gap\)/.test(cal));
+    assert(!/d gap/.test(cal.replace(/\/\/.*$/gm, '')), 'the old "Nd gap" text is gone');
+});
+
 done();

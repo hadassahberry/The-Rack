@@ -454,7 +454,7 @@ function openEditModal(itemId) {
     document.getElementById('modal-season').value = item.season;
     document.getElementById('modal-color').value = item.color || '#cccccc';
     // "More details" (used by Help me choose): what was set, else "Not set"; opened only when something is set.
-    const detailFields = { warmth: 'modal-warmth', formality: 'modal-formality', length: 'modal-length', fit: 'modal-fit', layer: 'modal-layer' };
+    const detailFields = { warmth: 'modal-warmth', formality: 'modal-formality', length: 'modal-length', fit: 'modal-fit', layer: 'modal-layer', coverage: 'modal-coverage' };
     let anyDetail = false;
     Object.entries(detailFields).forEach(([field, id]) => {
         const v = item[field] === null || item[field] === undefined ? '' : String(item[field]);
@@ -508,7 +508,8 @@ function readEditForm() {
         formality: document.getElementById('modal-formality').value,
         length: document.getElementById('modal-length').value,
         fit: document.getElementById('modal-fit').value,
-        layer: document.getElementById('modal-layer').value
+        layer: document.getElementById('modal-layer').value,
+        coverage: document.getElementById('modal-coverage').value
     };
 }
 
@@ -565,6 +566,7 @@ async function saveEditModal() {
         length: document.getElementById('modal-length').value || null,
         fit: document.getElementById('modal-fit').value || null,
         layer: document.getElementById('modal-layer').value || null,
+        coverage: document.getElementById('modal-coverage').value || null,        // shoes: open / closed / boot (a sandal is not worn in the cold)
         tagged: true,
         ...(existing.categoryGuess ? { categoryGuess: null } : {}),   // saving confirms it: no longer a guess
         ...PhotoFrame.buildPatch()      // the framed picture, only if it was changed
@@ -817,6 +819,15 @@ async function saveOutfitFromBuilder() {
     }
 
     outfitBuilderBusy = true;
+    // The same name with the same pieces is already saved: saving again would be a silent duplicate, so ask first.
+    if (findDuplicateSavedOutfit(liveSavedOutfits, name, outfitBuilderSelectedIds)) {
+        const again = await confirmDialog({
+            title: 'You already saved this outfit',
+            message: `“${name}” with these same pieces is already in your saved outfits. Save another copy?`,
+            confirmLabel: 'Save another copy', cancelLabel: 'Don’t save', danger: false
+        });
+        if (!again) { outfitBuilderBusy = false; return; }                 // nothing is cleared: the pieces and name stay
+    }
     const itemIds = [...outfitBuilderSelectedIds];
     const rawName = nameInput.value;
     // The id is fixed here, so "try again" overwrites this same saved outfit instead of adding a second one.

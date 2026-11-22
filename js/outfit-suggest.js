@@ -6,7 +6,7 @@
 //
 // ---- Piece metadata (stored on each closet item, editable in the item editor under "More details") ----
 //   category   tops | bottoms | dresses | outerwear | shoes | accessories     (already on every item)
-//   color      one hex colour                                                 (already on every item)
+//   color      one hex color                                                 (already on every item)
 //   season     summer | all-season | winter                                   (already on every item)
 //   occasion   casual | work | formal | workout                               (already on every item)
 //   warmth     1 (very light) .. 5 (very warm)        optional   \
@@ -14,6 +14,9 @@
 //   length     short | mid | long                     optional    |  ESTIMATED from the fields above (see
 //   fit        fitted | regular | loose               optional    |  describePiece), never invented silently.
 //   layer      base | mid | outer                     optional   /   (a "mid" top, such as a sweater, is estimated warmer)
+//   coverage   open | closed | boot  (shoes only)     optional   a sandal is "open": warmth can't say that, so shoes carry
+//                                                                 their own field (estimated from the name: sandal, slide,
+//                                                                 flip-flop, mule, espadrille... = open; boot = boot; else closed)
 //
 // ---- What an outfit is ----
 // Exactly ONE top and ONE bottom, or ONE dress instead of both. Outerwear, shoes and an accessory are separate
@@ -26,7 +29,7 @@
 //   formality 2.5  how close the outfit's formality is to what the day's activities and holidays ask for
 //   recency   1.5  pieces worn lately score low, pieces not worn for a while score high; an outfit that repeats
 //                  one planned on the same Shabbos / Yom Tov weekend, or worn in the last 7 days, is pushed down hard
-//   color     1.5  neutrals go with anything; two or three colours are scored by how far apart their hues are
+//   color     1.5  neutrals go with anything; two or three colors are scored by how far apart their hues are
 //   fit       1.0  length and fit rules (a long top with a short bottom, a fitted jacket over a loose top...)
 //   season    0.5  a summer piece in the cold, a winter piece in the heat
 //   tag       0.5  the pieces' own occasion tag matches the kind of day
@@ -39,6 +42,9 @@ const SUGGEST_CATEGORIES = ['tops', 'bottoms', 'dresses', 'outerwear', 'shoes', 
 const SUGGEST_LENGTHS = ['short', 'mid', 'long'];
 const SUGGEST_FITS = ['fitted', 'regular', 'loose'];
 const SUGGEST_LAYERS = ['base', 'mid', 'outer'];
+const SUGGEST_COVERAGES = ['open', 'closed', 'boot'];
+const SUGGEST_OPEN_SHOE_NAME = /\b(sandals?|flip[- ]?flops?|slides?|sliders?|slingbacks?|mules?|espadrilles?|gladiators?|huaraches|jellies|jelly|crocs|open[- ]toe[d]?|peep[- ]toe[d]?|thongs?)\b/i;
+const SUGGEST_BOOT_NAME = /\b(boots?|booties|bootie|chelsea|wellies|wellingtons)\b/i;
 const SUGGEST_RECENT_DAYS = 7;                                    // "worn in the last 7 days"
 const SUGGEST_FRESH_DAYS = 45;                                    // after this long a piece counts as fully "rested"
 const SUGGEST_RECENCY_CATEGORIES = ['tops', 'bottoms', 'dresses', 'outerwear'];   // shoes and accessories repeat all the time
@@ -69,7 +75,7 @@ function sgOne5(v) { const n = Number(v); return Number.isFinite(n) && n >= 1 &&
 function sgDays(aKey, bKey) { return Math.round((new Date(bKey) - new Date(aKey)) / 86400000); }   // bare dates = UTC midnight: exact days
 function sgName(piece) { return piece.item.name || 'piece'; }
 
-// A colour as { neutral, hue, s, l } from '#rrggbb'. Black, white, grey, beige/brown/tan and navy/denim are neutrals.
+// A color as { neutral, hue, s, l } from '#rrggbb'. Black, white, grey, beige/brown/tan and navy/denim are neutrals.
 function sgColor(hex) {
     const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
     if (!m) return { neutral: true, hue: 0, s: 0, l: 0.5, known: false };
@@ -105,13 +111,18 @@ function describePiece(item) {
     if (!layer) layer = cat === 'outerwear' ? 'outer' : cat === 'tops' ? (SUGGEST_MID_NAME.test(item.name || '') ? 'mid' : 'base') : null;
     // a sweater, cardigan or hoodie is a warmer top than a tee (when the person has not set the warmth themselves)
     const sweaterBonus = cat === 'tops' && layer === 'mid' ? 1 : 0;
+    // shoes: open (sandals), closed, or boot: what the person set, else guessed from the name (anything else is closed)
+    const name = item.name || '';
+    const coverage = cat !== 'shoes' ? null
+        : SUGGEST_COVERAGES.includes(item.coverage) ? item.coverage
+        : SUGGEST_OPEN_SHOE_NAME.test(name) ? 'open' : SUGGEST_BOOT_NAME.test(name) ? 'boot' : 'closed';
     return {
         item, id: item.id, cat, season, occasion: item.occasion || 'casual',
         warmth: setWarmth !== null ? setWarmth : Math.min(5, (warmthByCat[cat] || warmthByCat.tops)[season] + sweaterBonus),
         formality: setFormality !== null ? setFormality : (formalityByOccasion[item.occasion] || 2.5),
         length: SUGGEST_LENGTHS.includes(item.length) ? item.length : null,
         fit: SUGGEST_FITS.includes(item.fit) ? item.fit : null,
-        layer, layerSet,
+        layer, layerSet, coverage,
         color: sgColor(item.color),
         estimated: { warmth: setWarmth === null, formality: setFormality === null }
     };
@@ -172,15 +183,15 @@ function parseRefineText(text, items) {
     return out;
 }
 
-// ---- colours: do these go together? 0..1 ----
+// ---- colors: do these go together? 0..1 ----
 function sgColorScore(pieces) {
     const chromatic = pieces.filter(p => !p.color.neutral);
     if (pieces.length > 0 && chromatic.length === 0) return 0.95;                // all neutrals: always fine, a touch plain
-    if (chromatic.length <= 1) return 1;                                          // one colour among neutrals
+    if (chromatic.length <= 1) return 1;                                          // one color among neutrals
     const pair = (a, b) => {
         let d = Math.abs(a.color.hue - b.color.hue); if (d > 180) d = 360 - d;
         let s = d <= 25 ? 1 : d <= 60 ? 0.55 : d <= 120 ? 0.3 : d < 150 ? 0.5 : 0.8;   // same family, neighbours, clash, clash, near-opposite
-        if (a.color.s > 0.65 && b.color.s > 0.65 && d > 40 && d < 140) s *= 0.7;        // two loud colours that aren't related
+        if (a.color.s > 0.65 && b.color.s > 0.65 && d > 40 && d < 140) s *= 0.7;        // two loud colors that aren't related
         return s;
     };
     let sum = 0, n = 0;
@@ -245,6 +256,9 @@ function suggestOutfits(ctx, options) {
     // ---- the pool for each category ----
     const keptIn = (cat) => all.filter(p => p.cat === cat && keepIds.includes(p.id));
     const hasOuterPieces = all.some(p => p.cat === 'outerwear');
+    const needsClosedShoes = weatherNeed.has && (weatherNeed.cold || weatherNeed.snow || (weatherNeed.wet && weatherNeed.feels < 70));
+    const hasShoes = all.some(p => p.cat === 'shoes');
+    const hasClosedShoes = all.some(p => p.cat === 'shoes' && p.coverage !== 'open');
     const relaxed = [];
     const K = { tops: 8, bottoms: 8, dresses: 6, outerwear: 6, shoes: 6, accessories: 4 };
     const pieceKey = (p) => {
@@ -255,6 +269,9 @@ function suggestOutfits(ctx, options) {
         const kept = keptIn(cat).filter(p => !filterFn || filterFn(p));
         if (kept.length) return kept;
         let list = all.filter(p => p.cat === cat && (!filterFn || filterFn(p)));
+        // Footwear is a weather REQUIREMENT, like outerwear for rain: no open shoes (sandals) when it is cold, snowy or
+        // cool and wet. If the closet has no closed shoes or boots, shoes are left out rather than suggesting sandals.
+        if (cat === 'shoes' && needsClosedShoes) list = list.filter(p => p.coverage !== 'open');
         const rested = list.filter(p => !recentlyWorn(p));
         if (rested.length) list = rested; else if (list.length && SUGGEST_RECENCY_CATEGORIES.includes(cat)) relaxed.push(cat);
         // a summer piece is not offered in the cold, nor a winter piece in the heat, when something else will do
@@ -340,7 +357,7 @@ function suggestOutfits(ctx, options) {
     const rank = (cands, accessories) => {
         const scored = cands.map(o => ({ o, s: score(o) }));
         scored.sort((a, b) => b.s.total - a.s.total || (signature(a.o) < signature(b.o) ? -1 : 1));
-        // an accessory is added to the best few when it helps (colours and formality still fit)
+        // an accessory is added to the best few when it helps (colors and formality still fit)
         const top = scored.slice(0, 250);                    // deep enough to find ideas that share no piece
         if (accessories.length) {
             const forced = accessories.some(a => keepIds.includes(a.id));        // a kept accessory is always worn
@@ -402,6 +419,9 @@ function suggestOutfits(ctx, options) {
     } else if (chosen.length < Math.min(opt.max, 3) && chosen.length > 1 && !excluded.size) {
         notes.push('Your closet is too small for more ideas that don’t repeat a piece.');
     }
+    if (needsClosedShoes && hasShoes && !hasClosedShoes && !keepIds.some(id => byId.get(id) && byId.get(id).cat === 'shoes')) {
+        notes.push('You only have open shoes (sandals) in your closet, so I left shoes out for this weather.');
+    }
     if (weatherNeed.has && !hasOuterPieces && (weatherNeed.wet || weatherNeed.cold)) {
         notes.push(`You don’t have any outerwear in your closet yet, so I couldn’t add a coat or jacket for the ${weatherNeed.wet ? (weatherNeed.snow ? 'snow' : 'rain') : 'cold'}.`);
     }
@@ -453,7 +473,7 @@ function reasonFor(o, s, need, sinceWorn, formalityNeed) {
         if (tracked.length && worn.length === 0) clauses.push('uses pieces you haven’t worn lately');
         else if (worn.length && worn.every(p => sinceWorn.get(p.id) > SUGGEST_RECENT_DAYS)) clauses.push('avoids anything worn this week');
     }
-    if (clauses.length < 2 && s.parts.color >= 0.95) clauses.push('keeps the colours easy');
+    if (clauses.length < 2 && s.parts.color >= 0.95) clauses.push('keeps the colors easy');
     const lead = `Uses your ${sgName(anchor)}`;
     const text = clauses.length === 0 ? `${lead}.`
         : clauses.length === 1 ? `${lead} and ${clauses[0]}.`
@@ -474,7 +494,7 @@ function specialRunOthers(dateKey, isSpecial) {
 
 if (typeof module !== 'undefined') {
     module.exports = {
-        suggestOutfits, describePiece, parseRefineText, specialRunOthers, sgColor, sgColorScore, sgWeatherNeed, sgFormalityNeed,
+        suggestOutfits, describePiece, SUGGEST_COVERAGES, parseRefineText, specialRunOthers, sgColor, sgColorScore, sgWeatherNeed, sgFormalityNeed,
         SUGGEST_WEIGHTS, SUGGEST_RECENT_DAYS, SUGGEST_WARMTH_LABELS, SUGGEST_FORMALITY_LABELS
     };
 }

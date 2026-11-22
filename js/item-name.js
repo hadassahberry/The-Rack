@@ -70,7 +70,7 @@ function brandOfHost(host) {
 // "Navy Shirt – Example Co.". Removes that part and tidies the rest like any derived name.
 //   - a piece separated by " | " that is just a short tail is dropped even if we don't recognise it;
 //   - a piece separated by " - " / " – " / " — " / " · " is only dropped when it matches the store's
-//     name, its brand or its web address (so "Shirt - Navy" keeps its colour);
+//     name, its brand or its web address (so "Shirt - Navy" keeps its color);
 //   - if that would leave nothing, the whole title is kept.
 // The result is only a suggestion: it fills the Name field, which the person can change.
 function nameFromProductTitle(title, { siteName = '', brand = '', host = '' } = {}) {

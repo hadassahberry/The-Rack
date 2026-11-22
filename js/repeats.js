@@ -37,6 +37,16 @@ function describeWhen(daysAway) {
     return future ? `in ${months} months` : `${months} months ago`;
 }
 
+// The small tag on a piece in a day's plan when the same piece is planned again close to that day, in plain words.
+// daysAway: days from this day to the other day (positive = later). { text, title }.
+function describeGap(daysAway) {
+    const when = describeWhen(daysAway);
+    return {
+        text: `Also planned ${when}`,
+        title: `You also planned this piece ${when}, so you may be wearing it twice close together.`
+    };
+}
+
 // Everything needed to judge one activity on one day, worked out once:
 // the N closest other times that activity was planned. Returns null when
 // warnings don't apply (switched off, no activity label, or no categories chosen).
@@ -86,5 +96,5 @@ function sameOutfitRepeat(ctx, itemIds, categoryOf) {
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = { normalizeActivity, daysBetween, describeWhen, repeatContext, itemRepeat, sameOutfitRepeat };
+    module.exports = { normalizeActivity, daysBetween, describeWhen, describeGap, repeatContext, itemRepeat, sameOutfitRepeat };
 }

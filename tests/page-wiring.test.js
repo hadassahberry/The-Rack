@@ -81,18 +81,19 @@ const optionValues = (id) => {
     return [...m[1].matchAll(/<option value="([^"]*)"/g)].map(o => o[1]);
 };
 check('the item editor has every field, including the optional ones for Help me choose', () => {
-    for (const id of ['modal-name', 'modal-category', 'modal-occasion', 'modal-season', 'modal-color', 'modal-warmth', 'modal-formality', 'modal-length', 'modal-fit', 'modal-layer', 'save-item-btn', 'cancel-item-btn', 'edit-close-btn', 'delete-item-btn', 'edit-save-status', 'modal-details']) {
+    for (const id of ['modal-name', 'modal-category', 'modal-occasion', 'modal-season', 'modal-color', 'modal-warmth', 'modal-formality', 'modal-length', 'modal-fit', 'modal-layer', 'modal-coverage', 'save-item-btn', 'cancel-item-btn', 'edit-close-btn', 'delete-item-btn', 'edit-save-status', 'modal-details']) {
         assert(idsInPage.has(id), id);
     }
     assert(/<details id="modal-details"/.test(html) && /More details \(optional\)/.test(html));
 });
 check('the optional fields offer "Not set" and only values Help me choose understands', () => {
-    const S = loadScript('js/outfit-suggest.js', {}, ['SUGGEST_LENGTHS', 'SUGGEST_FITS', 'SUGGEST_LAYERS']);
+    const S = loadScript('js/outfit-suggest.js', {}, ['SUGGEST_LENGTHS', 'SUGGEST_FITS', 'SUGGEST_LAYERS', 'SUGGEST_COVERAGES']);
     assert.deepStrictEqual(optionValues('modal-warmth'), ['', '1', '2', '3', '4', '5']);
     assert.deepStrictEqual(optionValues('modal-formality'), ['', '1', '2', '3', '4', '5']);
     assert.deepStrictEqual(optionValues('modal-length'), ['', ...JSON.parse(JSON.stringify(S.SUGGEST_LENGTHS))]);
     assert.deepStrictEqual(optionValues('modal-fit'), ['', ...JSON.parse(JSON.stringify(S.SUGGEST_FITS))]);
     assert.deepStrictEqual(optionValues('modal-layer'), ['', ...JSON.parse(JSON.stringify(S.SUGGEST_LAYERS))]);
+    assert.deepStrictEqual(optionValues('modal-coverage'), ['', ...JSON.parse(JSON.stringify(S.SUGGEST_COVERAGES))], 'footwear: open / closed / boot');
 });
 check('the category, occasion and season choices match what the rest of the app expects', () => {
     assert.deepStrictEqual(optionValues('modal-category'), ['tops', 'bottoms', 'outerwear', 'shoes', 'dresses', 'accessories']);
@@ -102,14 +103,14 @@ check('the category, occasion and season choices match what the rest of the app 
 });
 check('the editor reads, saves and refills the same fields (unset is saved as null so it is estimated again)', () => {
     const closet = read('js/closet.js');
-    for (const f of ['warmth', 'formality', 'length', 'fit', 'layer']) {
+    for (const f of ['warmth', 'formality', 'length', 'fit', 'layer', 'coverage']) {
         assert(new RegExp(`${f}: 'modal-${f}'`).test(closet), `${f} is refilled when the editor opens`);
         assert(new RegExp(`${f}: document\\.getElementById\\('modal-${f}'\\)\\.value`).test(closet), `${f} is part of "did anything change?"`);
     }
     const patch = closet.slice(closet.indexOf('async function saveEditModal'), closet.indexOf('async function deleteEditingItem'));
     assert(/warmth: document\.getElementById\('modal-warmth'\)\.value === '' \? null : Number/.test(patch));
     assert(/formality: document\.getElementById\('modal-formality'\)\.value === '' \? null : Number/.test(patch));
-    for (const f of ['length', 'fit', 'layer']) assert(new RegExp(`${f}: document\\.getElementById\\('modal-${f}'\\)\\.value \\|\\| null`).test(patch), f);
+    for (const f of ['length', 'fit', 'layer', 'coverage']) assert(new RegExp(`${f}: document\\.getElementById\\('modal-${f}'\\)\\.value \\|\\| null`).test(patch), f);
     assert(/tagged: true/.test(patch), 'saving still confirms the item');
 });
 check('the editor waits for the server before closing, and keeps what was typed on failure', () => {

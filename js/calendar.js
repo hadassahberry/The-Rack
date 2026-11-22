@@ -879,7 +879,9 @@ function buildOutfitCard({ outfit, isActive, ctx, autoLabel, catById, chips }) {
         if (gap !== null && Math.abs(gap) <= 3) {
             const gapTag = document.createElement('span');
             gapTag.className = 'gap-tag';
-            gapTag.textContent = `${Math.abs(gap)}d gap`;
+            const g = describeGap(gap);
+            gapTag.textContent = g.text;                    // "Also planned tomorrow": the same piece again close to this day
+            gapTag.title = g.title;
             row.appendChild(gapTag);
         }
 
@@ -968,16 +970,20 @@ function renderApplyStatus() {
 }
 
 // Adds or replaces pieces as the rules say, never silently, and tells the person what happened.
-function applySavedOutfit(saved) {
+// mode: 'auto' (the rules in js/apply-outfit.js), or one the person chose when the day already has pieces planned:
+//   'add'      always add it as another outfit
+//   'replace'  swap the pieces of the outfit with id targetId (never one marked as worn)
+// Every path ends with the same notice and Undo.
+function applySavedOutfit(saved, { mode = 'auto', targetId = null } = {}) {
     const dateKey = selectedDateKey;
     const dayOutfits = plannerOutfits[dateKey] || [];
-    const plan = planApplySavedOutfit({ dayOutfits, activeId: activeOutfitId, savedItemIds: saved.itemIds });
+    const plan = resolveApplyPlan({ dayOutfits, activeId: activeOutfitId, savedItemIds: saved.itemIds, mode, targetId });
     const target = dayOutfits.find(o => o.id === plan.outfitId);
     let undo = null;
 
     if (plan.action === 'already') {
         if (plan.outfitId !== activeOutfitId) setActiveOutfit(plan.outfitId);   // point at the outfit that has it
-    } else if (plan.action === 'create' || plan.action === 'add') {
+    } else if (plan.action === 'create' || plan.action === 'add' || plan.action === 'another') {
         const id = newOutfitId();
         activeOutfitId = id;
         updateDay(dateKey, outfits => [...outfits, { id, label: '', itemIds: [...saved.itemIds], flagsOff: false }]);

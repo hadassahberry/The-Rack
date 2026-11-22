@@ -86,4 +86,67 @@ check('the "Added..." notice (and its Undo) go away as soon as the day is differ
     assert.strictEqual(P.applyNoticeIsCurrent(undefined, day), false);
 });
 
+// ---- "Use this outfit" on a day that already has pieces: the person chooses replace or add ----
+const day = [out('a', ['x', 'y'], { label: 'Class' }), out('b', ['p', 'q'])];
+check('replace: the chosen outfit gets the new pieces, its activity stays, and Undo knows what to put back', () => {
+    const r = P.resolveApplyPlan({ dayOutfits: day, activeId: 'b', savedItemIds: saved, mode: 'replace', targetId: 'a' });
+    assert.strictEqual(r.action, 'replace');
+    assert.strictEqual(r.outfitId, 'a');
+    same(r.previousItemIds, ['x', 'y']);
+    assert.strictEqual(P.describeApply(r, 'Suggested outfit', day[0]), 'Replaced the pieces in your \u201cClass\u201d outfit with \u201cSuggested outfit\u201d. Kept the \u201cClass\u201d activity.');
+});
+check('add: always another outfit, even if an outfit is highlighted; nothing is replaced', () => {
+    const r = P.resolveApplyPlan({ dayOutfits: day, activeId: 'a', savedItemIds: saved, mode: 'add' });
+    assert.strictEqual(r.action, 'another');
+    assert.strictEqual(r.previousItemIds, undefined);
+    assert.strictEqual(P.describeApply(r, 'Suggested outfit', null), 'Added \u201cSuggested outfit\u201d as another outfit on this day.');
+});
+check('replace never overwrites an outfit marked as worn, or one that is gone: it adds another instead', () => {
+    const worn = [out('w', ['x'], { worn: true })];
+    assert.strictEqual(P.resolveApplyPlan({ dayOutfits: worn, activeId: 'w', savedItemIds: saved, mode: 'replace', targetId: 'w' }).action, 'another');
+    assert.strictEqual(P.resolveApplyPlan({ dayOutfits: day, activeId: 'a', savedItemIds: saved, mode: 'replace', targetId: 'nope' }).action, 'another');
+});
+check('replacing an empty outfit just fills it; an identical outfit that is already planned changes nothing in either mode', () => {
+    assert.strictEqual(P.resolveApplyPlan({ dayOutfits: [out('e', [])], activeId: 'e', savedItemIds: saved, mode: 'replace', targetId: 'e' }).action, 'fill');
+    const planned = [out('a', ['t1', 'b1'])];
+    for (const mode of ['auto', 'add', 'replace']) assert.strictEqual(P.resolveApplyPlan({ dayOutfits: planned, activeId: 'a', savedItemIds: saved, mode, targetId: 'a' }).action, 'already', mode);
+});
+check('"auto" is exactly the saved-outfit rules (so applying a saved outfit is unchanged)', () => {
+    for (const activeId of ['a', 'b', null]) same(P.resolveApplyPlan({ dayOutfits: day, activeId, savedItemIds: saved }), P.planApplySavedOutfit({ dayOutfits: day, activeId, savedItemIds: saved }));
+});
+check('the page asks before replacing, applies through the one planner path, and every path has a notice and Undo', () => {
+    const { read } = require('./_harness');
+    const hc = read('js/help-choose.js'), cal = read('js/calendar.js');
+    assert(/dayHasPieces\(state\.dateKey\) && !alreadyPlanned\(state\.dateKey, s\.itemIds\)\) \{ askReplaceOrAdd\(n\)/.test(hc), 'asks when the day already has pieces');
+    assert(/Replace \$\{label\}/.test(hc) && /Add as another outfit/.test(hc) && /Cancel/.test(hc));
+    assert.strictEqual((hc.match(/applySavedOutfit\(/g) || []).length, 1, 'one place writes to the planner');
+    assert(/scrollIntoView/.test(hc), 'the notice and its Undo are brought into view');
+    const fn = cal.slice(cal.indexOf('function applySavedOutfit'), cal.indexOf('function undoApply'));
+    assert(/plan\.action === 'fill' \|\| plan\.action === 'replace'[\s\S]*undo = \(\) =>/.test(fn), 'replace keeps its Undo');
+    assert(/plan\.action === 'another'/.test(fn) && /undo = \(\) => \{[\s\S]*outfits\.filter\(o => o\.id !== id\)/.test(fn), 'add keeps its Undo');
+});
+
+// ---- 5. the same outfit twice ----
+const savedList = [{ id: 's1', name: 'Casual Friday', itemIds: ['a', 'b'] }, { id: 's2', name: 'Work look', itemIds: ['c', 'd'] }];
+check('same name and same pieces is a duplicate (ignoring capitals, spacing and piece order)', () => {
+    assert.strictEqual(P.findDuplicateSavedOutfit(savedList, 'Casual Friday', ['a', 'b']).id, 's1');
+    assert.strictEqual(P.findDuplicateSavedOutfit(savedList, '  casual   FRIDAY ', ['b', 'a']).id, 's1');
+});
+check('a different name, or different pieces, is not a duplicate', () => {
+    assert.strictEqual(P.findDuplicateSavedOutfit(savedList, 'Casual Friday 2', ['a', 'b']), null);
+    assert.strictEqual(P.findDuplicateSavedOutfit(savedList, 'Casual Friday', ['a', 'b', 'c']), null);
+    assert.strictEqual(P.findDuplicateSavedOutfit(savedList, 'Casual Friday', ['a']), null);
+    assert.strictEqual(P.findDuplicateSavedOutfit([], 'x', ['a']), null);
+    assert.strictEqual(P.findDuplicateSavedOutfit(undefined, 'x', ['a']), null);
+});
+check('the builder asks first, keeps the pieces and name if declined, and saves a copy only on "Save another copy"', () => {
+    const { read } = require('./_harness');
+    const src = read('js/closet.js');
+    const fn = src.slice(src.indexOf('async function saveOutfitFromBuilder'), src.indexOf('function renderSavedOutfitsList'));
+    assert(/findDuplicateSavedOutfit\(liveSavedOutfits, name, outfitBuilderSelectedIds\)/.test(fn));
+    assert(/You already saved this outfit/.test(fn) && /Save another copy/.test(fn) && /Don’t save/.test(fn));
+    assert(fn.indexOf('findDuplicateSavedOutfit') < fn.indexOf('outfitSaves.run'), 'asked before anything is saved');
+    assert(/if \(!again\) \{ outfitBuilderBusy = false; return; \}/.test(fn), 'declining saves nothing and clears nothing');
+});
+
 done();

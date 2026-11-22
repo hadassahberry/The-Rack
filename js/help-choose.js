@@ -48,6 +48,21 @@ function buildDayContext(dateKey, env) {
     };
 }
 
+// What to tell the person when they pressed a refinement and the ideas did not change. '' when something did change.
+//   action: 'casual' | 'dressy' | 'warmer' | 'lighter' | 'keep' | 'text' | 'more';  clamped: the setting was already at its limit.
+function refinementOutcome({ action, before, after, clamped }) {
+    const limit = { casual: 'casual', dressy: 'dressy', warmer: 'warm', lighter: 'light' };           // "as casual as I'll go"
+    const wanted = { casual: 'more casual', dressy: 'more dressy', warmer: 'warmer', lighter: 'lighter' };   // "anything warmer"
+    if (clamped && limit[action]) return `That’s as ${limit[action]} as I’ll go, so these are the same ideas.`;
+    const a = [...(before || [])].sort().join('|'), b = [...(after || [])].sort().join('|');
+    if (a !== b) return '';
+    if (wanted[action]) return `I couldn’t find anything ${wanted[action]} in your closet, so these are still the best matches.`;
+    if (action === 'keep') return 'Nothing else in your closet works with that piece, so these are the same ideas.';
+    if (action === 'text') return 'That didn’t change my ideas: these are still the best matches.';
+    if (action === 'more') return 'I don’t have any different ideas. This is everything I can put together from your closet.';
+    return '';
+}
+
 const HelpChoose = (function () {
     const $ = (id) => document.getElementById(id);
     let state = null;          // { kind: 'day' | 'builder', dateKey, box, button, refine, exclude, result }
@@ -87,6 +102,14 @@ const HelpChoose = (function () {
         return `Based on: ${bits.join(' · ')}.`;
     }
 
+    // After a refinement button: if the ideas are the same as before, say so (instead of quietly showing the same choices).
+    function noteIfUnchanged(mine, shown) {
+        const cmp = mine.compare;
+        mine.compare = null;
+        if (!cmp) return;
+        mine.sameNote = refinementOutcome({ action: cmp.action, before: cmp.before, after: shown.map(s => s.signature), clamped: cmp.clamped });
+    }
+
     // One line about the day for the visual check (it is told the occasion and the weather, nothing else about the person).
     function dayLine(ctx, result) {
         const bits = [];
@@ -108,7 +131,13 @@ const HelpChoose = (function () {
         mine.ctx = ctx;
         mine.visionNote = '';
         mine.vetoNote = '';
-        if (!visionOn || result.suggestions.length === 0) { mine.result = result; render(focusAction); return; }
+        mine.sameNote = '';
+        if (!visionOn || result.suggestions.length === 0) {
+            mine.result = result;
+            noteIfUnchanged(mine, result.suggestions.slice(0, 3));
+            render(focusAction);
+            return;
+        }
 
         const token = ++mine.token;
         mine.result = result;
@@ -122,6 +151,7 @@ const HelpChoose = (function () {
         mine.result = { ...result, suggestions: final.shown };
         mine.vetoNote = final.vetoNote;
         mine.visionNote = final.visionNote;
+        noteIfUnchanged(mine, final.shown);
         render(focusAction);
     }
 
@@ -262,6 +292,7 @@ const HelpChoose = (function () {
         const notes = [...result.notes.slice(result.suggestions.length === 0 ? 1 : 0)];
         if (state.vetoNote) notes.push(state.vetoNote);
         if (state.visionNote) notes.push(state.visionNote);
+        if (state.sameNote) notes.unshift(state.sameNote);
         if (result.heard.length) notes.unshift(`I used: ${result.heard.join(', ')}.`);
         if (notes.length) {
             const p = document.createElement('p');
@@ -280,6 +311,8 @@ const HelpChoose = (function () {
     function apply(action) {
         const r = state.refine;
         const clamp2 = (n) => Math.max(-2, Math.min(2, n));
+        const before = state.result ? state.result.suggestions.map(s => s.signature) : [];
+        const was = { f: r.formalityShift, w: r.warmthShift };
         if (action === 'casual') r.formalityShift = clamp2(r.formalityShift - 1);
         else if (action === 'dressy') r.formalityShift = clamp2(r.formalityShift + 1);
         else if (action === 'warmer') r.warmthShift = clamp2(r.warmthShift + 1);
@@ -292,11 +325,36 @@ const HelpChoose = (function () {
             r.keepIds = r.keepIds.includes(id) ? r.keepIds.filter(x => x !== id) : [...r.keepIds, id];
         }
         if (['casual', 'dressy', 'warmer', 'lighter'].includes(action) || action.startsWith('keep:')) state.exclude = [];    // a new direction: start from the best again
+        const kind = ['casual', 'dressy', 'warmer', 'lighter', 'more', 'text'].includes(action) ? action : (action.startsWith('keep:') ? 'keep' : '');
+        const clamped = (action === 'casual' || action === 'dressy') ? was.f === r.formalityShift : (action === 'warmer' || action === 'lighter') ? was.w === r.warmthShift : false;
+        state.compare = kind ? { action: kind, before, clamped } : null;
         run(action);                           // focus goes back to the button that was pressed (or the heading if it is gone)
     }
 
-    // The only place anything is added: the person picked one.
+    // Outfits already planned on the day that this idea could take the place of: the highlighted one first, never one
+    // marked as worn (that is a record). (Pure of the page apart from reading plannerOutfits / activeOutfitId.)
+    function replaceableOutfits(dateKey) {
+        const day = (plannerOutfits[dateKey] || []).filter(o => o.itemIds.length > 0 && !o.worn);
+        return day.sort((a, b) => (b.id === activeOutfitId) - (a.id === activeOutfitId));
+    }
+    const dayHasPieces = (dateKey) => (plannerOutfits[dateKey] || []).some(o => o.itemIds.length > 0);
+
+    // The person picked one. For the builder it fills the selection. For a day: if the day already has pieces planned they
+    // are asked whether to replace the planned outfit or add this one as another (nothing is decided for them); an
+    // identical outfit that is already planned is just reported, as with a saved outfit.
     function use(n) {
+        const s = state.result.suggestions[n];
+        if (!s) return;
+        if (state.kind === 'day' && dayHasPieces(state.dateKey) && !alreadyPlanned(state.dateKey, s.itemIds)) { askReplaceOrAdd(n); return; }
+        commit(n, 'auto', null);
+    }
+
+    function alreadyPlanned(dateKey, itemIds) {
+        return (plannerOutfits[dateKey] || []).some(o => o.itemIds.length > 0 && sameItemSet(o.itemIds, itemIds));
+    }
+
+    // The only place anything is added to the planner (or the builder). mode: 'auto' | 'add' | 'replace'.
+    function commit(n, mode, targetId) {
         const s = state.result.suggestions[n];
         if (!s) return;
         const kind = state.kind, button = state.button;
@@ -307,9 +365,45 @@ const HelpChoose = (function () {
             renderBuildBar();
             setBuilderMessage(`Picked ${pluralize(s.itemIds.length, 'piece')} for you. Change them if you like, name the outfit and press Save outfit.`);
         } else {
-            applySavedOutfit({ id: 'suggestion', name: 'Suggested outfit', itemIds: [...s.itemIds] });     // the same path as a saved outfit: with its notice and Undo
+            applySavedOutfit({ id: 'suggestion', name: 'Suggested outfit', itemIds: [...s.itemIds] }, { mode, targetId });     // the same path as a saved outfit: with its notice and Undo
+            const notice = document.getElementById('apply-status');
+            if (notice && notice.scrollIntoView) notice.scrollIntoView({ block: 'nearest' });                                 // so the notice and its Undo are seen
         }
         if (button) button.focus();
+    }
+
+    function askReplaceOrAdd(n) {
+        const card = state.box.querySelectorAll('.choose-card')[n];
+        if (!card) return;
+        const old = card.querySelector('.choose-ask');
+        if (old) old.remove();
+        const ask = document.createElement('div');
+        ask.className = 'choose-ask';
+        ask.setAttribute('role', 'group');
+        const q = document.createElement('p');
+        q.className = 'choose-ask-text';
+        q.id = `${state.box.id}-ask-${n}`;
+        q.textContent = 'This day already has an outfit planned. What should I do with this idea?';
+        ask.setAttribute('aria-labelledby', q.id);
+        ask.appendChild(q);
+        const targets = replaceableOutfits(state.dateKey);
+        if (targets.length) {
+            const t = targets[0];
+            const label = t.label ? `your “${t.label}” outfit` : 'the planned outfit';
+            ask.appendChild(button(`Replace ${label}`, `replace:${n}:${t.id}`, 'primary-btn'));
+        }
+        ask.appendChild(button('Add as another outfit', `another:${n}`, targets.length ? 'secondary-btn' : 'primary-btn'));
+        ask.appendChild(button('Cancel', `cancelask:${n}`, 'link-btn'));
+        card.querySelector('[data-action^="use:"]').hidden = true;
+        card.appendChild(ask);
+        ask.querySelector('button').focus();
+    }
+
+    function cancelAsk(n) {
+        const card = state.box.querySelectorAll('.choose-card')[n];
+        if (!card) return;
+        const ask = card.querySelector('.choose-ask'); if (ask) ask.remove();
+        const use = card.querySelector('[data-action^="use:"]'); use.hidden = false; use.focus();
     }
 
     function close(refocus = true) {
@@ -322,7 +416,7 @@ const HelpChoose = (function () {
     }
 
     function open(kind, button, box, dateKey) {
-        state = { kind, dateKey, box, button, refine: freshRefine(), exclude: [], result: null, ctx: null, token: 0, cache: {}, sent: false, visionNote: '', vetoNote: '' };
+        state = { kind, dateKey, box, button, refine: freshRefine(), exclude: [], result: null, ctx: null, token: 0, cache: {}, sent: false, visionNote: '', vetoNote: '', sameNote: '', compare: null };
         run();
     }
 
@@ -343,6 +437,9 @@ const HelpChoose = (function () {
                 const action = b.dataset.action;
                 if (action === 'close') close();
                 else if (action.startsWith('use:')) use(Number(action.slice(4)));
+                else if (action.startsWith('replace:')) { const [, n, id] = action.split(':'); commit(Number(n), 'replace', id); }
+                else if (action.startsWith('another:')) commit(Number(action.slice(8)), 'add', null);
+                else if (action.startsWith('cancelask:')) cancelAsk(Number(action.slice(10)));
                 else apply(action);
             });
         });
@@ -353,5 +450,5 @@ const HelpChoose = (function () {
 })();
 
 if (typeof module !== 'undefined') {
-    module.exports = { buildDayContext };
+    module.exports = { buildDayContext, refinementOutcome };
 }

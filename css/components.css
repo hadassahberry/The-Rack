@@ -709,14 +709,14 @@ button.month-cell {
 }
 
 .gap-tag {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     background: #fbe6ea;
     color: var(--accent-pink);
     padding: 2px 8px;
     border-radius: 10px;
     font-weight: 600;
-    white-space: nowrap;
-}
+    line-height: 1.3;
+}                                   /* "Also planned tomorrow": may wrap on a narrow row */
 
 .remove-item-btn {
     background: none;
@@ -1729,11 +1729,18 @@ body.planning-open .planning-panel {
     display: block;
     position: sticky;
     top: 0;
-    z-index: 2;
+    z-index: 5;
+    width: 100%;                       /* a full-width solid bar: what scrolls up passes UNDER it, never behind just the button */
+    text-align: left;
     background: var(--card-bg);
     margin: 0 0 8px;
-    padding: 4px 0 8px;
+    padding: 24px 0 10px;              /* the window's own top padding lives in the bar, so nothing scrolls past ABOVE it */
     font-size: 0.95rem;
+    box-shadow: 0 1px 0 var(--border);
+}
+body.planning-open .planning-panel { padding-top: 0; }
+@media (max-width: 640px) {
+    .back-to-calendar { padding-top: 14px; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1816,7 +1823,7 @@ body.planning-open .planning-panel {
     .month-grid.view-month .cell-photos { gap: 2px; }
 
     /* Tiny markers under the date: forecast icon, ★ holiday, 🕯 candle lighting (different shapes,
-       not different colours). Decoration only; the words are in the day's popup. */
+       not different colors). Decoration only; the words are in the day's popup. */
     .month-grid.view-month .cell-markers {
         display: flex;
         flex-wrap: wrap;
@@ -2091,6 +2098,9 @@ body.planning-open .planning-panel {
 .choose-look.is-flagged { color: #b42318; }
 .choose-checking { margin: 8px 0; font-size: 0.85rem; font-weight: 600; color: var(--primary); }
 .choose-privacy { margin: 6px 0 4px; font-size: 0.72rem; line-height: 1.4; color: var(--text-muted); }
+.choose-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 4px; border-top: 1px dashed var(--border); }
+.choose-ask-text { flex: 1 1 100%; margin: 4px 0 2px; font-size: 0.82rem; font-weight: 600; }
+.choose-ask .choose-btn { padding: 8px 12px; font-size: 0.8rem; text-align: left; }
 .choose-refine { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
 .choose-refine .choose-btn { padding: 8px 12px; font-size: 0.8rem; text-align: left; }
 .choose-text { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
