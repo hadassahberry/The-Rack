@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!document.getElementById('camera-modal').classList.contains('hidden')) closeWebcam();
     });
 
-    document.getElementById('modal-category').addEventListener('change', () => showCategoryNote({ text: '' }));
+    document.getElementById('modal-category').addEventListener('change', () => { showCategoryNote({ text: '' }); updateDetailFields(document.getElementById('modal-category').value); });
     // typing a name keeps the suggested pattern in step; choosing a pattern yourself ends the suggestions for this window
     document.getElementById('modal-name').addEventListener('input', () => {
         const item = liveCloset.find(i => i.id === currentEditingItemId);
@@ -513,11 +513,12 @@ function openEditModal(itemId) {
     // "More details" (used by Help me choose): what was set, else "Not set"; opened only when something is set.
     const detailFields = { warmth: 'modal-warmth', formality: 'modal-formality', length: 'modal-length', fit: 'modal-fit', layer: 'modal-layer', coverage: 'modal-coverage' };
     let anyDetail = false;
+    updateDetailFields(document.getElementById('modal-category').value);                       // only the details that make sense for this kind of piece
     Object.entries(detailFields).forEach(([field, id]) => {
         const v = item[field] === null || item[field] === undefined ? '' : String(item[field]);
         document.getElementById(id).value = v;
         if (document.getElementById(id).value !== v) document.getElementById(id).value = '';      // an unknown stored value reads as not set
-        if (document.getElementById(id).value !== '') anyDetail = true;
+        if (document.getElementById(id).value !== '' && detailShown(field)) anyDetail = true;
     });
     document.getElementById('modal-details').open = anyDetail;
 
@@ -552,6 +553,18 @@ function showCategoryNote(suggestion) {
     note.classList.toggle('hidden', !suggestion.text);
     select.classList.toggle('is-unconfirmed', !!suggestion.text);
 }
+
+// "More details": each detail is shown only when it makes sense for the piece's category (detailFieldApplies, js/outfit-suggest.js)
+// and hidden entirely otherwise, and the whole section is hidden when none applies (an accessory). Hiding never clears a value: a
+// hidden detail keeps what the piece already had, and is not written when the piece is saved.
+function updateDetailFields(category) {
+    const applicable = detailFieldsFor(category);
+    ['warmth', 'formality', 'length', 'fit', 'layer', 'coverage'].forEach(field => {
+        document.getElementById('detail-' + field).classList.toggle('hidden', !applicable.includes(field));
+    });
+    document.getElementById('modal-details').classList.toggle('hidden', applicable.length === 0);
+}
+function detailShown(field) { return !document.getElementById('detail-' + field).classList.contains('hidden'); }
 
 // The values currently in the edit form.
 function readEditForm() {
@@ -694,13 +707,14 @@ async function saveEditModal() {
         ...otherColorsPatch(existing, editOtherColors, document.getElementById('modal-color').value),      // nothing is written for a piece that never had other colors
         ...patternPatch(existing, document.getElementById('modal-pattern').value),      // nothing is written for a piece whose pattern was never set
         ...patternStrengthPatch(existing, document.getElementById('modal-pattern-strength').value),
-        // optional details for Help me choose: a number, a word, or null when left as "Not set" (then it is estimated)
-        warmth: document.getElementById('modal-warmth').value === '' ? null : Number(document.getElementById('modal-warmth').value),
-        formality: document.getElementById('modal-formality').value === '' ? null : Number(document.getElementById('modal-formality').value),
-        length: document.getElementById('modal-length').value || null,
-        fit: document.getElementById('modal-fit').value || null,
-        layer: document.getElementById('modal-layer').value || null,
-        coverage: document.getElementById('modal-coverage').value || null,        // shoes: open / closed / boot (a sandal is not worn in the cold)
+        // optional details for Help me choose: a number, a word, or null when left as "Not set" (then it is estimated).
+        // Only the details SHOWN for this kind of piece are written; one that is hidden keeps whatever the piece already had.
+        ...(detailShown('warmth') ? { warmth: document.getElementById('modal-warmth').value === '' ? null : Number(document.getElementById('modal-warmth').value) } : {}),
+        ...(detailShown('formality') ? { formality: document.getElementById('modal-formality').value === '' ? null : Number(document.getElementById('modal-formality').value) } : {}),
+        ...(detailShown('length') ? { length: document.getElementById('modal-length').value || null } : {}),
+        ...(detailShown('fit') ? { fit: document.getElementById('modal-fit').value || null } : {}),
+        ...(detailShown('layer') ? { layer: document.getElementById('modal-layer').value || null } : {}),
+        ...(detailShown('coverage') ? { coverage: document.getElementById('modal-coverage').value || null } : {}),        // shoes: open / closed / boot (a sandal is not worn in the cold)
         tagged: true,
         ...(existing.categoryGuess ? { categoryGuess: null } : {}),   // saving confirms it: no longer a guess
         ...PhotoFrame.buildPatch()      // the framed picture, only if it was changed

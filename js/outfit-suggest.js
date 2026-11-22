@@ -90,6 +90,21 @@
 // that is the only way to show at least two ideas).
 
 const SUGGEST_CATEGORIES = ['tops', 'bottoms', 'dresses', 'outerwear', 'shoes', 'accessories'];
+// ---- which optional details make sense for which kind of piece (the item editor shows only those) ----
+//   length   dresses and bottoms          footwear (coverage)  shoes only          layer  tops and outerwear
+//   fit      tops, bottoms and dresses    warmth and formality  clothing and shoes, not accessories
+const SUGGEST_DETAIL_CATEGORIES = {
+    warmth: ['tops', 'bottoms', 'dresses', 'outerwear', 'shoes'],
+    formality: ['tops', 'bottoms', 'dresses', 'outerwear', 'shoes'],
+    length: ['dresses', 'bottoms'],
+    fit: ['tops', 'bottoms', 'dresses'],
+    layer: ['tops', 'outerwear'],
+    coverage: ['shoes']
+};
+const SUGGEST_DETAIL_ORDER = ['warmth', 'formality', 'length', 'fit', 'layer', 'coverage'];            // the order they appear in the editor
+function detailFieldApplies(field, category) { return !!SUGGEST_DETAIL_CATEGORIES[field] && SUGGEST_DETAIL_CATEGORIES[field].includes(category); }
+function detailFieldsFor(category) { return SUGGEST_DETAIL_ORDER.filter(f => detailFieldApplies(f, category)); }
+
 const SUGGEST_LENGTHS = ['short', 'mid', 'long'];
 const SUGGEST_FITS = ['fitted', 'regular', 'loose'];
 const SUGGEST_LAYERS = ['base', 'mid', 'outer'];
@@ -919,7 +934,7 @@ function outfitReadiness(items) {
 
 if (typeof module !== 'undefined') {
     module.exports = {
-        suggestionPool, outfitReadiness, sgCanMakeOutfit, normalizePattern, patternPatch, normalizePatternStrength, patternStrengthPatch, patternCheck, patternAnalysis, sgSharedColor,
+        suggestionPool, outfitReadiness, sgCanMakeOutfit, detailFieldApplies, detailFieldsFor, SUGGEST_DETAIL_CATEGORIES, SUGGEST_DETAIL_ORDER, normalizePattern, patternPatch, normalizePatternStrength, patternStrengthPatch, patternCheck, patternAnalysis, sgSharedColor,
         warmthBalance, warmthCheck, SUGGEST_WARMTH_GAP_PENALTY, sgPieceColors, sgColorName, sgColorsCoordinate, colorAnalysis, colorCheck, SUGGEST_COLOR_CLASH, SUGGEST_COLOR_MAX_PENALTY, SUGGEST_MAX_COLORS,
         SUGGEST_PATTERNS, SUGGEST_PATTERNED, SUGGEST_PATTERN_STRENGTHS, SUGGEST_PATTERN_CLASH, SUGGEST_PATTERN_CLASH_SHARED, SUGGEST_PATTERN_SHARED_BONUS, SUGGEST_PATTERN_MAX_PENALTY,
         suggestOutfits, describePiece, SUGGEST_COVERAGES, parseRefineText, specialRunOthers, sgColor, sgColorScore, sgWeatherNeed, sgFormalityNeed,

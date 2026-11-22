@@ -2241,3 +2241,8 @@ body.planning-open .planning-panel { padding-top: 0; }
 .other-color-remove:hover { border-color: var(--accent-pink); color: var(--accent-pink); }
 .other-colors-add { align-self: flex-start; }
 .other-colors-add.hidden { display: none; }
+
+/* "More details": one field per row, its label directly above its own dropdown (they used to run together and wrap). */
+.modal-details .detail-field { display: flex; flex-direction: column; gap: 4px; margin: 12px 0 0; }
+.modal-details .detail-field label { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+.modal-details .detail-field select { width: 100%; box-sizing: border-box; }

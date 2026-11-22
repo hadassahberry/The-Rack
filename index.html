@@ -767,41 +767,53 @@
             <!-- Used by Help me choose. Anything left as "Not set" is estimated from the category, season and occasion. -->
             <details id="modal-details" class="modal-details">
                 <summary>More details (optional)</summary>
-                <p class="setting-hint">These help Help me choose pick outfits. Anything you leave as “Not set” is estimated from the category, season and occasion.</p>
-                <label for="modal-warmth">Warmth</label>
-                <select id="modal-warmth">
-                    <option value="">Not set</option>
-                    <option value="1">1 – Very light</option><option value="2">2 – Light</option><option value="3">3 – Medium</option>
-                    <option value="4">4 – Warm</option><option value="5">5 – Very warm</option>
-                </select>
-                <label for="modal-formality">Formality</label>
-                <select id="modal-formality">
-                    <option value="">Not set</option>
-                    <option value="1">1 – Athletic</option><option value="2">2 – Casual</option><option value="3">3 – Smart casual</option>
-                    <option value="4">4 – Dressy</option><option value="5">5 – Formal</option>
-                </select>
-                <label for="modal-length">Length</label>
-                <select id="modal-length">
-                    <option value="">Not set</option><option value="short">Short</option><option value="mid">Mid</option><option value="long">Long</option>
-                </select>
-                <label for="modal-fit">Fit</label>
-                <select id="modal-fit">
-                    <option value="">Not set</option><option value="fitted">Fitted</option><option value="regular">Regular</option><option value="loose">Loose</option>
-                </select>
-                <label for="modal-layer">Layer</label>
-                <select id="modal-layer">
-                    <option value="">Not set</option>
-                    <option value="base">Base layer (worn against the body)</option>
-                    <option value="mid">Mid layer (cardigan, sweater)</option>
-                    <option value="outer">Outer layer (coat, jacket)</option>
-                </select>
-                <label for="modal-coverage">Footwear (shoes only)</label>
-                <select id="modal-coverage">
-                    <option value="">Not set</option>
-                    <option value="open">Open (sandals, slides)</option>
-                    <option value="closed">Closed (shoes, sneakers)</option>
-                    <option value="boot">Boot</option>
-                </select>
+                <p class="setting-hint">These help Help me choose pick outfits. Only the details that make sense for this kind of piece are shown. Anything you leave as “Not set” is estimated from the category, season and occasion.</p>
+                <div class="detail-field" id="detail-warmth">
+                    <label for="modal-warmth">Warmth</label>
+                    <select id="modal-warmth">
+                        <option value="">Not set</option>
+                        <option value="1">1 – Very light</option><option value="2">2 – Light</option><option value="3">3 – Medium</option>
+                        <option value="4">4 – Warm</option><option value="5">5 – Very warm</option>
+                    </select>
+                </div>
+                <div class="detail-field" id="detail-formality">
+                    <label for="modal-formality">Formality</label>
+                    <select id="modal-formality">
+                        <option value="">Not set</option>
+                        <option value="1">1 – Athletic</option><option value="2">2 – Casual</option><option value="3">3 – Smart casual</option>
+                        <option value="4">4 – Dressy</option><option value="5">5 – Formal</option>
+                    </select>
+                </div>
+                <div class="detail-field" id="detail-length">
+                    <label for="modal-length">Length</label>
+                    <select id="modal-length">
+                        <option value="">Not set</option><option value="short">Short</option><option value="mid">Mid</option><option value="long">Long</option>
+                    </select>
+                </div>
+                <div class="detail-field" id="detail-fit">
+                    <label for="modal-fit">Fit</label>
+                    <select id="modal-fit">
+                        <option value="">Not set</option><option value="fitted">Fitted</option><option value="regular">Regular</option><option value="loose">Loose</option>
+                    </select>
+                </div>
+                <div class="detail-field" id="detail-layer">
+                    <label for="modal-layer">Layer</label>
+                    <select id="modal-layer">
+                        <option value="">Not set</option>
+                        <option value="base">Base layer (worn against the body)</option>
+                        <option value="mid">Mid layer (cardigan, sweater)</option>
+                        <option value="outer">Outer layer (coat, jacket)</option>
+                    </select>
+                </div>
+                <div class="detail-field" id="detail-coverage">
+                    <label for="modal-coverage">Footwear</label>
+                    <select id="modal-coverage">
+                        <option value="">Not set</option>
+                        <option value="open">Open (sandals, slides)</option>
+                        <option value="closed">Closed (shoes, sneakers)</option>
+                        <option value="boot">Boot</option>
+                    </select>
+                </div>
             </details>
             <!-- Only for items added from a link: where it came from. -->
             <p id="modal-source" class="setting-hint hidden">Added from: <a id="modal-source-link" target="_blank" rel="noopener noreferrer"></a></p>
