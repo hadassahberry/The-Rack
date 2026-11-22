@@ -128,8 +128,12 @@ function at run time, sent to Google in a request header, and never put in the a
 - **Privacy on the free tier:** Google's pricing page says free-tier content **is used to improve Google's products**
   (paid tier: not). Photos of clothes are sent, so the privacy page (`privacy.html`) must say so before this is
   switched on. I did not edit it: it is legal text that is yours to approve.
-- **EEA / UK / Switzerland:** the pages I read state no restriction, but I could not read all of the pricing page;
-  check the current terms.
+- **EEA / UK / Switzerland (corrected 2026-11-22):** the earlier line here, "no restriction", was wrong. Google's
+  Gemini API Additional Terms (effective March 23, 2026) say you "may use only Paid Services when making API Clients
+  available to users in the European Economic Area, Switzerland, or the United Kingdom". The free tier therefore cannot
+  be used for those users. The same terms require developers to be 18 or older and say an API client must not be
+  "directed towards or likely to be accessed by individuals under the age of 18". Read the current terms before
+  switching this on (see the investigation notes in the project history, 2026-11-22).
 
 ## What it costs and the limits
 
