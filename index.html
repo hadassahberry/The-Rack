@@ -731,11 +731,12 @@
                 <option value="workout">Workout / active</option>
             </select>
             <label for="modal-season">Season</label>
-            <select id="modal-season">
+            <select id="modal-season" aria-describedby="modal-season-hint">
                 <option value="all-season">All-season</option>
                 <option value="summer">Summer</option>
                 <option value="winter">Winter</option>
             </select>
+            <p id="modal-season-hint" class="setting-hint">Help me choose never puts a summer piece and a winter piece in one outfit. All-season goes with both.</p>
             <label for="modal-color">Color</label>
             <input type="color" id="modal-color" value="#cccccc">
             <!-- A piece can have more than one color (the blue in a tan-and-blue stripe). Help me choose checks that a solid piece goes with every one. -->

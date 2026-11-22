@@ -274,10 +274,10 @@ check('a patterned dress with only patterned shoes is suggested as before (the s
 });
 check('there is no hard rule left anywhere: no filter, no "one patterned piece" wording', () => {
     const src = read('js/outfit-suggest.js');
-    assert(!/patternOk|patternStats|\.rejected|dropped/.test(src));
+    assert(!/patternOk|patternStats|patternRejected/.test(src), 'patterns have no filter (the season rule has its own, and is not about patterns)');
     for (const f of ['js/outfit-suggest.js', 'js/help-choose.js', 'js/closet.js', 'index.html']) {
         const text = read(f).replace(/\/\/.*$/gm, '');
-        assert(!/one-pattern|one patterned piece per|at most one (known )?patterned|keeps? to one patterned|I haven’t suggested an outfit|left out because/i.test(text.replace(/one patterned piece \(/g, '')), f);
+        assert(!/one-pattern|one patterned piece per|at most one (known )?patterned|keeps? to one patterned|I haven’t suggested an outfit: every outfit[^']*patterned|two or more patterned pieces/i.test(text.replace(/one patterned piece \(/g, '')), f);
     }
     assert(!/<p id="modal-pattern-hint"[^>]*>[^<]*one patterned/.test(read('index.html')));
 });

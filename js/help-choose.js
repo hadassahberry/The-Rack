@@ -275,6 +275,12 @@ const HelpChoose = (function () {
             card.append(thumbs, names, reason);
             if (past) card.appendChild(past);
             if (s.pattern) card.appendChild(patternLine);
+            if (s.weight && s.weight.text) {                                      // a light top with a heavy bottom (or the reverse)
+                const weightLine = document.createElement('p');
+                weightLine.className = 'choose-pattern is-competing';
+                weightLine.textContent = s.weight.text;
+                card.appendChild(weightLine);
+            }
             if (s.color && s.color.text) {                                        // what the color check found (clashing colors, or colors it couldn't check)
                 const colorLine = document.createElement('p');
                 colorLine.className = 'choose-pattern' + (s.color.status === 'clash' ? ' is-competing' : s.color.status === 'incomplete' ? ' is-incomplete' : '');

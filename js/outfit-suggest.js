@@ -25,6 +25,19 @@
 //                                                                 it is never guessed from the kind of pattern ("floral" is
 //                                                                 not assumed bold). Anything else is UNKNOWN.
 //
+// ---- Season and weight (a rule, and a penalty) ----
+// SEASON is a rule: a SUMMER piece and a WINTER piece are never suggested in the same outfit, in any slots (a winter coat is not
+// put over a summer dress, nor summer sandals with a winter skirt). Every other season, "all-season" and any transitional one such as
+// spring or fall, mixes freely with everything, so a lightweight all-season top goes with a summer or a winter skirt. Like the
+// weather rules this is a requirement, not a hint: when every outfit that works for the day would pair opposite seasons, no idea is
+// shown and the notes say so and what would help (never a quiet break of the rule). Before it gives up, the pools it picks from are
+// widened to include pieces of every season, so the rule never hides an outfit that does exist.
+// WEIGHT is a penalty: a top and a bottom should be of similar warmth, so a light summer top with a heavy winter skirt is marked down
+// even when their average suits the weather (3 levels of warmth apart: 20 points on the 0-100 score; 4 or more: 40), and the idea says
+// so. Warmth is what the person set, else the estimate from the season (summer 1, all-season 2, winter 3); a dress has no pair, and
+// outerwear is a layer on purpose, so neither is compared. The rules apply to suggestions only: an outfit the person built, planned or
+// saved by hand is never changed, blocked or re-checked.
+//
 // ---- Pieces with more than one color ----
 //   otherColors  ['#rrggbb', ...]  optional   Colors of the piece IN ADDITION to its main color (`color`), at most 3: the blue in a
 //                                             tan-and-blue striped skirt. The stored piece is never rewritten to say so: a piece with
@@ -89,6 +102,7 @@ const SUGGEST_PATTERN_CLASH_SHARED = 0.08;       // ...when the two share a colo
 const SUGGEST_PATTERN_SHARED_BONUS = 0.02;       // a pair of patterns that do not compete but share a color
 const SUGGEST_PATTERN_MAX_PENALTY = 0.30;        // however many pairs compete
 const SUGGEST_SHARED_COLOR_DISTANCE = 60;        // two colors this close (RGB distance) count as shared
+const SUGGEST_WARMTH_GAP_PENALTY = { 3: 0.20, 4: 0.40 };   // score points (0..1 scale) for a top and bottom this many warmth levels apart (0 to 2: nothing; 4 or more: the last)
 const SUGGEST_MAX_COLORS = 4;                    // a piece's main color plus at most three others
 const SUGGEST_COLOR_CLASH = 0.25;                // score points (0..1 scale) taken off for each single-color/multi-color pair with a clashing color
 const SUGGEST_COLOR_MAX_PENALTY = 0.40;          // however many pairs clash
@@ -394,12 +408,26 @@ function suggestOutfits(ctx, options) {
         // it ranked lower on formality or freshness
         const loud = (p) => p.patterned && p.strength === 'bold';
         if (best.length && best.every(loud)) best.push(...list.filter(p => !loud(p) && !best.includes(p)).slice(0, 2));
+        // widened for the season rule: the best two pieces of each season that isn't represented yet
+        if (wideSeasons) ['summer', 'all-season', 'winter'].forEach(s => { if (!best.some(p => p.season === s)) best.push(...list.filter(p => p.season === s).slice(0, 2)); });
         return best;
     };
 
     // One top and one bottom, or one dress; plus at most one each of outerwear, shoes and an accessory.
     const bodyWarmth = (o) => (o.dress ? o.dress.warmth : o.top.warmth * 0.6 + o.bottom.warmth * 0.4);     // the top counts most
+    // The season rule: no outfit holds both a summer piece and a winter piece (every other season mixes freely).
+    const seasonOk = (o) => { const seasons = members(o).map(p => p.season); return !(seasons.includes('summer') && seasons.includes('winter')); };
+    const seasonStats = { total: 0, rejected: 0 };            // outfits that suit the day (before the rule), and how many the rule turned away
+    let wideSeasons = false;                                  // pools include pieces of every season (used when the rule would otherwise leave nothing)
     const buildAll = () => {
+        let built = buildPool();
+        if (built.out.filter(seasonOk).length === 0 && built.out.length > 0) { wideSeasons = true; built = buildPool(); wideSeasons = false; }
+        const valid = built.out.filter(seasonOk);
+        seasonStats.total = built.out.length;
+        seasonStats.rejected = built.out.length - valid.length;
+        return { candidates: valid, accessories: built.accessories };
+    };
+    const buildPool = () => {
         const tops = pool('tops'), bottoms = pool('bottoms'), dresses = pool('dresses');
         const outers = pool('outerwear'), shoes = pool('shoes'), accessories = pool('accessories');
         // a past combination's pieces are always among the candidates (so it can be scored), unless the person asked to keep other pieces
@@ -422,7 +450,7 @@ function suggestOutfits(ctx, options) {
             const ok = out.filter(o => !needs(o));
             if (ok.length) out = ok;
         }
-        return { candidates: out, accessories };
+        return { out, accessories };
     };
 
     const members = (o) => [o.top, o.bottom, o.dress, o.outer, o.shoes, o.acc].filter(Boolean);
@@ -477,11 +505,12 @@ function suggestOutfits(ctx, options) {
         total = total / SUGGEST_WEIGHT_SUM;
         const patternFlags = patternAnalysis(ms);                                      // soft: competing bold patterns cost points, shared color helps a little
         const colorFlags = colorAnalysis(ms);                                          // a single-color piece must go with EVERY color of a multi-color one
-        total = Math.max(0, total + patternFlags.adjust + colorFlags.adjust);
+        const weightFlags = warmthBalance(o);                                          // a light top with a heavy bottom is unbalanced
+        total = Math.max(0, total + patternFlags.adjust + colorFlags.adjust + weightFlags.adjust);
         const past = pastHit;
         if (past) total += SUGGEST_PAST_BONUS;                                        // a combination you wore 3-4 weeks ago: a nudge
         if (wornRecentlyAsOutfit || weekendRepeat) total *= 0.4;                      // a repeat is the last resort
-        return { total, parts, flags: { wornRecentlyAsOutfit, weekendRepeat, insulation, outfitFormality, past, pattern: patternFlags, color: colorFlags } };
+        return { total, parts, flags: { wornRecentlyAsOutfit, weekendRepeat, insulation, outfitFormality, past, pattern: patternFlags, color: colorFlags, weight: weightFlags } };
     };
 
     const rank = (cands, accessories) => {
@@ -496,12 +525,15 @@ function suggestOutfits(ctx, options) {
                 accessories.forEach(acc => {
                     if (forced && !keepIds.includes(acc.id)) return;
                     const withAcc = { ...entry.o, acc };
+                    if (!seasonOk(withAcc)) return;                    // an accessory of the opposite season is never added
                     const s = score(withAcc);
                     if (!best || s.total > best.s.total + 0.005) best = { o: withAcc, s };
                 });
+                if (!best) { entry.dropped = true; return; }          // a kept accessory of the opposite season: no valid outfit with it
                 entry.o = best.o; entry.s = best.s;
             });
             top.sort((a, b) => b.s.total - a.s.total || (signature(a.o) < signature(b.o) ? -1 : 1));
+            return top.filter(e => !e.dropped);
         }
         return top;
     };
@@ -512,7 +544,10 @@ function suggestOutfits(ctx, options) {
     if (keepIds.length) {
         ranked = ranked.filter(holdsKept);
         if (ranked.length === 0) {                                       // e.g. a dress and a bottom kept together
-            notes.push('Those pieces can’t go together in one outfit, so I started again without them.');
+            const keptSeasons = keepIds.map(id => byId.get(id)).filter(Boolean).map(p => p.season);
+            notes.push(keptSeasons.includes('summer') && keptSeasons.includes('winter')
+                ? 'Those pieces are for opposite seasons (summer and winter), and I keep those apart, so I started again without them.'
+                : 'Those pieces can’t go together in one outfit, so I started again without them.');
             keepIds = [];
             ({ candidates, accessories } = buildAll());
             ranked = rank(candidates, accessories);
@@ -557,10 +592,19 @@ function suggestOutfits(ctx, options) {
 
     if (!all.some(p => p.cat === 'dresses') && !(all.some(p => p.cat === 'tops') && all.some(p => p.cat === 'bottoms'))) {
         notes.push('Add at least a top and a bottom (or a dress) to your closet and I can suggest outfits.');
+    } else if (chosen.length === 0 && seasonStats.total > 0 && seasonStats.rejected === seasonStats.total) {
+        // not a quiet failure and not a broken rule: say what is in the way and what would fix it
+        const named = (s) => all.filter(p => p.season === s).map(sgName);
+        const list = (a) => a.slice(0, 3).join(', ') + (a.length > 3 ? ` and ${a.length - 3} more` : '');
+        notes.push(`I haven’t suggested an outfit: every outfit I could put together for this day pairs a summer piece (${list(named('summer'))}) with a winter piece (${list(named('winter'))}), and I keep those apart. ` +
+            'Add an all-season piece, or change a piece’s season in its details, and I can suggest something.');
     } else if (chosen.length === 1) {
         notes.push('That is the only idea I can make without repeating a piece. Add more pieces for more ideas.');
     } else if (chosen.length < Math.min(opt.max, 3) && chosen.length > 1 && !excluded.size) {
         notes.push('Your closet is too small for more ideas that don’t repeat a piece.');
+    }
+    if (seasonStats.rejected > 0 && chosen.length > 0 && chosen.length < Math.min(opt.max, 3)) {
+        notes.push(`${seasonStats.rejected === 1 ? 'One possible outfit was' : `${seasonStats.rejected} possible outfits were`} left out because ${seasonStats.rejected === 1 ? 'it pairs' : 'they pair'} a summer piece with a winter piece.`);
     }
     if (needsClosedShoes && hasShoes && !hasClosedShoes && !keepIds.some(id => byId.get(id) && byId.get(id).cat === 'shoes')) {
         notes.push('You only have open shoes (sandals) in your closet, so I left shoes out for this weather.');
@@ -582,6 +626,7 @@ function suggestOutfits(ctx, options) {
         return {
             pattern,
             color: colorResult,
+            weight: warmthCheck(o),
             itemIds: ms.map(p => p.id),
             pieces: sortForDisplay(ms).map(p => ({ id: p.id, name: sgName(p), category: p.cat, layer: p.layer })),
             reason: reasonFor(o, e.s, need, sinceWorn, formalityNeed),
@@ -591,6 +636,9 @@ function suggestOutfits(ctx, options) {
             past: e.s.flags.past ? { daysAgo: e.s.flags.past.days, text: pastText(e.s.flags.past.days) } : null     // "You wore these together about three weeks ago."
         };
     });
+    if (suggestions.length > 0 && suggestions.every(s => s.weight.status === 'unbalanced')) {
+        notes.push('Every idea here pairs a top and a bottom of very different weights, so they are ranked lower. These are the closest I could get from your closet.');
+    }
     if (suggestions.length > 0 && suggestions.every(s => s.color.clashes.length > 0)) {
         notes.push('Every idea here pairs a solid piece with a pattern that has a color it doesn’t go with, so they are ranked lower. These are the closest I could get from your closet.');
     }
@@ -614,6 +662,28 @@ function sgSharedColor(a, b) {
     const rgb = (hex) => { const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex); return m ? [1, 2, 3].map(i => parseInt(m[i], 16)) : null; };
     // any color of one piece close to any color of the other (a piece's colors are its main color and any others it has)
     return (a.colors || []).some(ca => (b.colors || []).some(cb => { const x = rgb(ca), y = rgb(cb); return !!x && !!y && Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) <= SUGGEST_SHARED_COLOR_DISTANCE; }));
+}
+
+// ---- the weight of a top and a bottom ----
+// How far apart a top and a bottom are in warmth, and what that costs. A dress has no pair, and outerwear is a layer on purpose, so
+// only a top with a bottom is compared. Warmth is what the person set, else the estimate from the season.
+function warmthBalance(o) {
+    if (!o || !o.top || !o.bottom) return { gap: 0, adjust: 0 };
+    const gap = Math.abs(o.top.warmth - o.bottom.warmth);
+    const rounded = Math.round(gap);
+    const adjust = rounded >= 4 ? -SUGGEST_WARMTH_GAP_PENALTY[4] : -(SUGGEST_WARMTH_GAP_PENALTY[rounded] || 0);                  // 0, 1 or 2 levels apart: normal (a sweater with jeans)
+    return { gap, adjust: adjust || 0 };               // (never -0)
+}
+// The weight check of one idea in words: { status: 'balanced' | 'unbalanced', gap, text }. text is '' when there is nothing to say.
+function warmthCheck(o) {
+    const w = warmthBalance(o);
+    if (!o || !o.top || !o.bottom) return { status: 'balanced', gap: 0, text: '', adjust: 0 };
+    if (w.adjust === 0) return { status: 'balanced', gap: w.gap, text: '', adjust: 0 };
+    const label = (p) => `${SUGGEST_WARMTH_LABELS[Math.min(5, Math.max(1, Math.round(p.warmth)))].toLowerCase()}${p.estimated.warmth ? ', estimated from its season' : ''}`;
+    return {
+        status: 'unbalanced', gap: w.gap, adjust: Math.round(w.adjust * 1000) / 1000,
+        text: `Weight check: ${sgName(o.top)} (${label(o.top)}) and ${sgName(o.bottom)} (${label(o.bottom)}) are very different weights, so this idea ranks lower.`
+    };
 }
 
 // ---- colors of pieces ----
@@ -850,7 +920,7 @@ function outfitReadiness(items) {
 if (typeof module !== 'undefined') {
     module.exports = {
         suggestionPool, outfitReadiness, sgCanMakeOutfit, normalizePattern, patternPatch, normalizePatternStrength, patternStrengthPatch, patternCheck, patternAnalysis, sgSharedColor,
-        sgPieceColors, sgColorName, sgColorsCoordinate, colorAnalysis, colorCheck, SUGGEST_COLOR_CLASH, SUGGEST_COLOR_MAX_PENALTY, SUGGEST_MAX_COLORS,
+        warmthBalance, warmthCheck, SUGGEST_WARMTH_GAP_PENALTY, sgPieceColors, sgColorName, sgColorsCoordinate, colorAnalysis, colorCheck, SUGGEST_COLOR_CLASH, SUGGEST_COLOR_MAX_PENALTY, SUGGEST_MAX_COLORS,
         SUGGEST_PATTERNS, SUGGEST_PATTERNED, SUGGEST_PATTERN_STRENGTHS, SUGGEST_PATTERN_CLASH, SUGGEST_PATTERN_CLASH_SHARED, SUGGEST_PATTERN_SHARED_BONUS, SUGGEST_PATTERN_MAX_PENALTY,
         suggestOutfits, describePiece, SUGGEST_COVERAGES, parseRefineText, specialRunOthers, sgColor, sgColorScore, sgWeatherNeed, sgFormalityNeed,
         SUGGEST_WEIGHTS, SUGGEST_RECENT_DAYS, SUGGEST_WARMTH_LABELS, SUGGEST_FORMALITY_LABELS
