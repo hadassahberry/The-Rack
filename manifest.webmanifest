@@ -3,6 +3,8 @@
   "name": "The Rack",
   "short_name": "The Rack",
   "description": "Your digital closet and outfit planner.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -34,6 +34,12 @@ check('id is the start URL, and the app is portrait', () => {
     assert.strictEqual(manifest.id, manifest.start_url);
     assert.strictEqual(manifest.orientation, 'portrait');
 });
+check('the language and text direction are stated, and match the page', () => {
+    assert.strictEqual(manifest.lang, 'en');
+    assert.strictEqual(manifest.dir, 'ltr');
+    assert(/<html lang="en"/.test(read('index.html')), 'the page says the same language');
+    assert(!/<html[^>]*\sdir="rtl"/.test(read('index.html')), 'and is not right-to-left');
+});
 check('the theme color in the page matches the manifest', () => {
     assert(new RegExp(`<meta name="theme-color" content="${manifest.theme_color}">`).test(read('index.html')));
 });
