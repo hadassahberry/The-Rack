@@ -32,6 +32,7 @@ function syncSettingsUI(prefs) {
     $('pref-hebrew').checked = prefs.hebrewCalendarEnabled;
     $('pref-temp').value = prefs.tempUnit;
     $('pref-weekstart').value = prefs.weekStart;
+    $('pref-calview').value = savedDefaultView(prefs) || 'month';      // no saved choice: the calendar opens on Month
     $('pref-photos').checked = prefs.showOutfitPhotos;
 
     // The other calendars. Public holidays follow the location's country.
@@ -126,6 +127,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     $('pref-weekstart').addEventListener('change', (e) => {
         savePref({ weekStart: e.target.value });
+    });
+    $('pref-calview').addEventListener('change', (e) => {
+        const mode = e.target.value;
+        if (!CALENDAR_VIEWS.includes(mode)) return;
+        savePref({ defaultCalendarView: mode });
+        showChosenDefaultView(mode);
     });
     $('pref-photos').addEventListener('change', (e) => {
         savePref({ showOutfitPhotos: e.target.checked });

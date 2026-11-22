@@ -1,10 +1,12 @@
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-// Which range the calendar shows: 'week', '2weeks' or 'month' (the default,
-// every time the page opens). anchorDate is the date the range is built
-// around: its month for 'month', its Sunday-start week for the others.
+// Which range the calendar shows: 'week', '2weeks' or 'month'. It opens on the view saved in Settings > Default
+// calendar view (see applyDefaultView below), or on Month when none was chosen. anchorDate is the date the range
+// is built around: its month for 'month', its Sunday-start week for the others.
 let viewMode = 'month';
+let viewPickedByUser = false;      // the Week / 2 weeks / Month buttons were used this visit: a temporary choice, never overridden
+let openingViewSettled = false;    // the account's saved default has been applied (once the server's answer has arrived)
 let anchorDate;
 let selectedDateKey;
 let planningActiveCategory = 'tops';
@@ -83,7 +85,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('view-switcher').addEventListener('click', (e) => {
         const btn = e.target.closest('[data-view]');
-        if (btn) setViewMode(btn.dataset.view);
+        if (!btn) return;
+        viewPickedByUser = true;       // temporary: only this screen changes, nothing is saved
+        setViewMode(btn.dataset.view);
     });
     document.getElementById('add-outfit-btn').addEventListener('click', () => {
         const id = newOutfitId();
@@ -218,6 +222,24 @@ function scheduleMidnightRefresh() {
         renderCalendar();
         scheduleMidnightRefresh();
     }, nextMidnight - now);
+}
+
+// Opens the calendar on the saved default view. Called when the account's settings are first known (from this
+// device's copy for the first paint, then with the server's answer) and never afterwards, so ordinary navigation,
+// plan edits and unrelated settings updates leave the shown view alone. A view the person picked with the buttons
+// this visit is never replaced. With no saved default nothing changes (the calendar stays on Month).
+function applyDefaultView(prefs, meta) {
+    if (openingViewSettled) return;
+    if (meta && meta.fromCache === false) openingViewSettled = true;
+    const mode = viewFromDefault({ prefs, current: viewMode, userPicked: viewPickedByUser });
+    if (mode) setViewMode(mode);
+}
+
+// Called by Settings when the person changes the default itself: the calendar shows it right away (it is their
+// explicit choice, so it also counts as made for this visit and an older settings answer cannot undo it).
+function showChosenDefaultView(mode) {
+    viewPickedByUser = true;
+    setViewMode(mode);
 }
 
 async function setViewMode(mode) {

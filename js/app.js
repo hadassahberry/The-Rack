@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // a new account or device) until its saved settings arrive. Nothing from another account can be shown.
     renderCredits(Store.getPrefs());
     syncSettingsUI(Store.getPrefs());
+    applyDefaultView(Store.getPrefs(), { fromCache: true });      // this account's saved default view, for the first paint
     renderCalendar();
     Store.onPrefsChange(applyPrefs);
 });
@@ -26,6 +27,9 @@ async function applyPrefs(prefs, meta) {
     // The first-run setup (js/first-run.js) decides who is offered it only once the account's settings AND closet
     // have really arrived from the server. If it isn't shown, the older welcome card keeps its own rules (js/welcome.js).
     FirstRun.notePrefs(prefs, meta);
+
+    // The saved default calendar view, from the server's answer (a no-op once applied, or if the person already chose a view).
+    applyDefaultView(prefs, meta);
 
     syncSettingsUI(prefs);
     renderCalendar();

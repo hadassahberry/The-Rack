@@ -73,6 +73,28 @@ function describeViewRange(mode, dates, today) {
     return mode === 'week' ? (weeks === 1 ? 'Last week' : `${weeks} weeks ago`) : `Ended ${when}`;
 }
 
+// ---- The saved default view (Settings > Default calendar view) ----
+// The views the calendar already has; no others exist.
+const CALENDAR_VIEWS = ['week', '2weeks', 'month'];
+
+// The view this account chose as its default, or null when none was chosen (the field is absent from the
+// account's settings) or the stored value is not one of the three views. null means "keep the old behavior":
+// the calendar opens on Month.
+function savedDefaultView(prefs) {
+    const v = prefs && prefs.defaultCalendarView;
+    return CALENDAR_VIEWS.includes(v) ? v : null;
+}
+
+// Which view, if any, the calendar should switch to because of the saved default.
+//   current: the view showing now    userPicked: the person already used the Week / 2 weeks / Month buttons this visit
+// Returns null (leave the screen alone) when there is no saved default, when it is already showing, or when the
+// person has made their own choice for this visit: a temporary choice is never overridden by the saved default.
+function viewFromDefault({ prefs, current, userPicked }) {
+    if (userPicked) return null;
+    const saved = savedDefaultView(prefs);
+    return saved && saved !== current ? saved : null;
+}
+
 if (typeof module !== 'undefined') {
-    module.exports = { pickSwitchAnchor, describeViewRange, stepAnchor, vrKey, vrParse };
+    module.exports = { pickSwitchAnchor, describeViewRange, stepAnchor, vrKey, vrParse, CALENDAR_VIEWS, savedDefaultView, viewFromDefault };
 }
