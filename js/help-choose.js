@@ -42,6 +42,7 @@ function buildDayContext(dateKey, env) {
         items: closet,
         dateKey,
         weather: prefs.weatherEnabled && env.forecastFor ? env.forecastFor(dateKey) : null,
+        weatherPlace: env.weatherPlaceFor ? env.weatherPlaceFor(dateKey) : '',          // set only for a day of a trip: whose weather it is
         texts,
         isShabbat: hebrewOn && dow(dateKey) === 6,
         isYomTov: isYomTovOn(dateKey),
@@ -73,12 +74,16 @@ const HelpChoose = (function () {
         const location = Location.get();
         const todayKey = isoDateKey(new Date());
         const forecastMap = location && Store.getPrefs().weatherEnabled ? Weather.getForecastMap(location) : {};
+        // A day of a trip uses the DESTINATION's forecast, and with none ("Forecast not available yet.") no weather at all:
+        // the home forecast is never used for it (js/trips.js).
+        const tripDay = (k) => (typeof tripWeatherFor === 'function' ? tripWeatherFor(k) : null);
         return {
             closet: plannerCloset,
             outfitsByDate: plannerOutfits,
             prefs: Store.getPrefs(),
             holidayInfoFor: (k) => getHolidayInfo(new Date(k + 'T00:00:00'), location, {}),
-            forecastFor: (k) => weatherFor(k, forecastMap, todayKey).forecast,
+            forecastFor: (k) => { const t = tripDay(k); return t ? t.forecast : weatherFor(k, forecastMap, todayKey).forecast; },
+            weatherPlaceFor: (k) => { const t = tripDay(k); return t ? t.trip.destination.name : ''; },
             otherNotesFor: (k) => extraCalendarNotes(new Date(k + 'T00:00:00'), Store.getPrefs(), location).notes.map(n => n.text)
         };
     }
@@ -95,9 +100,10 @@ const HelpChoose = (function () {
         const w = result.need.weather;
         if (w.has) {
             const temp = `${formatTemp(ctx.weather.low)}–${formatTemp(ctx.weather.high, true)}`;
-            bits.push(w.snow ? `${temp}, snow` : w.rain ? `${temp}, rain` : temp);
+            const where = ctx.weatherPlace ? ` in ${ctx.weatherPlace}` : '';
+            bits.push(w.snow ? `${temp}, snow${where}` : w.rain ? `${temp}, rain${where}` : `${temp}${where}`);
         } else {
-            bits.push('no forecast for this day, so the weather wasn’t used');
+            bits.push(ctx.weatherPlace ? `no forecast for ${ctx.weatherPlace} on this day yet, so the weather wasn’t used` : 'no forecast for this day, so the weather wasn’t used');
         }
         result.need.formality.events.slice(0, 3).forEach(e => bits.push(e.text));
         bits.push('nothing worn in the last 7 days');

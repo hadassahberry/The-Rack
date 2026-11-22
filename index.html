@@ -55,6 +55,7 @@
         <nav class="nav-tabs">
             <button class="nav-btn active" data-tab="calendar-view">Planner</button>
             <button class="nav-btn" data-tab="closet-view">Closet</button>
+            <button class="nav-btn" data-tab="trips-view">Trips</button>
             <button class="nav-btn" data-tab="analytics-view">Wear stats</button>
             <button class="nav-btn" data-tab="settings-view">Settings</button>
         </nav>
@@ -147,6 +148,8 @@
                         <span id="planning-weather-note-text"></span>
                         <button id="planning-weather-retry" class="link-btn hidden" type="button">Try again</button>
                     </p>
+                    <!-- On a day of a trip (js/trips.js): says whose weather this is. -->
+                    <p id="planning-trip" class="planning-trip hidden"></p>
                     <p id="planning-holiday" class="planning-holiday hidden"></p>
                     <!-- Saving... / Saved / Couldn't save - try again, for this day's plan (js/save-state.js). -->
                     <p id="plan-save-status" class="save-status hidden" role="status" aria-live="polite"></p>
@@ -236,6 +239,38 @@
                 <button type="button" class="secondary-btn build-trigger" aria-controls="build-bar" aria-expanded="false">New saved outfit</button>
             </div>
             <div id="saved-outfits-list" class="saved-outfits-list"></div>
+        </section>
+
+        <!-- Trips (js/trips.js): the days are ordinary Planner days; the weather is the destination's; the packing list is worked out from the Planner. -->
+        <section id="trips-view" class="view-section">
+            <div class="trips-header">
+                <h2>Trips</h2>
+                <button type="button" id="trip-add-btn" class="primary-btn">+ Add a trip</button>
+            </div>
+            <p class="setting-hint">Plan what to wear on a trip with the Planner and Help me choose. A trip day&rsquo;s weather is the forecast for the trip&rsquo;s destination, never your home location.</p>
+            <p id="trip-notice" class="setting-hint hidden" role="status"></p>
+            <p id="trips-empty" class="planning-empty">No trips yet. Press + Add a trip, choose a destination and the dates, then plan each day.</p>
+            <div id="trips-list" class="trips-list"></div>
+
+            <div id="trip-detail" class="trip-detail hidden">
+                <div class="trip-detail-head">
+                    <div>
+                        <h3 id="trip-detail-title"></h3>
+                        <p id="trip-detail-sub" class="setting-hint"></p>
+                    </div>
+                    <div class="trip-detail-actions">
+                        <button type="button" id="trip-edit-btn" class="secondary-btn">Edit</button>
+                        <button type="button" id="trip-delete-btn" class="link-btn danger-link">Delete trip</button>
+                    </div>
+                </div>
+                <p class="setting-hint"><span id="trip-weather-source"></span> <button type="button" id="trip-weather-retry-btn" class="link-btn hidden">Try again</button></p>
+                <h4 class="section-subhead">Days</h4>
+                <div id="trip-days" class="trip-days"></div>
+                <h4 class="section-subhead">Packing checklist</h4>
+                <p id="trip-pack-status" class="save-status hidden" role="status" aria-live="polite"></p>
+                <p id="trip-pack-summary" class="setting-hint" aria-live="polite"></p>
+                <div id="trip-pack-list" class="trip-pack-list"></div>
+            </div>
         </section>
 
         <!-- Analytics / Wear stats view -->
@@ -553,6 +588,38 @@
         </div>
     </div>
 
+    <!-- Add or edit a trip (js/trips.js) -->
+    <div id="trip-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="trip-modal-title">
+        <div class="modal-content trip-modal-content">
+            <div class="modal-header-row">
+                <h3 id="trip-modal-title">Add a trip</h3>
+                <button type="button" id="trip-close-btn" class="modal-close-btn" aria-label="Close">&times;</button>
+            </div>
+            <label for="trip-name">Trip name (optional)</label>
+            <input type="text" id="trip-name" maxlength="60" placeholder="e.g. Cousin&rsquo;s wedding">
+            <label for="trip-dest-input">Destination</label>
+            <div class="trip-dest-row">
+                <input type="text" id="trip-dest-input" autocomplete="off" placeholder="A city, e.g. Paris">
+                <button type="button" id="trip-dest-search-btn" class="secondary-btn">Search</button>
+            </div>
+            <p id="trip-dest-status" class="setting-hint" role="status" aria-live="polite"></p>
+            <fieldset id="trip-dest-results" class="trip-dest-results hidden">
+                <legend>Which place?</legend>
+                <div id="trip-dest-options"></div>
+            </fieldset>
+            <p id="trip-dest-chosen" class="trip-dest-chosen">No destination chosen yet.</p>
+            <label for="trip-start">First day</label>
+            <input type="date" id="trip-start">
+            <label for="trip-end">Last day</label>
+            <input type="date" id="trip-end">
+            <p id="trip-errors" class="builder-message is-error hidden" role="alert"></p>
+            <div class="modal-actions">
+                <button type="button" id="trip-save-btn" class="primary-btn">Save trip</button>
+                <button type="button" id="trip-cancel-btn" class="secondary-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- How to use The Rack (js/welcome.js): the same steps as the welcome card, plus explanations. -->
     <div id="help-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
         <div class="modal-content help-content-box">
@@ -769,6 +836,7 @@
     <script src="js/apply-outfit.js"></script>
     <script src="js/activity-combo.js"></script>
     <script src="js/colors.js"></script>
+    <script src="js/trip-logic.js"></script>
     <script src="js/starter-closet.js"></script>
     <script src="js/repeats.js"></script>
     <script src="js/photo-frame.js"></script>
@@ -790,6 +858,7 @@
     <script src="js/outfit-vision.js"></script>
     <script src="js/help-choose.js"></script>
     <script src="js/first-run.js"></script>
+    <script src="js/trips.js"></script>
     <script src="js/navigation.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/account.js"></script>

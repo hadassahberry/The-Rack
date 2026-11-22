@@ -203,6 +203,37 @@ const Store = {
         this._subscribe('savedOutfits', (snap) => snap.docs.map(d => ({ id: d.id, ...d.data() })), callback);
     },
 
+    // ---- Trips ----
+    // users/{uid}/trips/{tripId}: { name, destination, start, end, packed: { pieceId: true | false }, createdAt } (js/trip-logic.js).
+    // A trip's days are ordinary planner days (the schedule collection); only the trip itself and which pieces are ticked
+    // off its packing checklist are stored here. The checklist itself is never stored: it is worked out from the planner.
+    async getTrips() {
+        const { dbFns } = await waitForFirebase();
+        const snap = await dbFns.getDocs(await this._collection('trips'));
+        return snap.docs.map(d => normalizeTrip(d.id, d.data())).filter(Boolean).sort((a, b) => a.start.localeCompare(b.start));
+    },
+    async saveTrip(trip) {
+        const { dbFns } = await waitForFirebase();
+        await dbFns.setDoc(await this._doc('trips', trip.id), trip);
+    },
+    async deleteTrip(id) {
+        const { dbFns } = await waitForFirebase();
+        await dbFns.deleteDoc(await this._doc('trips', id));
+    },
+    // Ticks or unticks one piece on a trip's packing checklist. A MERGE of just that piece, so two devices ticking different
+    // pieces never overwrite each other, and ticking the same piece again writes the same thing (no duplicate entry).
+    async setTripPacked(tripId, pieceId, checked) {
+        const { dbFns } = await waitForFirebase();
+        await dbFns.setDoc(await this._doc('trips', tripId), { packed: { [pieceId]: !!checked } }, { merge: true });
+    },
+    onTripsChange(callback) {
+        this._subscribe('trips', (snap) => snap.docs.map(d => normalizeTrip(d.id, d.data())).filter(Boolean).sort((a, b) => a.start.localeCompare(b.start)), callback);
+    },
+    // The trips as last seen on this device, per ACCOUNT, so the first paint already knows which days are away (and never
+    // paints the home weather on them). Replaced by the server's answer as soon as it arrives.
+    getTripsLocal() { return (currentUid && this.getCache('trips_' + currentUid)) || []; },
+    saveTripsLocal(trips) { if (currentUid) { try { this.saveCache('trips_' + currentUid, trips); } catch (e) { /* storage full: the server copy still works */ } } },
+
     // ---- Preferences (Settings page) ----
     // Synced with the account (users/{uid}/settings/prefs) so they follow you
     // between devices; a local copy makes the first paint instant. Location is
@@ -309,7 +340,7 @@ const Store = {
     // "Delete account": everything stored for the signed-in user, settings
     // included. The login itself is deleted separately (js/account.js).
     deleteAllUserData() {
-        return this._deleteCollections(['closet', 'schedule', 'savedOutfits', 'settings']);
+        return this._deleteCollections(['closet', 'schedule', 'savedOutfits', 'trips', 'settings']);
     },
 
     // "Export my closet" (Settings): everything the user has stored, in one object.
@@ -321,7 +352,8 @@ const Store = {
             settings: this.getPrefs(),
             closet: await this.getCloset(),          // each item's photo is included as base64 text
             schedule: await this.getScheduleDetail(),  // { 'YYYY-MM-DD': [{ id, label, itemIds }] }
-            savedOutfits: await this.getSavedOutfits()
+            savedOutfits: await this.getSavedOutfits(),
+            trips: await this.getTrips()                 // destination, dates and which pieces are ticked on each packing checklist
         };
     },
 

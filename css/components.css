@@ -2170,3 +2170,63 @@ body.planning-open .planning-panel { padding-top: 0; }
 /* One-pattern rule: what Help me choose did and did not check for an idea. An unchecked idea is amber, never reads as "fine". */
 .choose-pattern { margin: 4px 0 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
 .choose-pattern.is-unverified { color: #7a4b00; background: #fff7e6; border: 1px dashed #e0b45c; border-radius: 8px; padding: 6px 8px; }
+
+/* ---------- Trips ---------- */
+.trips-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.trips-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin: 12px 0 20px; }
+.trip-card { display: flex; flex-direction: column; gap: 3px; text-align: left; font: inherit; color: inherit; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
+.trip-card:hover { border-color: var(--accent-pink); }
+.trip-card.selected { border: 2px solid var(--accent-pink); padding: 11px 13px; }
+.trip-card:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.trip-card-title { font-weight: 700; }
+.trip-card-sub { font-size: 0.82rem; color: var(--text-muted); }
+.trip-detail { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.trip-detail.hidden { display: none; }
+.trip-detail-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.trip-detail-head h3 { margin: 0; color: var(--primary); }
+.trip-detail-actions { display: flex; gap: 8px; align-items: center; }
+.trip-days { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.trip-day { display: grid; grid-template-columns: 8.5rem 1fr auto; gap: 2px 12px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; }
+.trip-day-date { grid-column: 1; }
+.trip-day-weather { grid-column: 2; font-size: 0.88rem; }
+.trip-day-weather.is-missing { color: var(--text-muted); }
+.trip-day-detail { grid-column: 2; font-size: 0.75rem; color: var(--text-muted); }
+.trip-day-plan { grid-column: 2; font-size: 0.82rem; color: var(--text-muted); }
+.trip-plan-btn { grid-column: 3; grid-row: 1 / span 3; padding: 8px 12px; font-size: 0.82rem; }
+.trip-pack-group { margin: 14px 0 4px; font-size: 0.9rem; color: var(--primary); }
+.trip-pack-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.trip-pack-item { border: 1px solid var(--border); border-radius: 10px; }
+.trip-pack-item.is-packed { background: #f4f9f4; }
+.trip-pack-label { display: flex; align-items: center; gap: 10px; padding: 8px 10px; cursor: pointer; }
+.trip-pack-label input[type="checkbox"] { width: 22px; height: 22px; flex: 0 0 auto; accent-color: var(--primary); }
+.trip-pack-thumb { width: 36px; height: 36px; object-fit: contain; background: #faf3ee; border-radius: 6px; flex: 0 0 auto; }
+.trip-pack-text { display: flex; flex-direction: column; min-width: 0; }
+.trip-pack-name { font-weight: 600; font-size: 0.92rem; }
+.trip-pack-item.is-packed .trip-pack-name { text-decoration: line-through; color: var(--text-muted); }
+.trip-pack-dates { font-size: 0.78rem; color: var(--text-muted); }
+@media (max-width: 640px) {
+    .trip-day { grid-template-columns: 1fr; }
+    .trip-day-date, .trip-day-weather, .trip-day-detail, .trip-day-plan, .trip-plan-btn { grid-column: 1; grid-row: auto; }
+    .trip-plan-btn { justify-self: start; }
+}
+.modal-content.trip-modal-content { width: min(460px, 100%); }
+.trip-dest-row { display: flex; gap: 8px; }
+.trip-dest-row input { flex: 1 1 auto; min-width: 0; }
+.trip-dest-results { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin: 0; }
+.trip-dest-results legend { font-size: 0.85rem; padding: 0 4px; color: var(--text-muted); }
+.trip-dest-results.hidden { display: none; }
+.trip-place { display: flex; align-items: flex-start; gap: 8px; padding: 6px 2px; cursor: pointer; }
+.modal-content .trip-place input[type="radio"] { width: 18px; height: 18px; padding: 0; margin-top: 2px; flex: 0 0 auto; accent-color: var(--primary); }
+.trip-place-text { display: flex; flex-direction: column; font-size: 0.9rem; }
+.trip-place-detail { font-size: 0.75rem; color: var(--text-muted); }
+.trip-dest-chosen { margin: 0; font-size: 0.88rem; color: var(--text-muted); }
+.trip-dest-chosen.is-set { color: var(--text-main); font-weight: 600; }
+.trip-error-line { display: block; }
+/* a day that is part of a trip, in the Planner */
+.month-cell .cell-trip { display: block; font-size: 0.66rem; font-weight: 700; color: #1f5a7a; background: #e3f0f7; border-radius: 4px; padding: 0 4px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.month-cell.in-trip { box-shadow: inset 0 0 0 2px #9cc4de; }
+.planning-trip { margin: 0 0 6px; font-size: 0.85rem; color: #1f5a7a; background: #e3f0f7; border-radius: 8px; padding: 6px 10px; line-height: 1.4; }
+.planning-trip.hidden { display: none; }
+@media (max-width: 640px) {
+    .month-grid.view-month .cell-trip-name { display: none; }          /* a phone's month cell only has room for the ✈ */
+}

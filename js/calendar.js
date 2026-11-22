@@ -13,6 +13,7 @@ let planningActiveCategory = 'tops';
 // functions can read synchronously instead of awaiting Store on every call.
 let plannerCloset = [];
 let plannerOutfits = {};     // { 'YYYY-MM-DD': [{ id, label, itemIds, flagsOff }] } — what's planned each day
+let plannerLoaded = false;    // the first answer for the planned days has arrived (so "nothing planned" is not said too early)
 let plannerSchedule = {};    // { 'YYYY-MM-DD': [itemIds] } — the same days flattened (calendar cells, gap tags, "planned")
 let plannerSavedOutfits = [];
 
@@ -61,6 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('weather-retry-btn').addEventListener('click', retryWeather);
     document.getElementById('planning-weather-retry').addEventListener('click', retryWeather);
     document.addEventListener('weather-status', () => renderCalendar());   // loading / loaded / failed
+    document.addEventListener('trips-changed', () => renderCalendar());    // which days are away (js/trips.js)
+    document.addEventListener('trip-weather', () => renderCalendar());     // a trip's destination forecast arrived or failed
     scheduleMidnightRefresh();
     // The planning panel is a popup: close with the button, a click outside, or Esc.
     document.getElementById('back-to-calendar-btn').addEventListener('click', closePlanningPopup);
@@ -84,15 +87,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initCalendarLiveData() {
-    Store.onClosetChange((closet) => { plannerCloset = closet; renderCalendar(); });
+    Store.onClosetChange((closet) => { plannerCloset = closet; renderCalendar(); if (typeof Trips !== 'undefined') Trips.refreshView(); });
     Store.onScheduleChange((byDate) => {
         plannerOutfits = byDate;
+        plannerLoaded = true;
         // A day whose save failed keeps what the person did (the server copy reverted) until it is saved.
         for (const [date, outfits] of Object.entries(unsavedDays)) {
             if (outfits.length) plannerOutfits[date] = outfits; else delete plannerOutfits[date];
         }
         plannerSchedule = Store.flattenSchedule(plannerOutfits);
         renderCalendar();
+        if (typeof Trips !== 'undefined') Trips.refreshView();        // the trip's days and packing checklist follow the planner
     });
     Store.onSavedOutfitsChange((outfits) => { plannerSavedOutfits = outfits; renderCalendar(); });
 }
@@ -458,7 +463,9 @@ function renderCalendarGrid() {
         // A forecast only for days it really covers (today and the next 15). Never for a past
         // day (even a stale saved one) and never made up; why a day has none is explained
         // by the legend under the calendar and by the day's own popup.
-        const weather = prefs.weatherEnabled ? weatherFor(dateKey, weatherMap, todayKey).forecast : null;
+        // A day of a trip shows the DESTINATION's forecast, or nothing: never the home forecast (js/trips.js).
+        const tripDay = typeof tripWeatherFor === 'function' ? tripWeatherFor(dateKey) : null;
+        const weather = tripDay ? tripDay.forecast : (prefs.weatherEnabled ? weatherFor(dateKey, weatherMap, todayKey).forecast : null);
         const extra = extraCalendarNotes(cellDate, prefs, location);   // public / Christian / Hijri
 
         // Each day is a real <button>: it can be reached with Tab / the arrow keys, shows a focus
@@ -482,7 +489,8 @@ function renderCalendarGrid() {
             outfits: plannerOutfits[dateKey] || [],
             hijriDate: formatHijri(extra.hijri, 'full'),
             holidayNames: [...holidayTitles.filter(t => t !== 'Shabbos'), ...extra.notes.map(n => n.text)]   // real holidays, not the weekly Shabbos
-        }));
+        }) + (tripDay ? ` On a trip to ${tripDay.trip.destination.name}.` : ''));
+        if (tripDay) cell.classList.add('in-trip');
         cell.addEventListener('click', () => {
             selectedDateKey = dateKey;
             calendarFocusKey = dateKey;
@@ -496,7 +504,10 @@ function renderCalendarGrid() {
             ? `<span class="cell-candle-label">🕯 ${holidayInfo.candleLighting}</span>` : '';
         const weatherBadge = weather
             ? `<span class="cell-weather">${weatherInfo(weather.code).icon} ${formatTemp(weather.high)}</span>` : '';
+        const tripLabel = tripDay
+            ? `<span class="cell-trip" title="On a trip to ${escapeHtml(tripDay.trip.destination.label)}">✈ <span class="cell-trip-name">${escapeHtml(tripDay.trip.destination.name)}</span></span>` : '';
         cell.innerHTML = `
+            ${tripLabel}
             ${holidayLabel}
             <span class="cell-top-row">
                 <span class="cell-weekday">${WEEKDAY_NAMES[cellDate.getDay()].slice(0, 3)}</span>
@@ -629,7 +640,7 @@ function renderWeatherLegend(enabled, dates, weatherMap, todayKey) {
     const box = document.getElementById('weather-legend');
     if (!box) return;
     const legend = enabled
-        ? weatherLegend({ visibleKeys: dates.map(isoDateKey), todayKey, hasForecastFor: k => !!weatherMap[k], status: Weather.status })
+        ? weatherLegend({ visibleKeys: dates.map(isoDateKey).filter(k => !(typeof tripForDate === 'function' && tripForDate(k))), todayKey, hasForecastFor: k => !!weatherMap[k], status: Weather.status })
         : null;
     box.classList.toggle('hidden', !legend);
     box.classList.toggle('is-error', !!legend && legend.retry);
@@ -639,6 +650,8 @@ function renderWeatherLegend(enabled, dates, weatherMap, todayKey) {
 
 // "Try again" after a failed forecast request. The calendar redraws as the request starts and ends.
 function retryWeather() {
+    const tripDay = typeof tripWeatherFor === 'function' ? tripWeatherFor(selectedDateKey) : null;
+    if (tripDay) return Trips.refreshWeather(tripDay.trip, { force: true });       // a trip day: the destination's forecast
     return Weather.refresh(Location.get());
 }
 
@@ -1213,12 +1226,23 @@ function renderPlanningPanel() {
     // a past date, too far ahead ("not available yet", which isn't an error), still loading,
     // or the request failed (with Try again). If the last refresh failed but an earlier
     // forecast is on hand, it's shown with a note saying how old it is.
-    const { avail, forecast: weather } = weatherFor(selectedDateKey, weatherMap, isoDateKey(new Date()));
+    // A day of a trip: the destination's weather (or "Forecast not available yet."), said to be the destination's, never home's.
+    const tripDay = typeof tripWeatherFor === 'function' ? tripWeatherFor(selectedDateKey) : null;
+    const tripLine = document.getElementById('planning-trip');
+    if (tripLine) {
+        tripLine.classList.toggle('hidden', !tripDay);
+        tripLine.textContent = tripDay ? `✈ On your trip to ${tripDay.trip.destination.label} (${tripRangeLabel(tripDay.trip.start, tripDay.trip.end, isoDateKey(new Date()))}). The weather here is for ${tripDay.trip.destination.name}, not home.` : '';
+    }
+    const { avail, forecast: weather } = tripDay ? tripDay : weatherFor(selectedDateKey, weatherMap, isoDateKey(new Date()));
     weatherLine.textContent = weather ? `${weatherInfo(weather.code).icon} ${formatTemp(weather.high, true)} · ${weatherInfo(weather.code).label}` : '';
     weatherLine.classList.toggle('hidden', !weather);
 
     let noteText = '';
-    if (prefs.weatherEnabled) {
+    if (tripDay) {
+        // (the trip's own switch-off, failure and range messages; the home ones don't apply to it)
+        if (avail.kind !== 'available') noteText = [avail.text, avail.detail].filter(Boolean).join(' ');
+        else if (avail.stale) noteText = `Couldn’t refresh the forecast for ${tripDay.trip.destination.name}. This one was loaded earlier.`;
+    } else if (prefs.weatherEnabled) {
         if (avail.kind !== 'available') noteText = avail.text;
         else if (avail.stale) {
             const fetchedAt = Weather.getFetchedAt(location);

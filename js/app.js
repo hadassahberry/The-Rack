@@ -29,6 +29,7 @@ async function applyPrefs(prefs, meta) {
 
     syncSettingsUI(prefs);
     renderCalendar();
+    if (typeof Trips !== 'undefined') Trips.list().forEach(t => Trips.refreshWeather(t));     // trips follow the weather switch; a forecast that is still fresh is not asked for again
 
     // Only fetch what was just switched on, or everything on the first pass
     // after page load. (Saving a setting echoes back here; that must not refetch.)
