@@ -740,7 +740,7 @@
             <input type="color" id="modal-color" value="#cccccc">
             <!-- Used when Help me choose scores how patterns go together. A piece with no pattern saved is "Unknown": it is never treated as solid. -->
             <label for="modal-pattern">Pattern</label>
-            <select id="modal-pattern" aria-describedby="modal-pattern-hint">
+            <select id="modal-pattern" aria-describedby="modal-pattern-note modal-pattern-hint">
                 <option value="">Unknown (not set)</option>
                 <option value="solid">Solid</option>
                 <option value="striped">Striped</option>
@@ -748,6 +748,8 @@
                 <option value="floral">Floral</option>
                 <option value="other">Other pattern</option>
             </select>
+            <!-- Says when the pattern shown is only a suggestion taken from the item's name. -->
+            <p id="modal-pattern-note" class="category-note hidden" role="status"></p>
             <label for="modal-pattern-strength">Pattern strength</label>
             <select id="modal-pattern-strength" aria-describedby="modal-pattern-hint">
                 <option value="">Unknown (not set)</option>

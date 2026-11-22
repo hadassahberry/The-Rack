@@ -39,6 +39,54 @@ function guessCategory(name) {
     return hits[hits.length - 1];
 }
 
+// ---- the pattern, guessed from the name ----
+// A name often already says it ("Navy striped tee", "Floral midi dress", "Houndstooth blazer"). Like the category guess this is
+// only ever a SUGGESTION: the editor pre-fills the Pattern field with it, says so, and nothing is saved until the owner saves the
+// item (and they can change it first). It is never applied to a piece that already has a pattern saved, and it never guesses a
+// pattern's STRENGTH (bold or subtle): the name can't say that.
+// A name with two different pattern words ("striped floral top") gets no guess, and so does one with no pattern word at all.
+// Words that only sound like patterns are left out on purpose: "flowy" is not floral, and "rose" is a color. "Houndstooth",
+// polka dots, paisley, checks, animal prints and the like have no choice of their own, so they suggest "Other pattern".
+const PATTERN_WORDS = {
+    striped: ['stripe', 'stripes', 'striped', 'stripey', 'stripy', 'pinstripe', 'pinstripes', 'pinstriped', 'breton'],
+    plaid: ['plaid', 'plaids', 'tartan', 'tartans'],
+    floral: ['floral', 'florals', 'flower', 'flowers', 'flowered', 'blossom', 'blossoms', 'botanical', 'ditsy'],
+    other: ['houndstooth', 'herringbone', 'paisley', 'polka', 'dot', 'dots', 'dotted', 'polkadot', 'gingham', 'check', 'checks',
+        'checked', 'checkered', 'chequered', 'argyle', 'chevron', 'leopard', 'cheetah', 'zebra', 'snakeskin', 'camo', 'camouflage',
+        'dye', 'geometric', 'abstract', 'ikat', 'batik', 'toile', 'print', 'printed', 'patterned'],
+    solid: ['solid']
+};
+const WORD_TO_PATTERN = {};
+Object.entries(PATTERN_WORDS).forEach(([pattern, words]) => words.forEach(w => { WORD_TO_PATTERN[w] = pattern; }));
+const PATTERN_CHOICES = ['solid', 'striped', 'plaid', 'floral', 'other'];                 // the values the Pattern field can hold
+const PATTERN_LABELS = { solid: 'Solid', striped: 'Striped', plaid: 'Plaid', floral: 'Floral', other: 'Other pattern' };
+
+// { pattern, word } for the pattern the name suggests ('solid' | 'striped' | 'plaid' | 'floral' | 'other') and the word that said
+// so, or null for no idea (no pattern word, or words that point to different patterns).
+function guessPattern(name) {
+    const words = String(name || '').toLowerCase().match(/[a-z]+/g) || [];                // "pin-striped" -> pin, striped; "tie_dye" -> tie, dye
+    const hits = words.filter(w => WORD_TO_PATTERN[w]);
+    if (hits.length === 0) return null;
+    const patterns = new Set(hits.map(w => WORD_TO_PATTERN[w]));
+    if (patterns.size > 1) return null;                                                    // "striped floral": the name does not settle it
+    return { pattern: WORD_TO_PATTERN[hits[0]], word: hits[0] };
+}
+
+// What the editor's Pattern field STARTS as, and whether that is only a suggestion.
+//   name: the item's name (or what is typed now)   saved: the pattern stored on the item, if any
+// kind: 'saved' (a pattern is already saved: it always wins, even if the name says something else) | 'guess' | 'none'
+// Nothing returned here is ever saved by itself: it is what the form shows until the owner presses Save.
+function patternSuggestionFor(name, saved) {
+    const stored = typeof saved === 'string' ? saved.trim().toLowerCase() : '';
+    if (PATTERN_CHOICES.includes(stored)) return { pattern: stored, kind: 'saved', word: '', text: '' };
+    const guess = guessPattern(name);
+    if (!guess) return { pattern: '', kind: 'none', word: '', text: '' };
+    return {
+        pattern: guess.pattern, kind: 'guess', word: guess.word,
+        text: `Suggested “${PATTERN_LABELS[guess.pattern]}” from the name (“${guess.word}”). Please check it.`
+    };
+}
+
 const CATEGORY_LABELS = { tops: 'Tops', bottoms: 'Bottoms', outerwear: 'Outerwear', shoes: 'Shoes', dresses: 'Dresses', accessories: 'Accessories' };
 
 // What the editor's Category field STARTS as for an item, and whether that is only a
@@ -61,5 +109,5 @@ function categorySuggestionFor(item, lastTagged) {
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = { guessCategory, categorySuggestionFor, CATEGORY_WORDS };
+    module.exports = { guessCategory, categorySuggestionFor, CATEGORY_WORDS, guessPattern, patternSuggestionFor, PATTERN_WORDS, PATTERN_CHOICES };
 }

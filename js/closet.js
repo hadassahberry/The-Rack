@@ -34,6 +34,8 @@ let editSnapshot = null;          // the edit form as it was when opened, to tel
 let lastTaggedCategory = null;    // the category confirmed on the last item tagged this session (suggested for the next one, never saved by itself)
 let editSaving = false;           // the open edit window's Save is waiting for the server
 let editSession = 0;              // counts how many times the edit window has been opened, so a late answer can tell it is out of date
+let patternTouched = false;       // the owner chose a pattern themselves in the open edit window: the name no longer suggests one
+let patternFromName = false;      // the Pattern field currently shows a suggestion made from the name (not a saved or chosen value)
 let editSaveStarted = false;      // Save was pressed in the open edit window (so its status line shows that save)
 
 // ---- Saving feedback for item edits (js/save-state.js) ----
@@ -275,6 +277,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('modal-category').addEventListener('change', () => showCategoryNote({ text: '' }));
+    // typing a name keeps the suggested pattern in step; choosing a pattern yourself ends the suggestions for this window
+    document.getElementById('modal-name').addEventListener('input', () => {
+        const item = liveCloset.find(i => i.id === currentEditingItemId);
+        if (item) applyPatternFromName(item.pattern);
+    });
+    document.getElementById('modal-pattern').addEventListener('change', () => { patternTouched = true; patternFromName = false; showPatternNote(''); });
     closetSaveViews = {
         modal: createSaveStatusView(document.getElementById('edit-save-status'), { onRetry: () => saveEditModal() }),      // saves what is in the form now
         page: createSaveStatusView(document.getElementById('closet-save-status'), { onRetry: () => closetSaves.retryFailed() })
@@ -473,6 +481,8 @@ function openEditModal(itemId) {
     // Pattern: what was saved, else Unknown (a piece with nothing saved is only READ as unknown; it is not changed)
     const savedPattern = normalizePattern(item.pattern);
     document.getElementById('modal-pattern').value = savedPattern === 'unknown' ? '' : savedPattern;
+    patternTouched = false;
+    applyPatternFromName(item.pattern);      // a piece with no pattern saved whose name says one: pre-filled, and labeled as a suggestion
     const savedStrength = normalizePatternStrength(item.patternStrength);
     document.getElementById('modal-pattern-strength').value = savedStrength === 'unknown' ? '' : savedStrength;
     // "More details" (used by Help me choose): what was set, else "Not set"; opened only when something is set.
@@ -560,7 +570,28 @@ async function requestCloseEditModal() {
     closeEditModal();
 }
 
+// The Pattern field follows the name while nothing is saved and the owner hasn't picked one: "Striped navy top" pre-fills
+// Striped (labeled as a suggestion); a name with no pattern word, or two different ones, leaves it Unknown. A pattern that is
+// already saved, or one the owner chose, is never replaced. Strength is never suggested. Nothing here saves anything.
+function applyPatternFromName(savedPattern) {
+    const select = document.getElementById('modal-pattern');
+    const suggestion = patternSuggestionFor(document.getElementById('modal-name').value, savedPattern);
+    if (suggestion.kind === 'saved' || patternTouched) { patternFromName = false; showPatternNote(''); return; }
+    if (suggestion.kind === 'guess') { select.value = suggestion.pattern; patternFromName = true; showPatternNote(suggestion.text); return; }
+    if (patternFromName) select.value = '';                    // the name no longer says one: take back what the name had put there
+    patternFromName = false;
+    showPatternNote('');
+}
+function showPatternNote(text) {
+    const note = document.getElementById('modal-pattern-note');
+    note.textContent = text;
+    note.classList.toggle('hidden', !text);
+    document.getElementById('modal-pattern').classList.toggle('is-unconfirmed', !!text);
+}
+
 function closeEditModal() {
+    patternTouched = false;
+    patternFromName = false;
     PhotoFrame.unload();
     document.getElementById('edit-modal').classList.add('hidden');
     ModalDialogs.close(document.getElementById('edit-modal'));      // focus goes back to where it was
