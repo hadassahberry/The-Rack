@@ -5,9 +5,12 @@
 //
 // Dates are 'YYYY-MM-DD' strings, which compare correctly as plain strings.
 
-// closet: [{ id, name, category, ... }]
+// allPieces: [{ id, name, category, demo?, ... }]
 // scheduleByDate: { 'YYYY-MM-DD': [{ id, label, itemIds, worn? }] }
-function computeWearStats(closet, scheduleByDate, todayKey) {
+function computeWearStats(allPieces, scheduleByDate, todayKey) {
+    // Demo pieces (the sample pieces from the first-run setup) are not part of the wardrobe: they never count as pieces,
+    // wears or plans here. An outfit that mixes demo and real pieces counts for its real pieces only.
+    const closet = allPieces.filter(i => i.demo !== true);
     const known = new Set(closet.map(i => i.id));
     const wornDays = {};      // itemId -> Set of days it was worn
     const plannedDays = {};   // itemId -> Set of days it's planned, today or later, not worn yet
@@ -60,6 +63,8 @@ async function renderAnalytics() {
     const schedule = await Store.getScheduleDetail();
     const stats = computeWearStats(closet, schedule, isoDateKey(new Date()));
 
+    const demoNote = document.getElementById('wear-demo-note');
+    if (demoNote) demoNote.classList.toggle('hidden', !closet.some(i => i.demo === true));    // demo pieces are not counted
     document.getElementById('stat-total-items').textContent = stats.totalItems;
     document.getElementById('stat-total-wears').textContent = stats.totalWears;
     document.getElementById('stat-planned').textContent = stats.plannedOutfits;

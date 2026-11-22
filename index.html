@@ -87,8 +87,21 @@
     </header>
 
     <main class="app-container">
+        <!-- Offered once the person's own pieces can make an outfit (js/first-run.js); never a window that lands on top of what they are doing. -->
+        <div id="first-run-offer" class="demo-banner first-run-offer hidden" role="region" aria-label="Your first outfit">
+            <span>You have enough pieces for outfit ideas. Want to pick your first outfit for today?</span>
+            <span class="first-run-offer-actions">
+                <button type="button" id="first-run-offer-btn" class="primary-btn">Help me choose</button>
+                <button type="button" id="first-run-offer-dismiss-btn" class="secondary-btn">Not now</button>
+            </span>
+        </div>
         <!-- Calendar / Planner View -->
         <section id="calendar-view" class="view-section active">
+            <!-- Shown while any demo piece is in the closet (js/first-run.js): one button removes them all. -->
+            <div class="demo-banner hidden" data-demo-banner role="status">
+                <span>Some pieces here are <strong>demo pieces</strong>: samples labeled Demo that don&rsquo;t count in your wear stats.</span>
+                <button type="button" class="secondary-btn" data-first-run="remove-demo">Remove demo pieces</button>
+            </div>
             <div class="planner-layout">
                 <div class="calendar-panel">
                     <div class="calendar-top-row">
@@ -175,6 +188,12 @@
                 </div>
             </div>
 
+            <!-- Shown while any demo piece is in the closet (js/first-run.js): one button removes them all. -->
+            <div class="demo-banner hidden" data-demo-banner role="status">
+                <span>Some pieces here are <strong>demo pieces</strong>: samples labeled Demo that don&rsquo;t count in your wear stats.</span>
+                <button type="button" class="secondary-btn" data-first-run="remove-demo">Remove demo pieces</button>
+            </div>
+
             <!-- Where an item edit is still saving, or failed, after its window was closed (js/save-state.js). -->
             <p id="closet-save-status" class="save-status hidden" role="status" aria-live="polite"></p>
 
@@ -241,6 +260,8 @@
                     <span class="stat-label">Top category worn</span>
                 </div>
             </div>
+
+            <p id="wear-demo-note" class="setting-hint hidden">Demo pieces (the samples labeled Demo) aren&rsquo;t counted here.</p>
 
             <div id="wear-unmarked" class="wear-unmarked hidden">
                 <p id="wear-unmarked-text"></p>
@@ -479,6 +500,59 @@
         </div>
     </div>
 
+    <!-- First-run setup for an empty closet (js/first-run.js): skippable. Starter closet, demo pieces, or the person's own photos; then Help me choose. -->
+    <div id="first-run-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="first-run-title">
+        <div class="modal-content first-run-content">
+            <h3 id="first-run-title">Let&rsquo;s set up your closet</h3>
+
+            <div id="first-run-choose" class="first-run-step">
+                <p class="first-run-lead">Add a few pieces and The Rack can suggest outfits from them. Pick whichever is easiest. Nothing here is required, and you can add more any time.</p>
+                <button type="button" id="first-run-starter-btn" class="primary-btn first-run-option">
+                    <span class="first-run-option-title">Build a starter closet</span>
+                    <span class="first-run-option-note">About 5&ndash;8 pieces: pick a kind and a color for each. Photos are optional.</span>
+                </button>
+                <button type="button" id="first-run-demo-btn" class="secondary-btn first-run-option">
+                    <span class="first-run-option-title">Try demo pieces</span>
+                    <span class="first-run-option-note">Sample pieces labeled Demo. One button removes them all later.</span>
+                </button>
+                <button type="button" id="first-run-photos-btn" class="secondary-btn first-run-option">
+                    <span class="first-run-option-title">I&rsquo;ll add my own photos</span>
+                    <span class="first-run-option-note">Upload or take photos of what you own.</span>
+                </button>
+                <p class="first-run-message builder-message hidden" role="alert"></p>
+                <button type="button" id="first-run-skip-btn" class="link-btn first-run-skip">Skip for now</button>
+            </div>
+
+            <div id="first-run-starter" class="first-run-step hidden">
+                <p class="first-run-lead">Pick a kind and a color for each piece. Names and photos are optional. About 5&ndash;8 pieces gives good ideas, but any number works, and you can add more later.</p>
+                <div id="starter-rows" class="starter-rows"></div>
+                <button type="button" id="starter-add-row-btn" class="link-btn">+ Add another piece</button>
+                <p id="starter-count" class="setting-hint" aria-live="polite"></p>
+                <p class="first-run-message builder-message hidden" role="alert"></p>
+                <div class="modal-actions">
+                    <button type="button" id="starter-save-btn" class="primary-btn">Add to my closet</button>
+                    <button type="button" id="starter-back-btn" class="secondary-btn">Back</button>
+                </div>
+            </div>
+
+            <div id="first-run-ready" class="first-run-step hidden">
+                <p id="first-run-ready-text" class="first-run-lead"></p>
+                <div class="modal-actions">
+                    <button type="button" id="first-run-help-btn" class="primary-btn">Help me choose</button>
+                    <button type="button" id="first-run-notnow-btn" class="secondary-btn">Not now</button>
+                </div>
+            </div>
+
+            <div id="first-run-missing" class="first-run-step hidden">
+                <p id="first-run-missing-text" class="first-run-lead"></p>
+                <div class="modal-actions">
+                    <button type="button" id="first-run-add-more-btn" class="primary-btn">Add more pieces</button>
+                    <button type="button" id="first-run-close-btn" class="secondary-btn">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- How to use The Rack (js/welcome.js): the same steps as the welcome card, plus explanations. -->
     <div id="help-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
         <div class="modal-content help-content-box">
@@ -684,6 +758,7 @@
     <script src="js/apply-outfit.js"></script>
     <script src="js/activity-combo.js"></script>
     <script src="js/colors.js"></script>
+    <script src="js/starter-closet.js"></script>
     <script src="js/repeats.js"></script>
     <script src="js/photo-frame.js"></script>
     <script src="js/dialog.js"></script>
@@ -703,6 +778,7 @@
     <script src="js/outfit-suggest.js"></script>
     <script src="js/outfit-vision.js"></script>
     <script src="js/help-choose.js"></script>
+    <script src="js/first-run.js"></script>
     <script src="js/navigation.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/account.js"></script>

@@ -185,6 +185,8 @@ document.addEventListener('DOMContentLoaded', () => {
         clearConfirmBtn.textContent = 'Clearing…';
         clearError.classList.add('hidden');
         try {
+            // Someone who clears their closet on purpose is not walked through setting it up again.
+            await Store.markFirstRunSeen().catch(() => {});
             await Store.clearClosetData();
             clearBusy = false;
             clearModal.classList.add('hidden');

@@ -137,6 +137,7 @@ async function runVisionCheck({ suggestions, closetById, context, deps, cache = 
 function shrinkPhoto(item, maxSide = VISION_MAX_PHOTO) {
     const src = item.thumb || item.image;
     return new Promise((resolve) => {
+        if (item.noPhoto || item.demo) { resolve(null); return; }       // a drawing, not a photo (sample or no-photo pieces): nothing is sent for the visual check
         if (!src || typeof document === 'undefined') { resolve(null); return; }
         const img = new Image();
         img.onload = () => {

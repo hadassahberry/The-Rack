@@ -33,10 +33,12 @@ function buildDayContext(dateKey, env) {
         ((env.outfitsByDate && env.outfitsByDate[k]) || []).forEach(o => { if (o.itemIds && o.itemIds.length) weekendPlanned.push({ date: k, itemIds: o.itemIds }); });
     });
 
+    // Demo pieces are only used while the person's own pieces can't make an outfit yet (suggestionPool, js/outfit-suggest.js).
     // Pieces still waiting to be tagged have a guessed category, so they are left out (and the person is told).
-    const closet = (env.closet || []).filter(i => i.tagged !== false);
+    const pool = suggestionPool(env.closet || []);
+    const closet = pool.filter(i => i.tagged !== false);
     return {
-        skippedUntagged: (env.closet || []).length - closet.length,
+        skippedUntagged: pool.length - closet.length,
         items: closet,
         dateKey,
         weather: prefs.weatherEnabled && env.forecastFor ? env.forecastFor(dateKey) : null,
@@ -247,6 +249,12 @@ const HelpChoose = (function () {
                 past.className = 'choose-past';
                 past.textContent = s.past.text;
             }
+            let demo = null;
+            if (s.itemIds.some(id => closetById[id] && closetById[id].demo === true)) {       // sample pieces from the first-run setup: say so
+                demo = document.createElement('p');
+                demo.className = 'choose-demo';
+                demo.append(demoBadge(), document.createTextNode(' Includes demo pieces: sample pieces, not part of your own closet.'));
+            }
             let look = null;
             if (s.vision && s.vision.reason) {                           // what the visual check said about these pieces together
                 look = document.createElement('p');
@@ -257,6 +265,7 @@ const HelpChoose = (function () {
             use.setAttribute('aria-label', `Use idea ${n + 1}: ${s.pieces.map(p => p.name).join(', ')}`);
             card.append(thumbs, names, reason);
             if (past) card.appendChild(past);
+            if (demo) card.appendChild(demo);
             if (look) card.appendChild(look);
             card.appendChild(use);
             cards.appendChild(card);
@@ -453,7 +462,15 @@ const HelpChoose = (function () {
     }
     if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', init);
 
-    return { open, close, reset };
+    // The first-run offer: Help me choose for one day, opened inside that day's planning window.
+    function openForDay(dateKey) {
+        const dayBtn = $('help-choose-btn');
+        if (!dayBtn || !$('choose-panel')) return false;
+        open('day', dayBtn, $('choose-panel'), dateKey);
+        return true;
+    }
+
+    return { open, close, reset, openForDay };
 })();
 
 if (typeof module !== 'undefined') {

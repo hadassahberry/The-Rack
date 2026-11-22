@@ -40,7 +40,9 @@ const Store = {
     _subscribe(name, mapFn, callback, attempt = 0) {
         waitForFirebase().then(async ({ dbFns }) => {
             dbFns.onSnapshot(await this._collection(name), (snap) => {
-                callback(mapFn(snap));
+                // The second argument says whether this answer came from the server (fromCache false) or only from a
+                // copy kept on this device, so code that must not act on a not-yet-loaded (empty) answer can tell.
+                callback(mapFn(snap), { fromCache: snap.metadata ? snap.metadata.fromCache : undefined });
             }, (err) => {
                 if (err.code === 'permission-denied' && attempt < 5) {
                     setTimeout(() => this._subscribe(name, mapFn, callback, attempt + 1), 500 * (attempt + 1));
@@ -68,6 +70,30 @@ const Store = {
     async deleteClosetItem(id) {
         const { dbFns } = await waitForFirebase();
         await dbFns.deleteDoc(await this._doc('closet', id));
+    },
+    // Several pieces at once (the starter closet, the demo pieces): all arrive together or not at all.
+    async addClosetItems(items) {
+        const { db, dbFns } = await waitForFirebase();
+        const batch = dbFns.writeBatch(db);
+        for (const item of items) batch.set(await this._doc('closet', item.id), item);
+        await batch.commit();
+    },
+    // "Remove demo pieces": one action. What is removed is worked out by planDemoCleanup (js/starter-closet.js): the demo
+    // pieces, planned outfits and saved outfits made only of demo pieces; mixed ones keep their real pieces; nothing else
+    // is touched. Plans and saved outfits are fixed first and the demo pieces deleted last, so if something fails halfway
+    // the demo pieces are still there to remove again, and nothing real was ever deleted.
+    async removeDemoData() {
+        const plan = planDemoCleanup({ closet: await this.getCloset(), schedule: await this.getScheduleDetail(), saved: await this.getSavedOutfits() });
+        for (const { date, outfits } of plan.scheduleWrites) await this.setScheduleOutfits(date, outfits);
+        for (const id of plan.savedDeletes) await this.deleteSavedOutfit(id);
+        for (const outfit of plan.savedWrites) await this.addSavedOutfit(outfit);
+        const { db, dbFns } = await waitForFirebase();
+        for (let i = 0; i < plan.itemIds.length; i += 400) {
+            const batch = dbFns.writeBatch(db);
+            for (const id of plan.itemIds.slice(i, i + 400)) batch.delete(await this._doc('closet', id));
+            await batch.commit();
+        }
+        return plan.counts;
     },
     onClosetChange(callback) {
         this._subscribe('closet', (snap) => snap.docs.map(d => ({ id: d.id, ...d.data() })), callback);
@@ -238,13 +264,24 @@ const Store = {
         const { dbFns } = await waitForFirebase();
         await dbFns.setDoc(await this._doc('settings', 'prefs'), { welcomeSeen: true }, { merge: true });
     },
+    // Records that this account has been offered the first-run setup (js/first-run.js): shown, skipped or finished, or
+    // it already had pieces, or its closet was cleared on purpose. On the account itself, so it holds on every device and
+    // after emptying the closet. The setup replaces the older welcome card, so that is recorded as seen in the same
+    // write. A MERGE of just these two fields, like markWelcomeSeen; neither is in PREF_DEFAULTS, so "unknown" (never
+    // offered) can be told from "seen".
+    async markFirstRunSeen() {
+        const marks = { firstRunSeen: true, welcomeSeen: true };
+        this._writeLocalPrefs({ ...this.getPrefs(), ...marks });
+        const { dbFns } = await waitForFirebase();
+        await dbFns.setDoc(await this._doc('settings', 'prefs'), marks, { merge: true });
+    },
     onPrefsChange(callback) {
         this._subscribe('settings', (snap) => {
             const doc = snap.docs.find(d => d.id === 'prefs');
             return { ...this.PREF_DEFAULTS, ...(doc ? doc.data() : {}) };
-        }, (prefs) => {
+        }, (prefs, meta) => {
             this._writeLocalPrefs(prefs);
-            callback(prefs);
+            callback(prefs, meta);
         });
     },
 

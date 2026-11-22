@@ -19,13 +19,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     Store.onPrefsChange(applyPrefs);
 });
 
-async function applyPrefs(prefs) {
+async function applyPrefs(prefs, meta) {
     const was = appliedPrefs;
     appliedPrefs = prefs;
 
-    // The first time this page hears the account's saved preferences (from the server, not the local copy),
-    // a brand-new empty account may be shown the welcome card. Anyone else is left alone (js/welcome.js).
-    if (!was) Welcome.consider(prefs);
+    // The first-run setup (js/first-run.js) decides who is offered it only once the account's settings AND closet
+    // have really arrived from the server. If it isn't shown, the older welcome card keeps its own rules (js/welcome.js).
+    FirstRun.notePrefs(prefs, meta);
 
     syncSettingsUI(prefs);
     renderCalendar();

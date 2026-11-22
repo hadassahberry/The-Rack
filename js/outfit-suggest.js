@@ -549,8 +549,42 @@ function specialRunOthers(dateKey, isSpecial) {
     return run.filter(k => k !== dateKey);
 }
 
+// ---- demo pieces and what "enough pieces" means ----
+// Demo pieces (js/starter-closet.js) are sample pieces labeled Demo. They are kept apart from the person's own
+// closet: they are only used for suggestions while the person's OWN (tagged) pieces cannot make an outfit yet. As soon as
+// they can, suggestions use only their own pieces and the demo ones are left out.
+function sgCanMakeOutfit(items) {
+    const has = (cat) => items.some(i => i.category === cat);
+    return has('dresses') || (has('tops') && has('bottoms'));
+}
+function suggestionPool(items) {
+    const all = (items || []).filter(i => i && i.id);
+    const own = all.filter(i => i.demo !== true);
+    return sgCanMakeOutfit(own.filter(i => i.tagged !== false)) ? own : all;
+}
+
+// Can "Help me choose" make an outfit from this closet? If not, say plainly what is missing (never an empty result).
+// Returns { ready, message, missing: ['top' | 'bottom' | 'dress or a top and a bottom' ...], untagged }.
+function outfitReadiness(items) {
+    const pool = suggestionPool(items);
+    const tagged = pool.filter(i => i.tagged !== false && SUGGEST_CATEGORIES.includes(i.category));
+    const untagged = pool.filter(i => i.tagged === false).length;
+    const n = (cat) => tagged.filter(i => i.category === cat).length;
+    const tops = n('tops'), bottoms = n('bottoms'), dresses = n('dresses');
+    if (dresses > 0 || (tops > 0 && bottoms > 0)) return { ready: true, message: '', missing: [], untagged };
+    const tagNote = untagged > 0
+        ? ` ${untagged} ${untagged === 1 ? 'piece still needs' : 'pieces still need'} tagging: open ${untagged === 1 ? 'it' : 'them'} in the Closet and press Save, and I can use ${untagged === 1 ? 'it' : 'them'}.`
+        : '';
+    let message, missing;
+    if (tops > 0) { missing = ['bottom']; message = `You have ${tops === 1 ? 'a top' : 'tops'} but no bottom yet. Add a bottom (or a dress) and I can suggest outfits.`; }
+    else if (bottoms > 0) { missing = ['top']; message = `You have ${bottoms === 1 ? 'a bottom' : 'bottoms'} but no top yet. Add a top (or a dress) and I can suggest outfits.`; }
+    else { missing = ['top', 'bottom']; message = 'To suggest outfits I need at least a top and a bottom, or a dress.'; }
+    return { ready: false, message: message + tagNote, missing, untagged };
+}
+
 if (typeof module !== 'undefined') {
     module.exports = {
+        suggestionPool, outfitReadiness, sgCanMakeOutfit,
         suggestOutfits, describePiece, SUGGEST_COVERAGES, parseRefineText, specialRunOthers, sgColor, sgColorScore, sgWeatherNeed, sgFormalityNeed,
         SUGGEST_WEIGHTS, SUGGEST_RECENT_DAYS, SUGGEST_WARMTH_LABELS, SUGGEST_FORMALITY_LABELS
     };

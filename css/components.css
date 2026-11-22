@@ -2114,3 +2114,55 @@ body.planning-open .planning-panel { padding-top: 0; }
     .choose-card { flex: 1 1 200px; min-width: 0; }
 }
 .choose-panel, .choose-head strong { scroll-margin-top: 56px; }     /* clear of the day window's sticky Close button */
+
+/* ---------- First-run setup, demo pieces ---------- */
+/* The Demo label: wherever a demo piece's name is written out (the picture itself also says DEMO). */
+.badge-demo { background: #f6ead3; color: #7a5516; font-weight: 700; border: 1px solid #e0c58f; letter-spacing: 0.03em; }
+.demo-banner {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px;
+    background: #fbf3e1; border: 1px solid #e0c58f; color: #5a4210; border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: 0.9rem; line-height: 1.4;
+}
+.demo-banner.hidden { display: none; }
+.demo-banner .secondary-btn, .demo-banner .primary-btn { padding: 8px 14px; }
+.first-run-offer-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.choose-demo { margin: 4px 0 0; font-size: 0.8rem; color: #5a4210; }
+
+/* An empty closet: what to do next, instead of a blank grid. */
+.closet-empty { grid-column: 1 / -1; text-align: center; padding: 28px 16px; border: 1px dashed var(--border); border-radius: var(--radius); background: var(--card-bg); }
+.closet-empty h3 { color: var(--primary); margin: 0 0 6px; }
+.closet-empty p { color: var(--text-muted); margin: 0 auto 14px; max-width: 420px; line-height: 1.45; }
+.closet-empty-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
+.modal-content.first-run-content { width: min(520px, 100%); }
+.first-run-content h3 { font-size: 1.25rem; color: var(--primary); margin: 0; }
+.first-run-lead { margin: 0; line-height: 1.5; font-size: 0.95rem; }
+.first-run-step { display: flex; flex-direction: column; gap: 10px; }
+.first-run-step.hidden { display: none; }
+.first-run-option { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 12px 14px; }
+.first-run-option-title { font-weight: 700; font-size: 1rem; }
+.first-run-option-note { font-size: 0.82rem; font-weight: 400; opacity: 0.9; line-height: 1.35; }
+.first-run-skip { align-self: center; padding: 10px 14px; }
+.first-run-message { margin: 0; }
+
+/* The starter closet form: one compact card per piece. */
+.starter-rows { display: flex; flex-direction: column; gap: 10px; }
+.starter-row { border: 1px solid var(--border); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #fffdfb; }
+.starter-row-top { display: flex; gap: 8px; align-items: center; }
+.starter-row-top select { flex: 1 1 0; min-width: 0; }
+.starter-remove { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: #fff; color: var(--text-muted); font-size: 1.2rem; line-height: 1; cursor: pointer; }
+.starter-remove:hover { border-color: var(--accent-pink); color: var(--accent-pink); }
+.starter-colors { display: flex; flex-wrap: wrap; gap: 4px; }
+.swatch { position: relative; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.modal-content .swatch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; border: 0; }
+.swatch-dot { width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.22); box-sizing: border-box; pointer-events: none; }
+.swatch input:checked + .swatch-dot { outline: 3px solid var(--primary); outline-offset: 2px; }
+.swatch input:focus-visible + .swatch-dot { outline: 3px solid var(--primary); outline-offset: 2px; box-shadow: 0 0 0 5px #fff; }
+.starter-row-bottom { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.starter-row-bottom .starter-name { flex: 1 1 140px; min-width: 0; }
+.starter-photo-btn { position: relative; flex: 0 0 auto; padding: 8px 12px; border: 1px dashed var(--primary); border-radius: 8px; color: var(--primary); font-size: 0.82rem; font-weight: 600; cursor: pointer; background: #fff; }
+.starter-photo-btn:focus-within { outline: 3px solid var(--primary); outline-offset: 2px; }
+.modal-content .starter-photo-btn input { position: absolute; width: 1px; height: 1px; opacity: 0; padding: 0; border: 0; overflow: hidden; }
+.modal-content .starter-photo-preview { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; flex: 0 0 auto; }
+#first-run-modal .modal-actions button { flex: 1; padding: 10px; }
+#first-run-modal .modal-actions { flex-wrap: wrap; }

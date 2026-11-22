@@ -59,6 +59,7 @@ let buildMode = false;            // "Build an outfit": tapping a card selects i
 // render functions can stay synchronous and read from here instead of
 // re-fetching after every mutation.
 let liveCloset = [];
+let closetLoaded = false;        // the closet's first answer from the server has arrived (an empty list before that means "not loaded", not "empty")
 let liveSavedOutfits = [];
 
 function compressImage(file) {
@@ -297,11 +298,13 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initClosetLiveData() {
-    Store.onClosetChange((closet) => {
+    Store.onClosetChange((closet, meta) => {
         liveCloset = closet;
+        closetLoaded = !(meta && meta.fromCache === true);
         renderCloset();
         renderBuildBar();
         updateTagQueueUI();
+        if (typeof FirstRun !== 'undefined') FirstRun.noteCloset(closet, meta);
     });
     Store.onSavedOutfitsChange((outfits) => {
         liveSavedOutfits = outfits;
@@ -325,6 +328,19 @@ function renderCloset() {
     let filtered = activeCategory === 'all' ? liveCloset : liveCloset.filter(i => i.category === activeCategory);
     if (activeSeason !== 'all') filtered = filtered.filter(i => i.season === activeSeason || i.season === 'all-season');
 
+    if (liveCloset.length === 0 && closetLoaded) {
+        grid.innerHTML = `
+            <div class="closet-empty">
+                <h3>Your closet is empty</h3>
+                <p>Add a few pieces and The Rack can suggest outfits. Pick whichever is easiest; you can add more any time.</p>
+                <div class="closet-empty-actions">
+                    <button type="button" class="primary-btn" data-first-run="starter">Build a starter closet</button>
+                    <button type="button" class="secondary-btn" data-first-run="demo">Try demo pieces</button>
+                    <button type="button" class="secondary-btn" data-first-run="photos">Add my own photos</button>
+                </div>
+            </div>`;
+        return;
+    }
     if (filtered.length === 0) {
         grid.innerHTML = '<p style="grid-column: span 3; text-align: center; color: #888; margin-top: 30px;">No items match this filter.</p>';
         return;
@@ -345,6 +361,7 @@ function renderCloset() {
                 <button type="button" class="name-more hidden" tabindex="-1" aria-hidden="true">Show full name</button>
                 <div class="tags-row">
                     ${buildMode ? `<span class="badge badge-category">${escapeHtml(item.category)}</span>` : ''}
+                    ${item.demo === true ? '<span class="badge badge-demo" title="A sample piece. Remove all demo pieces with one button above.">Demo</span>' : ''}
                     <span class="badge">${item.occasion}</span>
                     <span class="badge">${item.season}</span>
                     ${!item.tagged && item.categoryGuess ? `<span class="badge badge-guess" title="Guessed from the name. Open the item and save it to confirm.">guessed: ${escapeHtml(item.category)}</span>` : ''}
@@ -729,7 +746,7 @@ function renderBuildBar() {
         // Each chip says what kind of piece it is; if two selected pieces share a name
         // (and a kind), it adds the occasion and season so they can be told apart.
         const twin = selectedItems.some(o => o !== item && o.name === item.name && o.category === item.category);
-        const meta = [item.category, ...(twin ? [item.occasion, item.season] : [])].filter(Boolean).join(' · ');
+        const meta = [item.demo === true ? 'Demo' : '', item.category, ...(twin ? [item.occasion, item.season] : [])].filter(Boolean).join(' · ');
         const chip = document.createElement('span');
         chip.className = 'build-chip';
         chip.title = `${item.name} (${meta})`;

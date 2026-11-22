@@ -12,8 +12,8 @@ const SHELL = [
     './', 'index.html', 'manifest.webmanifest',
     'css/variables.css', 'css/layout.css', 'css/components.css',
     'js/firebase-config.js', 'js/firebase-init.js', 'js/state.js', 'js/auth.js', 'js/geolocation.js',
-    'js/weather.js', 'js/weather-status.js', 'js/holidays.js', 'js/calendars.js', 'js/view-range.js', 'js/activities.js', 'js/apply-outfit.js', 'js/activity-combo.js', 'js/colors.js', 'js/repeats.js', 'js/photo-frame.js', 'js/dialog.js', 'js/confirm.js', 'js/save-state.js','js/features.js', 'js/help-content.js', 'js/welcome.js', 'js/tour.js', 'js/item-name.js', 'js/category-guess.js', 'js/link-import.js', 'js/closet.js', 'js/analytics.js',
-    'js/calendar-access.js', 'js/calendar.js', 'js/outfit-suggest.js', 'js/outfit-vision.js', 'js/help-choose.js', 'js/navigation.js', 'js/settings.js', 'js/account.js', 'js/pwa.js', 'js/app.js',
+    'js/weather.js', 'js/weather-status.js', 'js/holidays.js', 'js/calendars.js', 'js/view-range.js', 'js/activities.js', 'js/apply-outfit.js', 'js/activity-combo.js', 'js/colors.js', 'js/starter-closet.js', 'js/repeats.js', 'js/photo-frame.js', 'js/dialog.js', 'js/confirm.js', 'js/save-state.js','js/features.js', 'js/help-content.js', 'js/welcome.js', 'js/tour.js', 'js/item-name.js', 'js/category-guess.js', 'js/link-import.js', 'js/closet.js', 'js/analytics.js',
+    'js/calendar-access.js', 'js/calendar.js', 'js/outfit-suggest.js', 'js/outfit-vision.js', 'js/help-choose.js', 'js/first-run.js', 'js/navigation.js', 'js/settings.js', 'js/account.js', 'js/pwa.js', 'js/app.js',
     'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-192.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'icons/logo.svg'
 ];
 

@@ -1,5 +1,9 @@
 // First-time welcome card, and the "How to use The Rack" window.
 //
+// (The first-run setup in js/first-run.js now decides first, once the account's closet has loaded: when it is shown it
+// records this card as seen too, so the two are never both shown. This card keeps its own rules for any account that
+// setup does not handle.)
+//
 // Who sees the welcome card? Only a BRAND-NEW, EMPTY account that hasn't seen it:
 //   - its saved preferences don't say it has been shown (welcomeSeen), on ANY device; and
 //   - the account was created on or after WELCOME_NEW_ACCOUNTS_FROM (accounts that existed before this

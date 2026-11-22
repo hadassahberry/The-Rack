@@ -249,6 +249,14 @@ function itemThumb(item, className, alt = item.name) {
     return img;
 }
 
+// The small "Demo" label for a sample piece (js/starter-closet.js), wherever its name is written out.
+function demoBadge() {
+    const badge = document.createElement('span');
+    badge.className = 'badge badge-demo';
+    badge.textContent = 'Demo';
+    return badge;
+}
+
 const phoneQuery = window.matchMedia('(max-width: 640px)');
 // Turning a phone sideways (or resizing a window) changes how many photos fit.
 phoneQuery.addEventListener('change', () => renderCalendarGrid());
@@ -366,6 +374,18 @@ function openPlanningPopup() {
             return day;
         }
     });
+}
+
+// Opens a day's planning window, exactly as clicking that day does (used by the first-run offer to start on today).
+function openDayForPlanning(dateKey) {
+    if (!visibleDates().some(d => isoDateKey(d) === dateKey)) {
+        const d = new Date(dateKey + 'T00:00:00');
+        anchorDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+    selectedDateKey = dateKey;
+    calendarFocusKey = dateKey;
+    renderCalendar();
+    openPlanningPopup();
 }
 
 function closePlanningPopup() {
@@ -868,6 +888,7 @@ function buildOutfitCard({ outfit, isActive, ctx, autoLabel, catById, chips }) {
         name.className = 'planning-item-name';
         name.textContent = item.name;
         row.appendChild(name);
+        if (item.demo === true) row.appendChild(demoBadge());
 
         if (itemFlags[id]) {
             const tag = document.createElement('span');
@@ -1143,7 +1164,7 @@ function renderPicker() {
         const st = document.createElement('span');
         st.className = 'piece-card-status';
         st.id = `piece-status-${index}`;
-        st.textContent = status;
+        st.textContent = (item.demo === true ? 'Demo · ' : '') + status;
         card.title = item.name;                      // the full name on hover, when a long one is shortened
         card.setAttribute('aria-labelledby', name.id);
         card.setAttribute('aria-describedby', st.id);
