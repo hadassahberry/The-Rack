@@ -86,3 +86,35 @@
 3. Click **"+ Add clothes"** and choose **Upload a photo** or **Take a photo** (phone camera, or webcam on a laptop), then tag each one (category, occasion, season, color) — the header's "N items to tag" pill tracks what's left.
 4. Click any day on the calendar and use the Planning panel to apply a saved outfit or add single pieces.
 5. Build reusable outfits in the Closet tab's "Saved outfits" section.
+
+## 📦 Google Play (Trusted Web Activity)
+
+The app is packaged for Google Play as a Trusted Web Activity (with Bubblewrap or PWABuilder), which opens this website
+full-screen in an Android app. What is ready:
+
+- **Manifest** (`manifest.webmanifest`): `id`, `name`, `short_name`, `description`, `start_url`, `scope`, `display`
+  (standalone), `orientation` (portrait), colors, the four icons (including the two maskable ones) and four
+  `screenshots` (planner and closet, each as a phone-shaped 750x1334 and a wide 1280x720 picture, in `screenshots/`).
+  The screenshots are the real app showing made-up sample pieces.
+- **Offline**: the service worker (`sw.js`) pre-caches every icon, including `icons/icon-maskable-192.png` and
+  `icons/icon-maskable-512.png`. The screenshots are not pre-cached (the app never shows them).
+
+**Digital Asset Links (`.well-known/assetlinks.json`) is deliberately not filled in yet.** It proves that the Android app
+and this website belong together, and it needs two things that only exist after the Android app is built:
+
+1. the app's **package name** (for example `app.web.the_rack_5787.twa`, whatever Bubblewrap / PWABuilder is given), and
+2. the **SHA-256 fingerprint(s)** of the signing certificate: the one printed when the app is built and, once the app is
+   uploaded to Google Play with Play App Signing, the *app signing key* fingerprint shown in the Play Console under
+   *Setup > App signing* (use both while testing).
+
+When you have them, the file is a JSON list like:
+
+```json
+[{ "relation": ["delegate_permission/common.handle_all_urls"],
+   "target": { "namespace": "android_app", "package_name": "<package name>", "sha256_cert_fingerprints": ["<SHA-256 fingerprint>"] } }]
+```
+
+It must be served at `https://the-rack-5787.web.app/.well-known/assetlinks.json`. Note that this repository does not
+contain a `.well-known` folder today, and `firebase.json` ignores every dot-folder (`**/.*`), so adding the file needs
+that ignore rule changed for `.well-known` too, or the site will not serve it. Until then, leave it empty or absent:
+a wrong or placeholder value would make Android refuse to open the app full-screen.

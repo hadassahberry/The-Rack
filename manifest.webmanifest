@@ -1,10 +1,12 @@
 {
+  "id": "./",
   "name": "The Rack",
   "short_name": "The Rack",
   "description": "Your digital closet and outfit planner.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#f7ece5",
   "theme_color": "#7d2a44",
   "icons": [
@@ -12,5 +14,11 @@
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "screenshots/planner-narrow.png", "sizes": "750x1334", "type": "image/png", "form_factor": "narrow", "label": "Plan outfits on a calendar" },
+    { "src": "screenshots/closet-narrow.png", "sizes": "750x1334", "type": "image/png", "form_factor": "narrow", "label": "Your closet, all in one place" },
+    { "src": "screenshots/planner-wide.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "See your week of outfits at a glance" },
+    { "src": "screenshots/closet-wide.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "Browse your pieces by category" }
   ]
 }
