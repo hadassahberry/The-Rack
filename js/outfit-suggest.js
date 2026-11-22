@@ -17,6 +17,18 @@
 //   coverage   open | closed | boot  (shoes only)     optional   a sandal is "open": warmth can't say that, so shoes carry
 //                                                                 their own field (estimated from the name: sandal, slide,
 //                                                                 flip-flop, mule, espadrille... = open; boot = boot; else closed)
+//   pattern    solid | striped | plaid | floral | other   optional   Anything else (a piece with no pattern saved, or the word
+//                                                                 "unknown") is UNKNOWN. Unknown is never guessed and never
+//                                                                 treated as solid. The stored piece is never rewritten to
+//                                                                 say so: it is only read as unknown.
+//
+// ---- The one-pattern rule ----
+// An outfit this file SUGGESTS has at most one KNOWN patterned piece (striped, plaid, floral or other; any slot, shoes and
+// accessories included). Solid does not count as patterned. An unknown piece does not count either, but it is never called
+// solid and an outfit with one is never called verified: each idea says whether the rule was fully checked, and which
+// pieces have no pattern set. When every outfit that works for the day would break the rule, no idea is shown and the
+// notes say so (the rule is never broken quietly). The rule applies to suggestions only: an outfit the person built or
+// planned by hand is never changed, blocked or re-checked.
 //
 // ---- What an outfit is ----
 // Exactly ONE top and ONE bottom, or ONE dress instead of both. Outerwear, shoes and an accessory are separate
@@ -48,6 +60,23 @@ const SUGGEST_LENGTHS = ['short', 'mid', 'long'];
 const SUGGEST_FITS = ['fitted', 'regular', 'loose'];
 const SUGGEST_LAYERS = ['base', 'mid', 'outer'];
 const SUGGEST_COVERAGES = ['open', 'closed', 'boot'];
+const SUGGEST_PATTERNS = ['solid', 'striped', 'plaid', 'floral', 'other'];            // what can be saved; no value = unknown
+const SUGGEST_PATTERNED = ['striped', 'plaid', 'floral', 'other'];                      // the ones the one-pattern rule counts
+
+// What a stored pattern means: one of the five, or 'unknown' (nothing saved, null, "unknown", or anything unrecognised).
+function normalizePattern(value) {
+    const v = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return SUGGEST_PATTERNS.includes(v) ? v : 'unknown';
+}
+
+// What the item editor saves for the Pattern field, as a patch for the stored piece. A piece that has no pattern saved
+// stays exactly as it is when the field is left unset (nothing is written), so existing pieces are never touched just
+// because they were opened and saved; choosing a pattern saves it; clearing a saved one writes null.
+function patternPatch(existing, selected) {
+    const v = SUGGEST_PATTERNS.includes(selected) ? selected : '';
+    if (v) return { pattern: v };
+    return normalizePattern(existing && existing.pattern) === 'unknown' ? {} : { pattern: null };
+}
 const SUGGEST_OPEN_SHOE_NAME = /\b(sandals?|flip[- ]?flops?|slides?|sliders?|slingbacks?|mules?|espadrilles?|gladiators?|huaraches|jellies|jelly|crocs|open[- ]toe[d]?|peep[- ]toe[d]?|thongs?)\b/i;
 const SUGGEST_BOOT_NAME = /\b(boots?|booties|bootie|chelsea|wellies|wellingtons)\b/i;
 const SUGGEST_RECENT_DAYS = 7;                                    // "worn in the last 7 days"
@@ -131,6 +160,8 @@ function describePiece(item) {
         length: SUGGEST_LENGTHS.includes(item.length) ? item.length : null,
         fit: SUGGEST_FITS.includes(item.fit) ? item.fit : null,
         layer, layerSet, coverage,
+        pattern: normalizePattern(item.pattern),
+        patterned: SUGGEST_PATTERNED.includes(normalizePattern(item.pattern)),      // a KNOWN pattern; solid and unknown are not
         color: sgColor(item.color),
         estimated: { warmth: setWarmth === null, formality: setFormality === null }
     };
@@ -310,11 +341,19 @@ function suggestOutfits(ctx, options) {
         // a summer piece is not offered in the cold, nor a winter piece in the heat, when something else will do
         const inSeason = list.filter(p => !(weatherNeed.has && ((weatherNeed.cold && p.season === 'summer') || (weatherNeed.hot && p.season === 'winter'))));
         if (inSeason.length) list = inSeason;
-        return list.sort((a, b) => pieceKey(a) - pieceKey(b) || (a.id < b.id ? -1 : 1)).slice(0, K[cat] || 4);
+        list.sort((a, b) => pieceKey(a) - pieceKey(b) || (a.id < b.id ? -1 : 1));
+        const best = list.slice(0, K[cat] || 4);
+        // the one-pattern rule needs something un-patterned to pair a patterned piece with: if the best few are all
+        // patterned, the best two that are not patterned come along too (so the rule never hides a possible outfit)
+        if (!best.some(p => !p.patterned)) best.push(...list.filter(p => !p.patterned).slice(0, 2));
+        return best;
     };
 
     // One top and one bottom, or one dress; plus at most one each of outerwear, shoes and an accessory.
     const bodyWarmth = (o) => (o.dress ? o.dress.warmth : o.top.warmth * 0.6 + o.bottom.warmth * 0.4);     // the top counts most
+    const patternedIn = (o) => [o.top, o.bottom, o.dress, o.outer, o.shoes, o.acc].filter(p => p && p.patterned);
+    const patternOk = (o) => patternedIn(o).length <= 1;
+    const patternStats = { total: 0, rejected: 0 };           // outfits that suit the day (before the rule), and how many the rule turned away
     const buildAll = () => {
         const tops = pool('tops'), bottoms = pool('bottoms'), dresses = pool('dresses');
         const outers = pool('outerwear'), shoes = pool('shoes'), accessories = pool('accessories');
@@ -327,7 +366,8 @@ function suggestOutfits(ctx, options) {
         const cores = [];
         tops.forEach(t => bottoms.forEach(b => cores.push({ top: t, bottom: b })));
         dresses.forEach(d => cores.push({ dress: d }));
-        const shoeOpts = shoes.length ? shoes : [null];
+        // shoes are optional: when every pair is patterned, going without them is one more way to keep to the one-pattern rule
+        const shoeOpts = shoes.length ? (shoes.some(s => !s.patterned) ? shoes : [...shoes, null]) : [null];
         const outerOpts = keptOuter ? outers : [null, ...outers];
         let out = [];
         for (const core of cores) for (const shoe of shoeOpts) for (const outer of outerOpts) out.push({ ...core, shoes: shoe, outer, acc: null });
@@ -338,7 +378,10 @@ function suggestOutfits(ctx, options) {
             const ok = out.filter(o => !needs(o));
             if (ok.length) out = ok;
         }
-        return { candidates: out, accessories };
+        const valid = out.filter(patternOk);
+        patternStats.total = out.length;
+        patternStats.rejected = out.length - valid.length;
+        return { candidates: valid, accessories };
     };
 
     const members = (o) => [o.top, o.bottom, o.dress, o.outer, o.shoes, o.acc].filter(Boolean);
@@ -409,12 +452,15 @@ function suggestOutfits(ctx, options) {
                 accessories.forEach(acc => {
                     if (forced && !keepIds.includes(acc.id)) return;
                     const withAcc = { ...entry.o, acc };
+                    if (!patternOk(withAcc)) return;                   // a second patterned piece is never added
                     const s = score(withAcc);
                     if (!best || s.total > best.s.total + 0.005) best = { o: withAcc, s };
                 });
+                if (!best) { entry.dropped = true; return; }          // a kept accessory that would make a second pattern: no valid outfit with it
                 entry.o = best.o; entry.s = best.s;
             });
             top.sort((a, b) => b.s.total - a.s.total || (signature(a.o) < signature(b.o) ? -1 : 1));
+            return top.filter(e => !e.dropped);
         }
         return top;
     };
@@ -425,7 +471,10 @@ function suggestOutfits(ctx, options) {
     if (keepIds.length) {
         ranked = ranked.filter(holdsKept);
         if (ranked.length === 0) {                                       // e.g. a dress and a bottom kept together
-            notes.push('Those pieces can’t go together in one outfit, so I started again without them.');
+            const keptPatterned = keepIds.map(id => byId.get(id)).filter(p => p && p.patterned);
+            notes.push(keptPatterned.length >= 2
+                ? 'Those pieces both have a pattern, and I keep to one patterned piece per outfit, so I started again without them.'
+                : 'Those pieces can’t go together in one outfit, so I started again without them.');
             keepIds = [];
             ({ candidates, accessories } = buildAll());
             ranked = rank(candidates, accessories);
@@ -470,10 +519,18 @@ function suggestOutfits(ctx, options) {
 
     if (!all.some(p => p.cat === 'dresses') && !(all.some(p => p.cat === 'tops') && all.some(p => p.cat === 'bottoms'))) {
         notes.push('Add at least a top and a bottom (or a dress) to your closet and I can suggest outfits.');
+    } else if (chosen.length === 0 && patternStats.total > 0 && patternStats.rejected === patternStats.total) {
+        // not a quiet failure and not a broken rule: say what is in the way and what would fix it
+        const names = all.filter(p => p.patterned).map(sgName);
+        notes.push(`I haven’t suggested an outfit: every outfit I could put together for this day has two or more patterned pieces (${names.slice(0, 4).join(', ')}${names.length > 4 ? ` and ${names.length - 4} more` : ''}), and you wanted at most one. ` +
+            'Add a solid piece, or set the pattern on pieces that aren’t patterned, and I can suggest something.');
     } else if (chosen.length === 1) {
         notes.push('That is the only idea I can make without repeating a piece. Add more pieces for more ideas.');
     } else if (chosen.length < Math.min(opt.max, 3) && chosen.length > 1 && !excluded.size) {
         notes.push('Your closet is too small for more ideas that don’t repeat a piece.');
+    }
+    if (patternStats.rejected > 0 && chosen.length > 0 && chosen.length < Math.min(opt.max, 3)) {
+        notes.push(`${patternStats.rejected === 1 ? 'One possible outfit was' : `${patternStats.rejected} possible outfits were`} left out because ${patternStats.rejected === 1 ? 'it has' : 'they have'} two or more patterned pieces.`);
     }
     if (needsClosedShoes && hasShoes && !hasClosedShoes && !keepIds.some(id => byId.get(id) && byId.get(id).cat === 'shoes')) {
         notes.push('You only have open shoes (sandals) in your closet, so I left shoes out for this weather.');
@@ -484,9 +541,13 @@ function suggestOutfits(ctx, options) {
     if (ctx.skippedUntagged > 0) notes.push(`${ctx.skippedUntagged} ${ctx.skippedUntagged === 1 ? 'piece still needs' : 'pieces still need'} tagging, so I left ${ctx.skippedUntagged === 1 ? 'it' : 'them'} out.`);
     if (relaxed.length) notes.push(`Most of your ${relaxed.join(' and ')} were worn in the last week, so some are repeated here.`);
 
+    const unknownShown = new Map();
     const suggestions = chosen.map(e => {
         const o = e.o, ms = members(o);
+        const pattern = patternCheck(ms);
+        ms.filter(p => p.pattern === 'unknown').forEach(p => unknownShown.set(p.id, sgName(p)));
         return {
+            pattern,
             itemIds: ms.map(p => p.id),
             pieces: sortForDisplay(ms).map(p => ({ id: p.id, name: sgName(p), category: p.cat, layer: p.layer })),
             reason: reasonFor(o, e.s, need, sinceWorn, formalityNeed),
@@ -496,7 +557,30 @@ function suggestOutfits(ctx, options) {
             past: e.s.flags.past ? { daysAgo: e.s.flags.past.days, text: pastText(e.s.flags.past.days) } : null     // "You wore these together about three weeks ago."
         };
     });
+    if (unknownShown.size > 0) {
+        const n = unknownShown.size;
+        notes.push(`${n === 1 ? 'One piece has' : `${n} pieces have`} no pattern set, so I can’t check the one-pattern rule for ${n === 1 ? 'it' : 'them'}. You can set a pattern in a piece’s More details.`);
+    }
     return { suggestions, need, notes, heard: typed.heard, keepIds };
+}
+
+// What the one-pattern rule found out about one idea's pieces (described pieces from describePiece):
+//   status 'checked'     every piece's pattern is known, and at most one is patterned
+//   status 'unverified'  at least one piece has no pattern set: the rule could not be fully checked
+// Unknown is never described as solid or as compatible; the text says what is and isn't known.
+function patternCheck(pieces) {
+    const list = (arr) => arr.length <= 3 ? arr.join(', ') : `${arr.slice(0, 3).join(', ')} and ${arr.length - 3} more`;
+    const patterned = pieces.filter(p => p.patterned);
+    const unknown = pieces.filter(p => p.pattern === 'unknown');
+    const patternedNames = patterned.map(sgName), unknownNames = unknown.map(sgName);
+    const known = patterned.length === 0 ? 'No patterned pieces among the ones with a known pattern.' : `One patterned piece: ${patternedNames[0]}.`;
+    if (unknown.length === 0) {
+        return { status: 'checked', patterned: patternedNames, unknown: [], text: patterned.length === 0 ? 'Pattern check: no patterned pieces.' : `Pattern check: one patterned piece (${patternedNames[0]}).` };
+    }
+    return {
+        status: 'unverified', patterned: patternedNames, unknown: unknownNames,
+        text: `Pattern check incomplete: no pattern is set for ${list(unknownNames)}, so I can’t tell whether this outfit keeps to one patterned piece. ${known}`
+    };
 }
 
 const SG_ORDER = { outerwear: 0, tops: 1, dresses: 2, bottoms: 3, shoes: 4, accessories: 5 };
@@ -584,7 +668,7 @@ function outfitReadiness(items) {
 
 if (typeof module !== 'undefined') {
     module.exports = {
-        suggestionPool, outfitReadiness, sgCanMakeOutfit,
+        suggestionPool, outfitReadiness, sgCanMakeOutfit, normalizePattern, patternPatch, patternCheck, SUGGEST_PATTERNS, SUGGEST_PATTERNED,
         suggestOutfits, describePiece, SUGGEST_COVERAGES, parseRefineText, specialRunOthers, sgColor, sgColorScore, sgWeatherNeed, sgFormalityNeed,
         SUGGEST_WEIGHTS, SUGGEST_RECENT_DAYS, SUGGEST_WARMTH_LABELS, SUGGEST_FORMALITY_LABELS
     };

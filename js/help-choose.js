@@ -249,6 +249,9 @@ const HelpChoose = (function () {
                 past.className = 'choose-past';
                 past.textContent = s.past.text;
             }
+            const patternLine = document.createElement('p');                     // what the one-pattern rule did and did not check
+            patternLine.className = 'choose-pattern' + (s.pattern && s.pattern.status === 'unverified' ? ' is-unverified' : '');
+            patternLine.textContent = s.pattern ? s.pattern.text : '';
             let demo = null;
             if (s.itemIds.some(id => closetById[id] && closetById[id].demo === true)) {       // sample pieces from the first-run setup: say so
                 demo = document.createElement('p');
@@ -265,6 +268,7 @@ const HelpChoose = (function () {
             use.setAttribute('aria-label', `Use idea ${n + 1}: ${s.pieces.map(p => p.name).join(', ')}`);
             card.append(thumbs, names, reason);
             if (past) card.appendChild(past);
+            if (s.pattern) card.appendChild(patternLine);
             if (demo) card.appendChild(demo);
             if (look) card.appendChild(look);
             card.appendChild(use);
