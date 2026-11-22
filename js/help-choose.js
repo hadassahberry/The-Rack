@@ -81,7 +81,7 @@ const HelpChoose = (function () {
             closet: plannerCloset,
             outfitsByDate: plannerOutfits,
             prefs: Store.getPrefs(),
-            holidayInfoFor: (k) => getHolidayInfo(new Date(k + 'T00:00:00'), location, {}),
+            holidayInfoFor: (k) => getHolidayInfo(new Date(k + 'T00:00:00'), holidayLocationFor(k, location), {}),
             forecastFor: (k) => { const t = tripDay(k); return t ? t.forecast : weatherFor(k, forecastMap, todayKey).forecast; },
             weatherPlaceFor: (k) => { const t = tripDay(k); return t ? t.trip.destination.name : ''; },
             otherNotesFor: (k) => extraCalendarNotes(new Date(k + 'T00:00:00'), Store.getPrefs(), location).notes.map(n => n.text)

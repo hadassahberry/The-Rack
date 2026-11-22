@@ -572,6 +572,103 @@ check('exporting your data includes trips; deleting the account deletes them; cl
     assert(!/clearClosetData\(\) \{\s*return this\._deleteCollections\(\[[^\]]*'trips'/.test(src), 'clearing the closet does not delete trips');
 });
 
+// ================= candle lighting and holidays on a trip day are the destination's =================
+check('a trip’s Jewish-calendar place is its destination: coordinates, time zone and country (so Israel gets its own schedule)', () => {
+    const loc = T.tripLocation(trip({ destination: dest({ name: 'Tokyo', admin1: 'Tokyo', countryCode: 'JP', latitude: 35.6895, longitude: 139.69171, timezone: 'Asia/Tokyo' }) }));
+    assert.deepStrictEqual(J(loc), { city: 'Tokyo', region: 'Tokyo', country: 'JP', lat: 35.6895, lon: 139.69171, tzid: 'Asia/Tokyo', source: 'trip' });
+    assert.strictEqual(T.tripLocation(trip({ destination: dest({ countryCode: 'IL', timezone: 'Asia/Jerusalem' }) })).country, 'IL');
+    assert.strictEqual(T.tripLocation(trip({ destination: dest({ timezone: '' }) })).tzid, undefined, 'no time zone saved: none invented');
+});
+function holidayPieces() {
+    const src = read('js/calendar.js');
+    const from = src.indexOf('function getHolidayInfo');
+    const to = src.indexOf('// "Shabbos", "Rosh Hashana I"');
+    assert(from > 0 && to > from);
+    const maps = { home: { '2026-11-27': { holidays: [], candleLighting: '4:12 PM' } }, paris: { '2026-11-27': { holidays: [], candleLighting: '4:42 PM' } } };
+    const calls = [];
+    const home = { lat: 40.7128, lon: -74.006, tzid: 'America/New_York' };
+    const trips = [trip({ id: 't1', start: '2026-11-24', end: '2026-11-27', destination: dest({ latitude: 48.85, longitude: 2.35, timezone: 'Europe/Paris', countryCode: 'FR' }) })];
+    const ctx = vm.createContext({
+        Date, Math, JSON, Object, Array, Set, Map, Number, String,
+        Location: { get: () => home },
+        Holidays: { getMap: (y, m, loc) => { calls.push([y, m, loc.lat, loc.lon]); return loc.lat === 48.85 ? maps.paris : maps.home; } },
+        isoDateKey: (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+        tripForDate: (k) => T.tripOnDate(trips, k), tripLocation: T.tripLocation
+    });
+    vm.runInContext(src.slice(from, to) + '\nthis.getHolidayInfo = getHolidayInfo; this.holidayLocationFor = holidayLocationFor;', ctx);
+    return { ctx, calls, home };
+}
+check('on a trip day the candle-lighting time is the destination’s; on any other day it is home’s', () => {
+    const { ctx, home } = holidayPieces();
+    const cache = {};
+    const tripDay = new Date(2026, 10, 27);
+    const atTrip = ctx.getHolidayInfo(tripDay, ctx.holidayLocationFor('2026-11-27', home), cache);
+    assert.strictEqual(atTrip.candleLighting, '4:42 PM', 'Paris, not New York');
+    const stillHome = ctx.getHolidayInfo(new Date(2026, 10, 20), ctx.holidayLocationFor('2026-11-20', home), cache);
+    assert.strictEqual(stillHome, undefined, 'a home day uses the home map (which has nothing on that date)');
+    const homeSame = ctx.getHolidayInfo(tripDay, home, {});
+    assert.strictEqual(homeSame.candleLighting, '4:12 PM', 'the same date for home is the home time: the two are different data');
+    assert.strictEqual(ctx.holidayLocationFor('2026-12-04', home), home, 'a non-trip day gets the home location itself');
+});
+check('a home day and a trip day in the SAME month, drawn with one shared cache, never share a map', () => {
+    const { ctx, calls, home } = holidayPieces();
+    const cache = {};
+    const a = ctx.getHolidayInfo(new Date(2026, 10, 27), ctx.holidayLocationFor('2026-11-27', home), cache);       // trip day
+    const b = ctx.getHolidayInfo(new Date(2026, 10, 27), home, cache);                                              // the same date asked for home
+    assert.deepStrictEqual([a.candleLighting, b.candleLighting], ['4:42 PM', '4:12 PM']);
+    assert.strictEqual(Object.keys(cache).length, 2, 'one remembered map per place');
+    ctx.getHolidayInfo(new Date(2026, 10, 27), ctx.holidayLocationFor('2026-11-27', home), cache);
+    assert.strictEqual(calls.length, 2, 'each place’s map is read once');
+});
+check('a trip day never borrows the home location, even when the destination has no time zone', () => {
+    const cal = read('js/calendar.js');
+    assert(/return trip \? tripLocation\(trip\) : homeLocation;/.test(cal.slice(cal.indexOf('function holidayLocationFor'))));
+    const noTz = trip({ destination: dest({ timezone: '' }) });
+    assert.strictEqual(T.tripLocation(noTz).lat, 48.85, 'still the destination');
+    assert.strictEqual(T.tripLocation(noTz).tzid, undefined);
+});
+check('the Jewish-calendar data of a trip is requested for the DESTINATION: its coordinates and time zone, Israel’s schedule only for Israel', async () => {
+    const requests = [], saved = [];
+    const ctx = vm.createContext({ console, Date, Math, JSON, Object, Array, Set, Map, Number, String, Promise, encodeURIComponent,
+        Store: { getCache: () => null, saveCache: (k) => saved.push(k), saveLocation: () => { throw new Error('home must not change'); } },
+        fetch: async (url) => { requests.push(url); return { json: async () => ({ items: [{ category: 'candles', date: '2026-11-27T16:42:00+01:00' }] }) }; },
+        Location: { get: () => { throw new Error('the home location must not be read'); } } });
+    vm.runInContext(read('js/holidays.js') + '\nthis.Holidays = Holidays;', ctx);
+    const paris = T.tripLocation(trip({ destination: dest({ latitude: 48.85, longitude: 2.35, timezone: 'Europe/Paris', countryCode: 'FR' }) }));
+    const map = await ctx.Holidays.refresh(2026, 11, paris);
+    assert(/latitude=48\.85&longitude=2\.35&tzid=Europe%2FParis/.test(requests[0]), requests[0]);
+    assert(!/&i=on/.test(requests[0]), 'outside Israel');
+    assert.strictEqual(map['2026-11-27'].candleLighting, '4:42 PM');
+    const israel = T.tripLocation(trip({ destination: dest({ name: 'Jerusalem', latitude: 31.77, longitude: 35.21, timezone: 'Asia/Jerusalem', countryCode: 'IL' }) }));
+    await ctx.Holidays.refresh(2026, 11, israel);
+    assert(/&i=on/.test(requests[1]), 'a destination in Israel gets the Israel schedule');
+    assert.deepStrictEqual(saved, ['holidays_2026-11_48.85_2.35', 'holidays_2026-11_31.77_35.21_il'], 'cached per destination, never under the home place');
+    const none = await ctx.Holidays.refresh(2026, 11, T.tripLocation(trip({ destination: dest({ timezone: '' }) })));
+    assert.deepStrictEqual(J(none), {}, 'no time zone: nothing is requested and nothing is shown');
+    assert.strictEqual(requests.length, 2);
+});
+check('every place the Planner and Help me choose read holiday data for a day goes through the trip-aware place', () => {
+    const cal = read('js/calendar.js');
+    assert(/getHolidayInfo\(cellDate, holidayLocationFor\(dateKey, location\), holidayMaps\)/.test(cal), 'calendar cells');
+    assert(/getHolidayInfo\(selectedDate, holidayLocationFor\(selectedDateKey, location\)\)/.test(cal), 'the day window');
+    assert(/getHolidayInfo\(date, holidayLocationFor\(dateKey, location\), cache\)/.test(cal), 'the automatic Shabbos / Yom Tov activity');
+    assert(/getHolidayInfo\(new Date\(k \+ 'T00:00:00'\), holidayLocationFor\(k, location\), \{\}\)/.test(read('js/help-choose.js')), 'Help me choose');
+    assert(/Holidays\.refresh\(d\.getFullYear\(\), d\.getMonth\(\) \+ 1, where\)/.test(cal), 'the destination’s months are fetched for trip days on screen');
+    assert(/if \(sig === tripsSignature\) return;/.test(cal), 'a tick on a packing list does not fetch anything');
+});
+
+check('the privacy policy says trips and destinations are stored, who receives them, and how to delete them', () => {
+    const p = read('privacy.html').replace(/\s+/g, ' ');
+    assert(/Your trips \(optional\)/.test(p) && /its destination \(the place you choose from the search results: its name, region and country, its coordinates and its time zone\), its first and last day, and which pieces you have ticked/.test(p));
+    assert(/saved in your account so they follow you between devices/.test(p));
+    assert(/trip&rsquo;s destination is different|trip's destination is different|a trip&rsquo;s destination is different/.test(p) || /destination is different: see/.test(p), 'the "location is device-only" sentence no longer overstates');
+    assert(/Open-Meteo<\/strong> \(open-meteo\.com\) &mdash; [^<]*place name you type to search for the destination[^<]*destination&rsquo;s coordinates|Open-Meteo<\/strong> \(open-meteo\.com\) &mdash; [^<]*place name you type to search for the destination[^<]*destination's coordinates/.test(p));
+    assert(/Hebcal<\/strong> \(hebcal\.com\) &mdash; [^<]*For the days of a trip, it receives the destination/.test(p));
+    assert(/delete any trip at any time/.test(p) && /including your trips/.test(p) && /outfits, planner and trips/.test(p));
+    assert(/Last updated: November 22, 2026/.test(p));
+    assert(/your trips \(their destinations, dates and packing-list ticks\)/.test(read('delete-account.html').replace(/\s+/g, ' ')));
+});
+
 // ================= the page =================
 const html = read('index.html');
 check('the page has the Trips tab, the form, the days and the checklist', () => {

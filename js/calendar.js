@@ -62,7 +62,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('weather-retry-btn').addEventListener('click', retryWeather);
     document.getElementById('planning-weather-retry').addEventListener('click', retryWeather);
     document.addEventListener('weather-status', () => renderCalendar());   // loading / loaded / failed
-    document.addEventListener('trips-changed', () => renderCalendar());    // which days are away (js/trips.js)
+    // which days are away (js/trips.js). When a trip's place or dates change, the Jewish-calendar data for its days (the
+    // destination's candle lighting) is fetched; a tick on a packing list, which also arrives here, fetches nothing.
+    let tripsSignature = null;
+    document.addEventListener('trips-changed', () => {
+        renderCalendar();
+        const sig = Trips.list().map(t => [t.id, t.start, t.end, t.destination.latitude, t.destination.longitude, t.destination.timezone].join('|')).join(';');
+        if (sig === tripsSignature) return;
+        const first = tripsSignature === null;
+        tripsSignature = sig;
+        if (!first || sig) refreshHolidaysForView(Store.getLocation()).then(renderCalendar);
+    });
     document.addEventListener('trip-weather', () => renderCalendar());     // a trip's destination forecast arrived or failed
     scheduleMidnightRefresh();
     // The planning panel is a popup: close with the button, a click outside, or Esc.
@@ -153,6 +163,18 @@ async function refreshHolidaysForView(location) {
         const months = new Map();
         dates.forEach(d => months.set(`${d.getFullYear()}-${d.getMonth()}`, d));
         months.forEach(d => jobs.push(Holidays.refresh(d.getFullYear(), d.getMonth() + 1, location)));
+        // ...and, for any trip whose days are on screen, each month of those days for the DESTINATION (Hebcal needs a time zone)
+        if (typeof Trips !== 'undefined') {
+            const seen = new Set();
+            Trips.list().forEach(trip => {
+                const where = tripLocation(trip);
+                if (!where.tzid) return;
+                dates.filter(d => tripForDate(isoDateKey(d)) === trip).forEach(d => {
+                    const key = `${trip.id}_${d.getFullYear()}-${d.getMonth() + 1}`;
+                    if (!seen.has(key)) { seen.add(key); jobs.push(Holidays.refresh(d.getFullYear(), d.getMonth() + 1, where)); }
+                });
+            });
+        }
     }
     if (prefs.publicHolidays) {
         const country = publicHolidayCountry(location || Location.get());
@@ -225,9 +247,17 @@ function renderCalendar() {
 // Holiday data (and Friday candle-lighting) for one date. `cache` lets a
 // caller rendering many dates reuse each month's map instead of re-reading it.
 function getHolidayInfo(date, location, cache = {}) {
-    const k = `${date.getFullYear()}-${date.getMonth() + 1}`;
-    cache[k] = cache[k] || Holidays.getMap(date.getFullYear(), date.getMonth() + 1, location);
+    const loc = location || Location.get();
+    const k = `${date.getFullYear()}-${date.getMonth() + 1}_${loc.lat}_${loc.lon}`;       // per place: a trip's destination and home are different maps
+    cache[k] = cache[k] || Holidays.getMap(date.getFullYear(), date.getMonth() + 1, loc);
     return cache[k][isoDateKey(date)];
+}
+
+// The place a day's Jewish-calendar data is for: the destination on a day of a trip (so candle lighting and holidays are the
+// destination's), the given home location on any other day. Never the home location for a trip day.
+function holidayLocationFor(dateKey, homeLocation) {
+    const trip = typeof tripForDate === 'function' ? tripForDate(dateKey) : null;
+    return trip ? tripLocation(trip) : homeLocation;
 }
 
 // "Shabbos", "Rosh Hashana I", ... for one date.
@@ -458,7 +488,7 @@ function renderCalendarGrid() {
         const dateKey = isoDateKey(cellDate);
         const isToday = dateKey === todayKey;
         const isCurrentMonth = viewMode !== 'month' || cellDate.getMonth() === anchorDate.getMonth();
-        const holidayInfo = prefs.hebrewCalendarEnabled ? getHolidayInfo(cellDate, location, holidayMaps) : undefined;
+        const holidayInfo = prefs.hebrewCalendarEnabled ? getHolidayInfo(cellDate, holidayLocationFor(dateKey, location), holidayMaps) : undefined;
         const holidayTitles = prefs.hebrewCalendarEnabled ? holidayTitlesFor(cellDate, holidayInfo) : [];
         // A forecast only for days it really covers (today and the next 15). Never for a past
         // day (even a stale saved one) and never made up; why a day has none is explained
@@ -716,7 +746,7 @@ function updateDay(dateKey, mutate) {
 function autoActivityLabel(dateKey, prefs, location, cache) {
     if (!prefs.hebrewCalendarEnabled) return '';
     const date = new Date(dateKey + 'T00:00:00');
-    const info = getHolidayInfo(date, location, cache);
+    const info = getHolidayInfo(date, holidayLocationFor(dateKey, location), cache);
     if (info && info.holidays && info.holidays.some(h => h.yomtov)) return 'Yom Tov';
     return date.getDay() === 6 ? 'Shabbos' : '';
 }
@@ -1258,7 +1288,7 @@ function renderPlanningPanel() {
     // Holiday + candle-lighting for the selected day (the calendar cells
     // are too small on phones to show them).
     const holidayLine = document.getElementById('planning-holiday');
-    const holidayInfo = prefs.hebrewCalendarEnabled ? getHolidayInfo(selectedDate, location) : undefined;
+    const holidayInfo = prefs.hebrewCalendarEnabled ? getHolidayInfo(selectedDate, holidayLocationFor(selectedDateKey, location)) : undefined;
     const extra = extraCalendarNotes(selectedDate, prefs, location);
     const holidayText = [
         !prefs.hebrewCalendarEnabled ? '' : [

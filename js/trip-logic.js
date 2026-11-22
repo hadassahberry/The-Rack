@@ -106,6 +106,13 @@ function normalizeTrip(id, data) {
         createdAt: Number.isFinite(data.createdAt) ? data.createdAt : 0
     };
 }
+// The place a trip day's Jewish-calendar data (holidays and candle lighting) is for: the destination, in the shape the holiday code
+// reads (coordinates, time zone, and the country so Israel gets its own schedule). A destination saved without a time zone has no
+// usable location for Hebcal, so such a day shows no candle-lighting time rather than borrowing the home one.
+function tripLocation(trip) {
+    const d = trip.destination;
+    return { city: d.name, region: d.admin1 || '', country: d.countryCode || undefined, lat: d.latitude, lon: d.longitude, tzid: d.timezone || undefined, source: 'trip' };
+}
 const tripTitle = (trip) => trip.name || `Trip to ${trip.destination.name}`;
 function tripOnDate(trips, dateKey) {
     return (trips || []).find(t => t.start <= dateKey && dateKey <= t.end) || null;
@@ -228,7 +235,7 @@ if (typeof module !== 'undefined') {
         TRIP_MAX_DAYS, TRIP_MAX_AHEAD_DAYS, TRIP_CATEGORY_ORDER,
         isIsoDate, tripAddDays, tripDaysBetween, tripDates, tripShortDate, tripWeekdayDate, tripRangeLabel, describeTripDates,
         normalizeGeoResults, disambiguatePlaces, destinationFromPlace, validDestination,
-        normalizeTrip, tripTitle, tripOnDate, validateTrip,
+        normalizeTrip, tripTitle, tripOnDate, tripLocation, validateTrip,
         parseTripForecast, tripWeatherAvailability, weatherSourceFor, buildPackingList, tripDaySummaries
     };
 }
