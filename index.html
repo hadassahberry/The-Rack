@@ -738,6 +738,12 @@
             </select>
             <label for="modal-color">Color</label>
             <input type="color" id="modal-color" value="#cccccc">
+            <!-- A piece can have more than one color (the blue in a tan-and-blue stripe). Help me choose checks that a solid piece goes with every one. -->
+            <span id="modal-other-colors-label" class="modal-label">Other colors in this piece (optional)</span>
+            <div id="modal-other-colors" class="other-colors" role="group" aria-labelledby="modal-other-colors-label"></div>
+            <button type="button" id="modal-add-color-btn" class="link-btn other-colors-add">+ Add another color</button>
+            <p id="modal-colors-note" class="category-note hidden" role="status"></p>
+            <p id="modal-colors-hint" class="setting-hint">A pattern can have several colors. Help me choose checks that a solid piece goes with every color in a patterned one.</p>
             <!-- Used when Help me choose scores how patterns go together. A piece with no pattern saved is "Unknown": it is never treated as solid. -->
             <label for="modal-pattern">Pattern</label>
             <select id="modal-pattern" aria-describedby="modal-pattern-note modal-pattern-hint">

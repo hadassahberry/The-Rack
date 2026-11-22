@@ -2230,3 +2230,14 @@ body.planning-open .planning-panel { padding-top: 0; }
 @media (max-width: 640px) {
     .month-grid.view-month .cell-trip-name { display: none; }          /* a phone's month cell only has room for the ✈ */
 }
+
+/* A piece with more than one color: the extra pickers in the editor, and the extra dots on a card. */
+.modal-content .modal-label { font-size: 0.85rem; color: var(--text-muted); }
+.other-colors { display: flex; flex-wrap: wrap; gap: 8px; }
+.other-colors:empty { display: none; }
+.other-color-row { display: inline-flex; align-items: center; gap: 4px; }
+.modal-content .other-color-row input[type="color"] { width: 52px; }
+.other-color-remove { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: #fff; color: var(--text-muted); font-size: 1.1rem; line-height: 1; cursor: pointer; }
+.other-color-remove:hover { border-color: var(--accent-pink); color: var(--accent-pink); }
+.other-colors-add { align-self: flex-start; }
+.other-colors-add.hidden { display: none; }

@@ -21,7 +21,7 @@ const COLOR_NAMES = {
 // look-alike words don't count ("Redwood" is not "red").
 function colorsInName(text) {
     if (!text) return [];
-    const normalized = ' ' + String(text).toLowerCase().replace(/[_\-.]+/g, ' ').replace(/\s+/g, ' ') + ' ';
+    const normalized = ' ' + String(text).toLowerCase().replace(/[_\-.,;/&+()]+/g, ' ').replace(/\s+/g, ' ') + ' ';
     const found = [];
     for (const key of Object.keys(COLOR_NAMES)) {
         const needle = ' ' + key + ' ';
@@ -178,4 +178,53 @@ async function pickItemColor(name, imageDataUrl) {
     return photo || '#cccccc';
 }
 
-if (typeof module !== 'undefined') module.exports = { colorFromName, colorsInName, closestColor, dominantColorFromPixels, COLOR_NAMES };
+// ---- more than one color in a piece ----
+// A piece has a main color (item.color) and can have up to three OTHER colors (item.otherColors, hexes), like the blue in a
+// tan-and-blue striped skirt. These helpers are for the item editor; what Help me choose does with them is in js/outfit-suggest.js.
+const OTHER_COLORS_MAX = 3;
+const SAME_COLOR_DISTANCE = 60;                        // two colors this close (RGB distance) are the same color for this purpose
+const colorHexOk = (h) => typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h.trim());
+const colorRgb = (h) => [1, 3, 5].map(i => parseInt(h.trim().slice(i, i + 2), 16));
+const colorDistance = (a, b) => { const x = colorRgb(a), y = colorRgb(b); return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]); };
+
+// A list of other colors cleaned for storing: real hexes only, lowercase, no repeats, none the same as the main color, at most three.
+function cleanOtherColors(list, mainHex) {
+    const out = [];
+    (Array.isArray(list) ? list : []).forEach(c => {
+        if (!colorHexOk(c)) return;
+        const h = c.trim().toLowerCase();
+        if (out.includes(h) || (colorHexOk(mainHex) && h === mainHex.trim().toLowerCase())) return;
+        out.push(h);
+    });
+    return out.slice(0, OTHER_COLORS_MAX);
+}
+
+// The other colors a NAME suggests: the colors it names that are not (close to) the main color or each other, in the order they
+// appear ("Tan and blue striped maxi skirt" with a tan main color suggests blue). Only a suggestion: the editor pre-fills it and says
+// so, and nothing is saved until the owner saves. A name with no color word, or only the main color, suggests nothing.
+function suggestOtherColors(name, mainHex) {
+    const out = [];
+    colorsInName(name).forEach(h => {
+        if (colorHexOk(mainHex) && colorDistance(h, mainHex) <= SAME_COLOR_DISTANCE) return;
+        if (out.some(o => colorDistance(o, h) <= SAME_COLOR_DISTANCE)) return;
+        out.push(h.toLowerCase());
+    });
+    return out.slice(0, OTHER_COLORS_MAX);
+}
+
+// What the editor saves for the other colors, as a patch for the stored piece: colors chosen are saved; a piece that never had any
+// and has none now is left exactly as it is (nothing written); one that had some and has none now gets null.
+function otherColorsPatch(existing, extras, mainHex) {
+    const clean = cleanOtherColors(extras, mainHex);
+    if (clean.length) return { otherColors: clean };
+    return Array.isArray(existing && existing.otherColors) && existing.otherColors.length ? { otherColors: null } : {};
+}
+
+// A plain word for a color the name list knows ("tan"), else the hex.
+function nameOfColor(hex) {
+    const h = String(hex || '').toLowerCase();
+    const key = Object.keys(COLOR_NAMES).find(k => COLOR_NAMES[k] === h);
+    return key || h;
+}
+
+if (typeof module !== 'undefined') module.exports = { colorFromName, colorsInName, closestColor, dominantColorFromPixels, COLOR_NAMES, OTHER_COLORS_MAX, cleanOtherColors, suggestOtherColors, otherColorsPatch, nameOfColor };

@@ -152,7 +152,7 @@ check('the editor has a place for the suggestion note, tied to the Pattern field
     assert(/<select id="modal-pattern" aria-describedby="modal-pattern-note modal-pattern-hint">/.test(html));
 });
 check('the editor follows the name as it is typed, and a choice in the field ends the suggestions', () => {
-    assert(/getElementById\('modal-name'\)\.addEventListener\('input', \(\) => \{\s*const item = liveCloset\.find\(i => i\.id === currentEditingItemId\);\s*if \(item\) applyPatternFromName\(item\.pattern\);/.test(closet));
+    assert(/getElementById\('modal-name'\)\.addEventListener\('input', \(\) => \{\s*const item = liveCloset\.find\(i => i\.id === currentEditingItemId\);\s*if \(item\) \{ applyPatternFromName\(item\.pattern\);/.test(closet));
     assert(/getElementById\('modal-pattern'\)\.addEventListener\('change', \(\) => \{ patternTouched = true; patternFromName = false; showPatternNote\(''\); \}\);/.test(closet));
     assert(/applyPatternFromName\(item\.pattern\);/.test(closet.slice(closet.indexOf('function openEditModal'), closet.indexOf('function showCategoryNote'))), 'also when the window opens');
 });

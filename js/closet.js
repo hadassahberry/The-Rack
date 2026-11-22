@@ -34,6 +34,9 @@ let editSnapshot = null;          // the edit form as it was when opened, to tel
 let lastTaggedCategory = null;    // the category confirmed on the last item tagged this session (suggested for the next one, never saved by itself)
 let editSaving = false;           // the open edit window's Save is waiting for the server
 let editSession = 0;              // counts how many times the edit window has been opened, so a late answer can tell it is out of date
+let editOtherColors = [];          // the other colors shown in the open edit window (besides the main color)
+let colorsTouched = false;        // the owner added, changed or removed one themselves: the name no longer suggests any
+let colorsFromName = false;       // the other colors shown right now are a suggestion made from the name
 let patternTouched = false;       // the owner chose a pattern themselves in the open edit window: the name no longer suggests one
 let patternFromName = false;      // the Pattern field currently shows a suggestion made from the name (not a saved or chosen value)
 let editSaveStarted = false;      // Save was pressed in the open edit window (so its status line shows that save)
@@ -280,7 +283,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // typing a name keeps the suggested pattern in step; choosing a pattern yourself ends the suggestions for this window
     document.getElementById('modal-name').addEventListener('input', () => {
         const item = liveCloset.find(i => i.id === currentEditingItemId);
-        if (item) applyPatternFromName(item.pattern);
+        if (item) { applyPatternFromName(item.pattern); applyColorsFromName(item.otherColors); }
+    });
+    document.getElementById('modal-color').addEventListener('input', () => {
+        const item = liveCloset.find(i => i.id === currentEditingItemId);
+        if (item) applyColorsFromName(item.otherColors);
+    });
+    document.getElementById('modal-add-color-btn').addEventListener('click', () => {
+        if (editOtherColors.length >= OTHER_COLORS_MAX) return;
+        editOtherColors.push('#cccccc');
+        colorsTouched = true; colorsFromName = false; showColorsNote('');
+        renderOtherColors();
+        const inputs = document.querySelectorAll('#modal-other-colors input[type="color"]');
+        if (inputs.length) inputs[inputs.length - 1].focus();
     });
     document.getElementById('modal-pattern').addEventListener('change', () => { patternTouched = true; patternFromName = false; showPatternNote(''); });
     closetSaveViews = {
@@ -363,7 +378,7 @@ function renderCloset() {
             <img src="${itemPhoto(item)}" alt="">
             <div class="closet-card-info">
                 <div class="closet-card-header-row">
-                    <span class="color-dot" style="background:${item.color || '#ccc'}"></span>
+                    <span class="color-dot" style="background:${item.color || '#ccc'}"></span>${otherColorDots(item)}
                     <span class="closet-card-name">${escapeHtml(item.name)}</span>
                 </div>
                 <button type="button" class="name-more hidden" tabindex="-1" aria-hidden="true">Show full name</button>
@@ -438,6 +453,11 @@ function watchCardGrid() {
     }
 }
 
+// Small dots for a piece's other colors (only real hex colors ever reach the page).
+function otherColorDots(item) {
+    return cleanOtherColors(item.otherColors, item.color).map(c => `<span class="color-dot" style="background:${c}" title="Also ${nameOfColor(c)}"></span>`).join('');
+}
+
 function updateTagQueueUI() {
     const btn = document.getElementById('tag-queue-btn');
     if (!btn) return;
@@ -478,6 +498,11 @@ function openEditModal(itemId) {
     document.getElementById('modal-occasion').value = item.occasion;
     document.getElementById('modal-season').value = item.season;
     document.getElementById('modal-color').value = item.color || '#cccccc';
+    // Other colors: what was saved; else, for a name that names colors the main one doesn't cover, a labeled suggestion (not saved until Save)
+    editOtherColors = cleanOtherColors(item.otherColors, item.color);
+    colorsTouched = false;
+    colorsFromName = false;
+    applyColorsFromName(item.otherColors);
     // Pattern: what was saved, else Unknown (a piece with nothing saved is only READ as unknown; it is not changed)
     const savedPattern = normalizePattern(item.pattern);
     document.getElementById('modal-pattern').value = savedPattern === 'unknown' ? '' : savedPattern;
@@ -536,6 +561,7 @@ function readEditForm() {
         occasion: document.getElementById('modal-occasion').value,
         season: document.getElementById('modal-season').value,
         color: document.getElementById('modal-color').value,
+        otherColors: editOtherColors.join(','),
         pattern: document.getElementById('modal-pattern').value,
         patternStrength: document.getElementById('modal-pattern-strength').value,
         warmth: document.getElementById('modal-warmth').value,
@@ -589,7 +615,57 @@ function showPatternNote(text) {
     document.getElementById('modal-pattern').classList.toggle('is-unconfirmed', !!text);
 }
 
+// The other colors follow the name while nothing is saved and the owner hasn't touched them: "Tan and blue striped maxi skirt" with a
+// tan main color pre-fills blue (labeled as a suggestion); a name with no new color leaves them empty. Colors that are already
+// saved, or that the owner added or changed, are never replaced. Nothing here saves anything.
+function applyColorsFromName(savedOther) {
+    const main = document.getElementById('modal-color').value;
+    if (cleanOtherColors(savedOther, main).length || colorsTouched) { colorsFromName = false; showColorsNote(''); renderOtherColors(); return; }
+    const suggested = suggestOtherColors(document.getElementById('modal-name').value, main);
+    if (suggested.length) {
+        editOtherColors = suggested;
+        colorsFromName = true;
+        showColorsNote(`Suggested from the name: ${suggested.map(nameOfColor).join(', ')}. Please check ${suggested.length === 1 ? 'it' : 'them'}.`);
+    } else {
+        if (colorsFromName) editOtherColors = [];              // the name no longer names one: take back what the name had put there
+        colorsFromName = false;
+        showColorsNote('');
+    }
+    renderOtherColors();
+}
+function showColorsNote(text) {
+    const note = document.getElementById('modal-colors-note');
+    note.textContent = text;
+    note.classList.toggle('hidden', !text);
+}
+// One color picker per other color, each with a Remove button; at most three.
+function renderOtherColors() {
+    const box = document.getElementById('modal-other-colors');
+    box.innerHTML = '';
+    editOtherColors.forEach((hex, i) => {
+        const row = document.createElement('div');
+        row.className = 'other-color-row';
+        const input = document.createElement('input');
+        input.type = 'color';
+        input.value = hex;
+        input.setAttribute('aria-label', `Other color ${i + 1}`);
+        input.addEventListener('input', () => { editOtherColors[i] = input.value; colorsTouched = true; colorsFromName = false; showColorsNote(''); });
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'other-color-remove';
+        remove.setAttribute('aria-label', `Remove other color ${i + 1}`);
+        remove.textContent = '×';
+        remove.addEventListener('click', () => { editOtherColors.splice(i, 1); colorsTouched = true; colorsFromName = false; showColorsNote(''); renderOtherColors(); document.getElementById('modal-add-color-btn').focus(); });
+        row.append(input, remove);
+        box.appendChild(row);
+    });
+    document.getElementById('modal-add-color-btn').classList.toggle('hidden', editOtherColors.length >= OTHER_COLORS_MAX);
+}
+
 function closeEditModal() {
+    editOtherColors = [];
+    colorsTouched = false;
+    colorsFromName = false;
     patternTouched = false;
     patternFromName = false;
     PhotoFrame.unload();
@@ -615,6 +691,7 @@ async function saveEditModal() {
         occasion: document.getElementById('modal-occasion').value,
         season: document.getElementById('modal-season').value,
         color: document.getElementById('modal-color').value,
+        ...otherColorsPatch(existing, editOtherColors, document.getElementById('modal-color').value),      // nothing is written for a piece that never had other colors
         ...patternPatch(existing, document.getElementById('modal-pattern').value),      // nothing is written for a piece whose pattern was never set
         ...patternStrengthPatch(existing, document.getElementById('modal-pattern-strength').value),
         // optional details for Help me choose: a number, a word, or null when left as "Not set" (then it is estimated)

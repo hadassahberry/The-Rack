@@ -25,6 +25,20 @@
 //                                                                 it is never guessed from the kind of pattern ("floral" is
 //                                                                 not assumed bold). Anything else is UNKNOWN.
 //
+// ---- Pieces with more than one color ----
+//   otherColors  ['#rrggbb', ...]  optional   Colors of the piece IN ADDITION to its main color (`color`), at most 3: the blue in a
+//                                             tan-and-blue striped skirt. The stored piece is never rewritten to say so: a piece with
+//                                             none saved simply has one color. Nothing is guessed here (the editor can SUGGEST them
+//                                             from the name, but only what the person saves counts).
+// A piece's colors are its main color plus those. When an outfit pairs a SINGLE-color piece (a solid one, or any piece whose only
+// known color is its main one) with a piece that has SEVERAL colors, the single color must coordinate with EVERY color of the
+// other piece: a camel sweater has to go with the blue in a tan-and-blue skirt, not only with its tan. If any color clashes, the
+// outfit is marked down hard (0.25 on the 0..1 scale for each such pair, at most 0.40) and the idea says which colors clash.
+// "Coordinates" is deliberately stricter here than the whole-outfit color score: black, white, gray, navy, dark colors and colors
+// in the same family (within 50 degrees of hue) coordinate with anything; two different bright colors, and a warm neutral like
+// camel or tan with a bright cool color like blue, do not. A patterned piece with only one color set is checked on that color and
+// the idea says its other colors weren't known. It is a penalty, never a ban: if nothing better exists the idea is still shown.
+//
 // ---- How patterns are scored (soft: nothing is ever ruled out) ----
 // Patterns only move an outfit up or down; an outfit is never rejected, hidden or cut from the list because of its patterns.
 //   - Two KNOWN-patterned pieces that are both BOLD compete: the outfit's score goes down (0.16 on the 0..1 scale for each such
@@ -74,7 +88,11 @@ const SUGGEST_PATTERN_CLASH = 0.16;              // score points (0..1 scale) ta
 const SUGGEST_PATTERN_CLASH_SHARED = 0.08;       // ...when the two share a color
 const SUGGEST_PATTERN_SHARED_BONUS = 0.02;       // a pair of patterns that do not compete but share a color
 const SUGGEST_PATTERN_MAX_PENALTY = 0.30;        // however many pairs compete
-const SUGGEST_SHARED_COLOR_DISTANCE = 60;        // two main colors this close (RGB distance) count as shared
+const SUGGEST_SHARED_COLOR_DISTANCE = 60;        // two colors this close (RGB distance) count as shared
+const SUGGEST_MAX_COLORS = 4;                    // a piece's main color plus at most three others
+const SUGGEST_COLOR_CLASH = 0.25;                // score points (0..1 scale) taken off for each single-color/multi-color pair with a clashing color
+const SUGGEST_COLOR_MAX_PENALTY = 0.40;          // however many pairs clash
+const SUGGEST_COLOR_FAMILY_DEGREES = 50;         // hues this close are one family: they coordinate
 
 // What a stored pattern means: one of the five, or 'unknown' (nothing saved, null, "unknown", or anything unrecognised).
 function normalizePattern(value) {
@@ -189,6 +207,7 @@ function describePiece(item) {
         pattern: normalizePattern(item.pattern),
         patterned: SUGGEST_PATTERNED.includes(normalizePattern(item.pattern)),      // a KNOWN pattern; solid and unknown are not
         strength: normalizePatternStrength(item.patternStrength),                  // only what the person set: 'subtle' | 'bold' | 'unknown'
+        colors: sgPieceColors(item),                                               // the main color, then any other colors the person saved
         color: sgColor(item.color),
         estimated: { warmth: setWarmth === null, formality: setFormality === null }
     };
@@ -457,11 +476,12 @@ function suggestOutfits(ctx, options) {
         Object.keys(SUGGEST_WEIGHTS).forEach(k => { total += SUGGEST_WEIGHTS[k] * parts[k]; });
         total = total / SUGGEST_WEIGHT_SUM;
         const patternFlags = patternAnalysis(ms);                                      // soft: competing bold patterns cost points, shared color helps a little
-        total = Math.max(0, total + patternFlags.adjust);
+        const colorFlags = colorAnalysis(ms);                                          // a single-color piece must go with EVERY color of a multi-color one
+        total = Math.max(0, total + patternFlags.adjust + colorFlags.adjust);
         const past = pastHit;
         if (past) total += SUGGEST_PAST_BONUS;                                        // a combination you wore 3-4 weeks ago: a nudge
         if (wornRecentlyAsOutfit || weekendRepeat) total *= 0.4;                      // a repeat is the last resort
-        return { total, parts, flags: { wornRecentlyAsOutfit, weekendRepeat, insulation, outfitFormality, past, pattern: patternFlags } };
+        return { total, parts, flags: { wornRecentlyAsOutfit, weekendRepeat, insulation, outfitFormality, past, pattern: patternFlags, color: colorFlags } };
     };
 
     const rank = (cands, accessories) => {
@@ -551,14 +571,17 @@ function suggestOutfits(ctx, options) {
     if (ctx.skippedUntagged > 0) notes.push(`${ctx.skippedUntagged} ${ctx.skippedUntagged === 1 ? 'piece still needs' : 'pieces still need'} tagging, so I left ${ctx.skippedUntagged === 1 ? 'it' : 'them'} out.`);
     if (relaxed.length) notes.push(`Most of your ${relaxed.join(' and ')} were worn in the last week, so some are repeated here.`);
 
-    const unknownShown = new Map(), noStrengthShown = new Map();
+    const unknownShown = new Map(), noStrengthShown = new Map(), clashShown = new Set();
     const suggestions = chosen.map(e => {
         const o = e.o, ms = members(o);
         const pattern = patternCheck(ms);
+        const colorResult = colorCheck(ms);
+        if (colorResult.clashes.length) clashShown.add(colorResult.clashes.length);
         ms.filter(p => p.pattern === 'unknown').forEach(p => unknownShown.set(p.id, sgName(p)));
         patternAnalysis(ms).unknownStrength.forEach(p => noStrengthShown.set(p.id, sgName(p)));
         return {
             pattern,
+            color: colorResult,
             itemIds: ms.map(p => p.id),
             pieces: sortForDisplay(ms).map(p => ({ id: p.id, name: sgName(p), category: p.cat, layer: p.layer })),
             reason: reasonFor(o, e.s, need, sinceWorn, formalityNeed),
@@ -568,6 +591,9 @@ function suggestOutfits(ctx, options) {
             past: e.s.flags.past ? { daysAgo: e.s.flags.past.days, text: pastText(e.s.flags.past.days) } : null     // "You wore these together about three weeks ago."
         };
     });
+    if (suggestions.length > 0 && suggestions.every(s => s.color.clashes.length > 0)) {
+        notes.push('Every idea here pairs a solid piece with a pattern that has a color it doesn’t go with, so they are ranked lower. These are the closest I could get from your closet.');
+    }
     if (suggestions.length > 0 && suggestions.every(s => s.pattern.competing.length > 0)) {
         notes.push('Every idea here pairs two bold patterns that compete, so they are ranked lower. These are the closest I could get from your closet; a solid or subtle piece would give better matches.');
     }
@@ -585,9 +611,92 @@ function suggestOutfits(ctx, options) {
 // Do two described pieces share a color? Each has one main color (a hex); they share one when both are real colors and close.
 // A missing or invalid color never shares anything.
 function sgSharedColor(a, b) {
-    const rgb = (p) => { const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(p && p.item && typeof p.item.color === 'string' ? p.item.color.trim() : ''); return m ? [1, 2, 3].map(i => parseInt(m[i], 16)) : null; };
-    const x = rgb(a), y = rgb(b);
-    return !!x && !!y && Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) <= SUGGEST_SHARED_COLOR_DISTANCE;
+    const rgb = (hex) => { const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex); return m ? [1, 2, 3].map(i => parseInt(m[i], 16)) : null; };
+    // any color of one piece close to any color of the other (a piece's colors are its main color and any others it has)
+    return (a.colors || []).some(ca => (b.colors || []).some(cb => { const x = rgb(ca), y = rgb(cb); return !!x && !!y && Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) <= SUGGEST_SHARED_COLOR_DISTANCE; }));
+}
+
+// ---- colors of pieces ----
+const SG_HEX = /^#[0-9a-f]{6}$/i;
+// A piece's colors as lowercase hexes: its main color first, then any others saved, with duplicates and anything that is not a real
+// color left out, at most four. A piece with nothing saved but its main color has exactly one.
+function sgPieceColors(item) {
+    const list = [item && item.color, ...(Array.isArray(item && item.otherColors) ? item.otherColors : [])];
+    const out = [];
+    list.forEach(c => { if (typeof c === 'string' && SG_HEX.test(c.trim())) { const h = c.trim().toLowerCase(); if (!out.includes(h)) out.push(h); } });
+    return out.slice(0, SUGGEST_MAX_COLORS);
+}
+
+// A plain word for a color (for the sentences), from its hue, lightness and saturation.
+function sgColorName(hex) {
+    const c = sgColor(hex);
+    if (!c.known) return 'unknown color';
+    if (c.l < 0.15) return 'black';
+    if (c.l > 0.9) return 'white';
+    if (c.s < 0.2) return 'gray';
+    const h = c.hue;
+    if (h >= 200 && h <= 250 && c.l < 0.36) return 'navy';
+    if (h >= 20 && h < 60 && c.l > 0.8) return 'cream';
+    if (h >= 15 && h <= 50 && c.s < 0.55 && c.l > 0.2 && c.l < 0.82) return c.l > 0.55 ? 'tan' : 'brown';
+    if (h >= 50 && h < 90 && c.s < 0.5 && c.l < 0.5) return 'olive';
+    const base = h < 15 || h >= 345 ? 'red' : h < 40 ? 'orange' : h < 70 ? 'yellow' : h < 160 ? 'green' : h < 190 ? 'teal' : h < 255 ? 'blue' : h < 295 ? 'purple' : 'pink';
+    return c.l < 0.3 ? 'dark ' + base : c.l > 0.75 ? 'light ' + base : base;
+}
+
+// Do two colors coordinate? 'ok' | 'clash' | 'unknown' (one is not a real color).
+// Black, white, gray, navy and dark colors go with anything; so do colors of one family (hue within 50 degrees). Anything else
+// (two different bright colors; camel or tan with a bright blue) does not. Stricter on purpose than the whole-outfit color score.
+function sgColorsCoordinate(hexA, hexB) {
+    const a = sgColor(hexA), b = sgColor(hexB);
+    if (!a.known || !b.known) return 'unknown';
+    const achromatic = (c) => c.s < 0.2 || c.l < 0.15 || c.l > 0.9;
+    const navy = (c) => c.hue >= 200 && c.hue <= 250 && c.l < 0.36;
+    if (achromatic(a) || achromatic(b) || navy(a) || navy(b)) return 'ok';
+    let d = Math.abs(a.hue - b.hue); if (d > 180) d = 360 - d;
+    if (d <= SUGGEST_COLOR_FAMILY_DEGREES) return 'ok';
+    if (a.l < 0.3 || b.l < 0.3) return 'ok';
+    return 'clash';
+}
+
+// The single-color/multi-color pairs of one idea whose colors do not all coordinate, and what that costs.
+//   clashes             [{ single, multi, colors }]: the single-color piece, the multi-color piece, and the hexes of its colors that clash
+//   oneColorPatterned   patterned pieces with only one color known (their other colors can't be checked)
+function colorAnalysis(pieces) {
+    const singles = pieces.filter(p => (p.colors || []).length === 1 && !p.patterned);      // a solid piece, or one whose pattern is not known: one color
+    const multis = pieces.filter(p => (p.colors || []).length > 1);
+    const clashes = [];
+    singles.forEach(s => multis.forEach(m => {
+        const colors = m.colors.filter(c => sgColorsCoordinate(s.colors[0], c) === 'clash');
+        if (colors.length) clashes.push({ single: s, multi: m, colors });
+    }));
+    const adjust = -Math.min(clashes.length * SUGGEST_COLOR_CLASH, SUGGEST_COLOR_MAX_PENALTY);
+    const oneColorPatterned = pieces.length > 1 ? pieces.filter(p => p.patterned && (p.colors || []).length === 1) : [];
+    return { clashes, adjust, oneColorPatterned, multis };
+}
+
+// The color check of one idea in words: { status, clashes, text }.
+//   'clash'       a single-color piece doesn't go with some color of a multi-color one (the idea ranks lower; named in the text)
+//   'incomplete'  no clash found, but a patterned piece has only one color known, so its other colors weren't checked
+//   'checked'     nothing to report, or every color of every multi-color piece goes with the single-color pieces
+// text is '' when there is nothing worth saying (no multi-color piece, no patterned piece with one color).
+function colorCheck(pieces) {
+    const an = colorAnalysis(pieces);
+    const names = (hexes) => hexes.map(sgColorName).join(', ');
+    const sentences = [];
+    an.clashes.forEach(c => sentences.push(`${sgName(c.single)} (${sgColorName(c.single.colors[0])}) doesn’t go with the ${names(c.colors)} in ${sgName(c.multi)}, so this idea ranks lower.`));
+    if (!an.clashes.length) {
+        an.multis.forEach(m => {
+            const partners = pieces.filter(p => p !== m && (p.colors || []).length === 1);
+            if (partners.length) sentences.push(`${sgName(m)}’s colors (${names(m.colors)}) all go with ${partners.map(sgName).join(', ')}.`);
+        });
+    }
+    an.oneColorPatterned.forEach(p => sentences.push(`I only know one color for ${sgName(p)}, so I can’t check the other colors in its pattern. You can add them in its details.`));
+    const status = an.clashes.length ? 'clash' : an.oneColorPatterned.length ? 'incomplete' : 'checked';
+    return {
+        status, text: sentences.length ? `Color check${status === 'incomplete' ? ' incomplete' : ''}: ${sentences.join(' ')}` : '',
+        clashes: an.clashes.map(c => ({ single: sgName(c.single), multi: sgName(c.multi), colors: c.colors })),
+        adjust: Math.round(an.adjust * 1000) / 1000
+    };
 }
 
 // What the patterns of one idea's pieces do to its score, and what could and could not be checked (described pieces).
@@ -741,6 +850,7 @@ function outfitReadiness(items) {
 if (typeof module !== 'undefined') {
     module.exports = {
         suggestionPool, outfitReadiness, sgCanMakeOutfit, normalizePattern, patternPatch, normalizePatternStrength, patternStrengthPatch, patternCheck, patternAnalysis, sgSharedColor,
+        sgPieceColors, sgColorName, sgColorsCoordinate, colorAnalysis, colorCheck, SUGGEST_COLOR_CLASH, SUGGEST_COLOR_MAX_PENALTY, SUGGEST_MAX_COLORS,
         SUGGEST_PATTERNS, SUGGEST_PATTERNED, SUGGEST_PATTERN_STRENGTHS, SUGGEST_PATTERN_CLASH, SUGGEST_PATTERN_CLASH_SHARED, SUGGEST_PATTERN_SHARED_BONUS, SUGGEST_PATTERN_MAX_PENALTY,
         suggestOutfits, describePiece, SUGGEST_COVERAGES, parseRefineText, specialRunOthers, sgColor, sgColorScore, sgWeatherNeed, sgFormalityNeed,
         SUGGEST_WEIGHTS, SUGGEST_RECENT_DAYS, SUGGEST_WARMTH_LABELS, SUGGEST_FORMALITY_LABELS
