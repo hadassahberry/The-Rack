@@ -2169,7 +2169,7 @@ body.planning-open .planning-panel { padding-top: 0; }
 
 /* One-pattern rule: what Help me choose did and did not check for an idea. An unchecked idea is amber, never reads as "fine". */
 .choose-pattern { margin: 4px 0 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
-.choose-pattern.is-unverified { color: #7a4b00; background: #fff7e6; border: 1px dashed #e0b45c; border-radius: 8px; padding: 6px 8px; }
+.choose-pattern.is-incomplete, .choose-pattern.is-competing { color: #7a4b00; background: #fff7e6; border: 1px dashed #e0b45c; border-radius: 8px; padding: 6px 8px; }
 
 /* ---------- Trips ---------- */
 .trips-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }

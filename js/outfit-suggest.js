@@ -21,14 +21,21 @@
 //                                                                 "unknown") is UNKNOWN. Unknown is never guessed and never
 //                                                                 treated as solid. The stored piece is never rewritten to
 //                                                                 say so: it is only read as unknown.
+//   patternStrength  subtle | bold                          optional   How loud a pattern is. Only what the person set counts:
+//                                                                 it is never guessed from the kind of pattern ("floral" is
+//                                                                 not assumed bold). Anything else is UNKNOWN.
 //
-// ---- The one-pattern rule ----
-// An outfit this file SUGGESTS has at most one KNOWN patterned piece (striped, plaid, floral or other; any slot, shoes and
-// accessories included). Solid does not count as patterned. An unknown piece does not count either, but it is never called
-// solid and an outfit with one is never called verified: each idea says whether the rule was fully checked, and which
-// pieces have no pattern set. When every outfit that works for the day would break the rule, no idea is shown and the
-// notes say so (the rule is never broken quietly). The rule applies to suggestions only: an outfit the person built or
-// planned by hand is never changed, blocked or re-checked.
+// ---- How patterns are scored (soft: nothing is ever ruled out) ----
+// Patterns only move an outfit up or down; an outfit is never rejected, hidden or cut from the list because of its patterns.
+//   - Two KNOWN-patterned pieces that are both BOLD compete: the outfit's score goes down (0.16 on the 0..1 scale for each such
+//     pair, at most 0.30 in all). A bold pattern with a subtle one, or two subtle ones, do not compete: no penalty.
+//   - Shared color helps without guaranteeing anything. Each piece has one main color; two patterned pieces whose main
+//     colors are close share a color. For two bold patterns that halves the penalty (0.08); for a pair that does not
+//     compete it adds a small bonus (0.02). Missing or invalid colors are never assumed to match.
+//   - Unknown is not a clash and not a match. A piece with no pattern, or a pattern with no strength set, adds no penalty and no
+//     bonus, and the idea says plainly that the check was incomplete and for which pieces. Unknown is never called solid.
+//   - When every idea has competing bold patterns, the notes say so: these are the closest the closet allows.
+// This applies to suggestions only: an outfit the person built, planned or saved by hand is never changed, blocked or re-checked.
 //
 // ---- What an outfit is ----
 // Exactly ONE top and ONE bottom, or ONE dress instead of both. Outerwear, shoes and an accessory are separate
@@ -61,12 +68,31 @@ const SUGGEST_FITS = ['fitted', 'regular', 'loose'];
 const SUGGEST_LAYERS = ['base', 'mid', 'outer'];
 const SUGGEST_COVERAGES = ['open', 'closed', 'boot'];
 const SUGGEST_PATTERNS = ['solid', 'striped', 'plaid', 'floral', 'other'];            // what can be saved; no value = unknown
-const SUGGEST_PATTERNED = ['striped', 'plaid', 'floral', 'other'];                      // the ones the one-pattern rule counts
+const SUGGEST_PATTERNED = ['striped', 'plaid', 'floral', 'other'];                      // the ones that count as patterned (solid does not; unknown is not known)
+const SUGGEST_PATTERN_STRENGTHS = ['subtle', 'bold'];                                  // what can be saved; no value = unknown
+const SUGGEST_PATTERN_CLASH = 0.16;              // score points (0..1 scale) taken off for each pair of competing bold patterns
+const SUGGEST_PATTERN_CLASH_SHARED = 0.08;       // ...when the two share a color
+const SUGGEST_PATTERN_SHARED_BONUS = 0.02;       // a pair of patterns that do not compete but share a color
+const SUGGEST_PATTERN_MAX_PENALTY = 0.30;        // however many pairs compete
+const SUGGEST_SHARED_COLOR_DISTANCE = 60;        // two main colors this close (RGB distance) count as shared
 
 // What a stored pattern means: one of the five, or 'unknown' (nothing saved, null, "unknown", or anything unrecognised).
 function normalizePattern(value) {
     const v = typeof value === 'string' ? value.trim().toLowerCase() : '';
     return SUGGEST_PATTERNS.includes(v) ? v : 'unknown';
+}
+
+// What a stored pattern strength means: 'subtle', 'bold', or 'unknown' (nothing saved, or anything unrecognised).
+function normalizePatternStrength(value) {
+    const v = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return SUGGEST_PATTERN_STRENGTHS.includes(v) ? v : 'unknown';
+}
+// What the item editor saves for the Pattern strength field: the same rules as patternPatch (an unset field on a piece with
+// nothing saved writes nothing; choosing saves it; clearing a saved one writes null).
+function patternStrengthPatch(existing, selected) {
+    const v = SUGGEST_PATTERN_STRENGTHS.includes(selected) ? selected : '';
+    if (v) return { patternStrength: v };
+    return normalizePatternStrength(existing && existing.patternStrength) === 'unknown' ? {} : { patternStrength: null };
 }
 
 // What the item editor saves for the Pattern field, as a patch for the stored piece. A piece that has no pattern saved
@@ -162,6 +188,7 @@ function describePiece(item) {
         layer, layerSet, coverage,
         pattern: normalizePattern(item.pattern),
         patterned: SUGGEST_PATTERNED.includes(normalizePattern(item.pattern)),      // a KNOWN pattern; solid and unknown are not
+        strength: normalizePatternStrength(item.patternStrength),                  // only what the person set: 'subtle' | 'bold' | 'unknown'
         color: sgColor(item.color),
         estimated: { warmth: setWarmth === null, formality: setFormality === null }
     };
@@ -343,17 +370,16 @@ function suggestOutfits(ctx, options) {
         if (inSeason.length) list = inSeason;
         list.sort((a, b) => pieceKey(a) - pieceKey(b) || (a.id < b.id ? -1 : 1));
         const best = list.slice(0, K[cat] || 4);
-        // the one-pattern rule needs something un-patterned to pair a patterned piece with: if the best few are all
-        // patterned, the best two that are not patterned come along too (so the rule never hides a possible outfit)
-        if (!best.some(p => !p.patterned)) best.push(...list.filter(p => !p.patterned).slice(0, 2));
+        // Nothing is ruled out by pattern, but a quieter piece should stay within reach: if the best few are all bold-patterned,
+        // the best two that are not bold-patterned come along too, so a better-matching outfit is never missed just because
+        // it ranked lower on formality or freshness
+        const loud = (p) => p.patterned && p.strength === 'bold';
+        if (best.length && best.every(loud)) best.push(...list.filter(p => !loud(p) && !best.includes(p)).slice(0, 2));
         return best;
     };
 
     // One top and one bottom, or one dress; plus at most one each of outerwear, shoes and an accessory.
     const bodyWarmth = (o) => (o.dress ? o.dress.warmth : o.top.warmth * 0.6 + o.bottom.warmth * 0.4);     // the top counts most
-    const patternedIn = (o) => [o.top, o.bottom, o.dress, o.outer, o.shoes, o.acc].filter(p => p && p.patterned);
-    const patternOk = (o) => patternedIn(o).length <= 1;
-    const patternStats = { total: 0, rejected: 0 };           // outfits that suit the day (before the rule), and how many the rule turned away
     const buildAll = () => {
         const tops = pool('tops'), bottoms = pool('bottoms'), dresses = pool('dresses');
         const outers = pool('outerwear'), shoes = pool('shoes'), accessories = pool('accessories');
@@ -366,8 +392,7 @@ function suggestOutfits(ctx, options) {
         const cores = [];
         tops.forEach(t => bottoms.forEach(b => cores.push({ top: t, bottom: b })));
         dresses.forEach(d => cores.push({ dress: d }));
-        // shoes are optional: when every pair is patterned, going without them is one more way to keep to the one-pattern rule
-        const shoeOpts = shoes.length ? (shoes.some(s => !s.patterned) ? shoes : [...shoes, null]) : [null];
+        const shoeOpts = shoes.length ? shoes : [null];
         const outerOpts = keptOuter ? outers : [null, ...outers];
         let out = [];
         for (const core of cores) for (const shoe of shoeOpts) for (const outer of outerOpts) out.push({ ...core, shoes: shoe, outer, acc: null });
@@ -378,10 +403,7 @@ function suggestOutfits(ctx, options) {
             const ok = out.filter(o => !needs(o));
             if (ok.length) out = ok;
         }
-        const valid = out.filter(patternOk);
-        patternStats.total = out.length;
-        patternStats.rejected = out.length - valid.length;
-        return { candidates: valid, accessories };
+        return { candidates: out, accessories };
     };
 
     const members = (o) => [o.top, o.bottom, o.dress, o.outer, o.shoes, o.acc].filter(Boolean);
@@ -434,10 +456,12 @@ function suggestOutfits(ctx, options) {
         let total = 0;
         Object.keys(SUGGEST_WEIGHTS).forEach(k => { total += SUGGEST_WEIGHTS[k] * parts[k]; });
         total = total / SUGGEST_WEIGHT_SUM;
+        const patternFlags = patternAnalysis(ms);                                      // soft: competing bold patterns cost points, shared color helps a little
+        total = Math.max(0, total + patternFlags.adjust);
         const past = pastHit;
         if (past) total += SUGGEST_PAST_BONUS;                                        // a combination you wore 3-4 weeks ago: a nudge
         if (wornRecentlyAsOutfit || weekendRepeat) total *= 0.4;                      // a repeat is the last resort
-        return { total, parts, flags: { wornRecentlyAsOutfit, weekendRepeat, insulation, outfitFormality, past } };
+        return { total, parts, flags: { wornRecentlyAsOutfit, weekendRepeat, insulation, outfitFormality, past, pattern: patternFlags } };
     };
 
     const rank = (cands, accessories) => {
@@ -452,15 +476,12 @@ function suggestOutfits(ctx, options) {
                 accessories.forEach(acc => {
                     if (forced && !keepIds.includes(acc.id)) return;
                     const withAcc = { ...entry.o, acc };
-                    if (!patternOk(withAcc)) return;                   // a second patterned piece is never added
                     const s = score(withAcc);
                     if (!best || s.total > best.s.total + 0.005) best = { o: withAcc, s };
                 });
-                if (!best) { entry.dropped = true; return; }          // a kept accessory that would make a second pattern: no valid outfit with it
                 entry.o = best.o; entry.s = best.s;
             });
             top.sort((a, b) => b.s.total - a.s.total || (signature(a.o) < signature(b.o) ? -1 : 1));
-            return top.filter(e => !e.dropped);
         }
         return top;
     };
@@ -471,10 +492,7 @@ function suggestOutfits(ctx, options) {
     if (keepIds.length) {
         ranked = ranked.filter(holdsKept);
         if (ranked.length === 0) {                                       // e.g. a dress and a bottom kept together
-            const keptPatterned = keepIds.map(id => byId.get(id)).filter(p => p && p.patterned);
-            notes.push(keptPatterned.length >= 2
-                ? 'Those pieces both have a pattern, and I keep to one patterned piece per outfit, so I started again without them.'
-                : 'Those pieces can’t go together in one outfit, so I started again without them.');
+            notes.push('Those pieces can’t go together in one outfit, so I started again without them.');
             keepIds = [];
             ({ candidates, accessories } = buildAll());
             ranked = rank(candidates, accessories);
@@ -519,18 +537,10 @@ function suggestOutfits(ctx, options) {
 
     if (!all.some(p => p.cat === 'dresses') && !(all.some(p => p.cat === 'tops') && all.some(p => p.cat === 'bottoms'))) {
         notes.push('Add at least a top and a bottom (or a dress) to your closet and I can suggest outfits.');
-    } else if (chosen.length === 0 && patternStats.total > 0 && patternStats.rejected === patternStats.total) {
-        // not a quiet failure and not a broken rule: say what is in the way and what would fix it
-        const names = all.filter(p => p.patterned).map(sgName);
-        notes.push(`I haven’t suggested an outfit: every outfit I could put together for this day has two or more patterned pieces (${names.slice(0, 4).join(', ')}${names.length > 4 ? ` and ${names.length - 4} more` : ''}), and you wanted at most one. ` +
-            'Add a solid piece, or set the pattern on pieces that aren’t patterned, and I can suggest something.');
     } else if (chosen.length === 1) {
         notes.push('That is the only idea I can make without repeating a piece. Add more pieces for more ideas.');
     } else if (chosen.length < Math.min(opt.max, 3) && chosen.length > 1 && !excluded.size) {
         notes.push('Your closet is too small for more ideas that don’t repeat a piece.');
-    }
-    if (patternStats.rejected > 0 && chosen.length > 0 && chosen.length < Math.min(opt.max, 3)) {
-        notes.push(`${patternStats.rejected === 1 ? 'One possible outfit was' : `${patternStats.rejected} possible outfits were`} left out because ${patternStats.rejected === 1 ? 'it has' : 'they have'} two or more patterned pieces.`);
     }
     if (needsClosedShoes && hasShoes && !hasClosedShoes && !keepIds.some(id => byId.get(id) && byId.get(id).cat === 'shoes')) {
         notes.push('You only have open shoes (sandals) in your closet, so I left shoes out for this weather.');
@@ -541,11 +551,12 @@ function suggestOutfits(ctx, options) {
     if (ctx.skippedUntagged > 0) notes.push(`${ctx.skippedUntagged} ${ctx.skippedUntagged === 1 ? 'piece still needs' : 'pieces still need'} tagging, so I left ${ctx.skippedUntagged === 1 ? 'it' : 'them'} out.`);
     if (relaxed.length) notes.push(`Most of your ${relaxed.join(' and ')} were worn in the last week, so some are repeated here.`);
 
-    const unknownShown = new Map();
+    const unknownShown = new Map(), noStrengthShown = new Map();
     const suggestions = chosen.map(e => {
         const o = e.o, ms = members(o);
         const pattern = patternCheck(ms);
         ms.filter(p => p.pattern === 'unknown').forEach(p => unknownShown.set(p.id, sgName(p)));
+        patternAnalysis(ms).unknownStrength.forEach(p => noStrengthShown.set(p.id, sgName(p)));
         return {
             pattern,
             itemIds: ms.map(p => p.id),
@@ -557,29 +568,90 @@ function suggestOutfits(ctx, options) {
             past: e.s.flags.past ? { daysAgo: e.s.flags.past.days, text: pastText(e.s.flags.past.days) } : null     // "You wore these together about three weeks ago."
         };
     });
+    if (suggestions.length > 0 && suggestions.every(s => s.pattern.competing.length > 0)) {
+        notes.push('Every idea here pairs two bold patterns that compete, so they are ranked lower. These are the closest I could get from your closet; a solid or subtle piece would give better matches.');
+    }
     if (unknownShown.size > 0) {
         const n = unknownShown.size;
-        notes.push(`${n === 1 ? 'One piece has' : `${n} pieces have`} no pattern set, so I can’t check the one-pattern rule for ${n === 1 ? 'it' : 'them'}. You can set a pattern in a piece’s More details.`);
+        notes.push(`${n === 1 ? 'One piece has' : `${n} pieces have`} no pattern set, so I can’t check how ${n === 1 ? 'its pattern' : 'their patterns'} fit with the rest. You can set a pattern in a piece’s details.`);
+    }
+    if (noStrengthShown.size > 0) {
+        const n = noStrengthShown.size;
+        notes.push(`${n === 1 ? 'One patterned piece has' : `${n} patterned pieces have`} no strength set (bold or subtle), so I can’t tell whether ${n === 1 ? 'it competes' : 'they compete'} with another pattern.`);
     }
     return { suggestions, need, notes, heard: typed.heard, keepIds };
 }
 
-// What the one-pattern rule found out about one idea's pieces (described pieces from describePiece):
-//   status 'checked'     every piece's pattern is known, and at most one is patterned
-//   status 'unverified'  at least one piece has no pattern set: the rule could not be fully checked
-// Unknown is never described as solid or as compatible; the text says what is and isn't known.
-function patternCheck(pieces) {
-    const list = (arr) => arr.length <= 3 ? arr.join(', ') : `${arr.slice(0, 3).join(', ')} and ${arr.length - 3} more`;
+// Do two described pieces share a color? Each has one main color (a hex); they share one when both are real colors and close.
+// A missing or invalid color never shares anything.
+function sgSharedColor(a, b) {
+    const rgb = (p) => { const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(p && p.item && typeof p.item.color === 'string' ? p.item.color.trim() : ''); return m ? [1, 2, 3].map(i => parseInt(m[i], 16)) : null; };
+    const x = rgb(a), y = rgb(b);
+    return !!x && !!y && Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) <= SUGGEST_SHARED_COLOR_DISTANCE;
+}
+
+// What the patterns of one idea's pieces do to its score, and what could and could not be checked (described pieces).
+//   pairs        every pair of KNOWN-patterned pieces: 'bold-bold' (compete) | 'compatible' (bold+subtle, subtle+subtle) |
+//                'unknown-strength' (cannot tell), and whether the two share a color
+//   adjust       what to add to the 0..1 score: negative for competing bold pairs, a small positive for shared color on a pair
+//                that does not compete, never positive for unknown information
+//   unknown      pieces with no pattern set (they might be patterned: not checked)
+//   unknownStrength  patterned pieces whose strength is not set, in a pair that could not be judged for that reason
+function patternAnalysis(pieces) {
     const patterned = pieces.filter(p => p.patterned);
-    const unknown = pieces.filter(p => p.pattern === 'unknown');
-    const patternedNames = patterned.map(sgName), unknownNames = unknown.map(sgName);
-    const known = patterned.length === 0 ? 'No patterned pieces among the ones with a known pattern.' : `One patterned piece: ${patternedNames[0]}.`;
-    if (unknown.length === 0) {
-        return { status: 'checked', patterned: patternedNames, unknown: [], text: patterned.length === 0 ? 'Pattern check: no patterned pieces.' : `Pattern check: one patterned piece (${patternedNames[0]}).` };
+    const pairs = [];
+    for (let i = 0; i < patterned.length; i++) {
+        for (let j = i + 1; j < patterned.length; j++) {
+            const a = patterned[i], b = patterned[j];
+            const kind = a.strength === 'bold' && b.strength === 'bold' ? 'bold-bold'
+                : (a.strength === 'unknown' || b.strength === 'unknown') ? 'unknown-strength' : 'compatible';
+            pairs.push({ a, b, kind, shared: sgSharedColor(a, b) });
+        }
     }
+    let adjust = 0;
+    pairs.forEach(p => {
+        if (p.kind === 'bold-bold') adjust -= p.shared ? SUGGEST_PATTERN_CLASH_SHARED : SUGGEST_PATTERN_CLASH;
+        else if (p.kind === 'compatible' && p.shared) adjust += SUGGEST_PATTERN_SHARED_BONUS;
+    });
+    adjust = Math.max(adjust, -SUGGEST_PATTERN_MAX_PENALTY);
+    const unknownStrength = [];
+    pairs.filter(p => p.kind === 'unknown-strength').forEach(p => [p.a, p.b].forEach(x => { if (x.strength === 'unknown' && !unknownStrength.includes(x)) unknownStrength.push(x); }));
+    return { patterned, pairs, adjust, unknown: pieces.filter(p => p.pattern === 'unknown'), unknownStrength };
+}
+
+// What the pattern check found out about one idea's pieces, in words (described pieces from describePiece):
+//   status 'checked'     every piece's pattern is known, and every pair of patterns could be judged
+//   status 'incomplete'  some piece has no pattern set, or two patterns' strength (bold or subtle) is not set: the check could
+//                        not be completed, and the text says for which pieces
+// competing = the pairs of bold patterns that compete (the ones that cost points). Unknown is never described as solid, as
+// matching or as compatible, and a shared color is described as helping, never as making a match certain.
+function patternCheck(pieces) {
+    const an = patternAnalysis(pieces);
+    const list = (arr) => arr.length <= 3 ? arr.join(', ') : `${arr.slice(0, 3).join(', ')} and ${arr.length - 3} more`;
+    const unknownNames = an.unknown.map(sgName), noStrength = an.unknownStrength.map(sgName);
+    const competing = an.pairs.filter(p => p.kind === 'bold-bold').map(p => [sgName(p.a), sgName(p.b)]);
+    const sentences = [];
+    if (an.patterned.length === 0) {
+        sentences.push(an.unknown.length === 0 ? 'no patterned pieces.' : `no pattern is set for ${list(unknownNames)}, so I can’t tell whether any piece is patterned.`);
+    } else if (an.patterned.length === 1) {
+        sentences.push(`one patterned piece (${sgName(an.patterned[0])}).`);
+    }
+    an.pairs.forEach(p => {
+        const A = sgName(p.a), B = sgName(p.b);
+        const share = p.shared ? ' They share a similar color, which helps (it doesn’t guarantee a match).' : '';
+        if (p.kind === 'bold-bold') sentences.push(`${A} and ${B} both have bold patterns, which compete, so this idea ranks lower.${p.shared ? ' They share a similar color, which softens it.' : ''}`);
+        else if (p.kind === 'unknown-strength') sentences.push(`I can’t tell whether ${A} and ${B} compete: bold or subtle isn’t set for ${list([p.a, p.b].filter(x => x.strength === 'unknown').map(sgName))}.`);
+        else if (p.a.strength === 'bold' || p.b.strength === 'bold') sentences.push(`${A} and ${B} have patterns, but only one is bold, so they don’t compete.${share}`);
+        else sentences.push(`${A} and ${B} are both subtle patterns, so they don’t compete.${share}`);
+    });
+    if (an.patterned.length > 0 && an.unknown.length > 0) sentences.push(`No pattern is set for ${list(unknownNames)}, so I can’t tell whether ${an.unknown.length === 1 ? 'it adds' : 'they add'} another pattern.`);
+    const incomplete = an.unknown.length > 0 || an.unknownStrength.length > 0;
     return {
-        status: 'unverified', patterned: patternedNames, unknown: unknownNames,
-        text: `Pattern check incomplete: no pattern is set for ${list(unknownNames)}, so I can’t tell whether this outfit keeps to one patterned piece. ${known}`
+        status: incomplete ? 'incomplete' : 'checked',
+        patterned: an.patterned.map(sgName), unknown: unknownNames, unknownStrength: noStrength, competing,
+        shared: an.pairs.filter(p => p.shared).map(p => [sgName(p.a), sgName(p.b)]),
+        adjust: Math.round(an.adjust * 1000) / 1000,
+        text: `Pattern check${incomplete ? ' incomplete' : ''}: ${sentences.join(' ')}`
     };
 }
 
@@ -668,7 +740,8 @@ function outfitReadiness(items) {
 
 if (typeof module !== 'undefined') {
     module.exports = {
-        suggestionPool, outfitReadiness, sgCanMakeOutfit, normalizePattern, patternPatch, patternCheck, SUGGEST_PATTERNS, SUGGEST_PATTERNED,
+        suggestionPool, outfitReadiness, sgCanMakeOutfit, normalizePattern, patternPatch, normalizePatternStrength, patternStrengthPatch, patternCheck, patternAnalysis, sgSharedColor,
+        SUGGEST_PATTERNS, SUGGEST_PATTERNED, SUGGEST_PATTERN_STRENGTHS, SUGGEST_PATTERN_CLASH, SUGGEST_PATTERN_CLASH_SHARED, SUGGEST_PATTERN_SHARED_BONUS, SUGGEST_PATTERN_MAX_PENALTY,
         suggestOutfits, describePiece, SUGGEST_COVERAGES, parseRefineText, specialRunOthers, sgColor, sgColorScore, sgWeatherNeed, sgFormalityNeed,
         SUGGEST_WEIGHTS, SUGGEST_RECENT_DAYS, SUGGEST_WARMTH_LABELS, SUGGEST_FORMALITY_LABELS
     };

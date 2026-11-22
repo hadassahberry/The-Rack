@@ -473,6 +473,8 @@ function openEditModal(itemId) {
     // Pattern: what was saved, else Unknown (a piece with nothing saved is only READ as unknown; it is not changed)
     const savedPattern = normalizePattern(item.pattern);
     document.getElementById('modal-pattern').value = savedPattern === 'unknown' ? '' : savedPattern;
+    const savedStrength = normalizePatternStrength(item.patternStrength);
+    document.getElementById('modal-pattern-strength').value = savedStrength === 'unknown' ? '' : savedStrength;
     // "More details" (used by Help me choose): what was set, else "Not set"; opened only when something is set.
     const detailFields = { warmth: 'modal-warmth', formality: 'modal-formality', length: 'modal-length', fit: 'modal-fit', layer: 'modal-layer', coverage: 'modal-coverage' };
     let anyDetail = false;
@@ -525,6 +527,7 @@ function readEditForm() {
         season: document.getElementById('modal-season').value,
         color: document.getElementById('modal-color').value,
         pattern: document.getElementById('modal-pattern').value,
+        patternStrength: document.getElementById('modal-pattern-strength').value,
         warmth: document.getElementById('modal-warmth').value,
         formality: document.getElementById('modal-formality').value,
         length: document.getElementById('modal-length').value,
@@ -582,6 +585,7 @@ async function saveEditModal() {
         season: document.getElementById('modal-season').value,
         color: document.getElementById('modal-color').value,
         ...patternPatch(existing, document.getElementById('modal-pattern').value),      // nothing is written for a piece whose pattern was never set
+        ...patternStrengthPatch(existing, document.getElementById('modal-pattern-strength').value),
         // optional details for Help me choose: a number, a word, or null when left as "Not set" (then it is estimated)
         warmth: document.getElementById('modal-warmth').value === '' ? null : Number(document.getElementById('modal-warmth').value),
         formality: document.getElementById('modal-formality').value === '' ? null : Number(document.getElementById('modal-formality').value),

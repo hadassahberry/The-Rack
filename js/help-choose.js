@@ -256,7 +256,7 @@ const HelpChoose = (function () {
                 past.textContent = s.past.text;
             }
             const patternLine = document.createElement('p');                     // what the one-pattern rule did and did not check
-            patternLine.className = 'choose-pattern' + (s.pattern && s.pattern.status === 'unverified' ? ' is-unverified' : '');
+            patternLine.className = 'choose-pattern' + (s.pattern && s.pattern.status === 'incomplete' ? ' is-incomplete' : '') + (s.pattern && s.pattern.competing.length ? ' is-competing' : '');
             patternLine.textContent = s.pattern ? s.pattern.text : '';
             let demo = null;
             if (s.itemIds.some(id => closetById[id] && closetById[id].demo === true)) {       // sample pieces from the first-run setup: say so

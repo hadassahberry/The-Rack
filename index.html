@@ -738,7 +738,7 @@
             </select>
             <label for="modal-color">Color</label>
             <input type="color" id="modal-color" value="#cccccc">
-            <!-- Used by the one-pattern rule in Help me choose. A piece with no pattern saved is "Unknown": it is never treated as solid. -->
+            <!-- Used when Help me choose scores how patterns go together. A piece with no pattern saved is "Unknown": it is never treated as solid. -->
             <label for="modal-pattern">Pattern</label>
             <select id="modal-pattern" aria-describedby="modal-pattern-hint">
                 <option value="">Unknown (not set)</option>
@@ -748,7 +748,13 @@
                 <option value="floral">Floral</option>
                 <option value="other">Other pattern</option>
             </select>
-            <p id="modal-pattern-hint" class="setting-hint">Help me choose keeps to one patterned piece per outfit. Pieces left as Unknown are not guessed: it will say it couldn’t check them.</p>
+            <label for="modal-pattern-strength">Pattern strength</label>
+            <select id="modal-pattern-strength" aria-describedby="modal-pattern-hint">
+                <option value="">Unknown (not set)</option>
+                <option value="subtle">Subtle</option>
+                <option value="bold">Bold</option>
+            </select>
+            <p id="modal-pattern-hint" class="setting-hint">Help me choose ranks two bold patterns together lower, and treats a bold pattern with a subtle one as fine. Nothing is ruled out. Anything left as Unknown is never guessed: it will say when it couldn’t check how patterns fit.</p>
             <!-- Used by Help me choose. Anything left as "Not set" is estimated from the category, season and occasion. -->
             <details id="modal-details" class="modal-details">
                 <summary>More details (optional)</summary>
