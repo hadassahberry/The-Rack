@@ -109,16 +109,16 @@ full-screen in an Android app. What is ready:
   `icons/icon-maskable-512.png`. The screenshots are not pre-cached (the app never shows them).
 
 **The Android app** is built with Bubblewrap from the live manifest (see `android/README.md` for how to rebuild it). Its package
-name is `app.therack`, and it is signed with the key in `android/android.keystore` (never committed: `.gitignore` excludes
+name is `com.therack`, and it is signed with the key in `android/android.keystore` (never committed: `.gitignore` excludes
 `*.keystore`, `*.jks` and everything in `android/` except `twa-manifest.json` and its README; `firebase.json` never
 publishes `android/`).
 
 **Digital Asset Links (`.well-known/assetlinks.json`)** proves that the Android app and this website belong together. It lists
-the package name `app.therack` and the SHA-256 fingerprint of the signing certificate:
+the package name `com.therack` and the SHA-256 fingerprint of the signing certificate:
 
 ```json
 [{ "relation": ["delegate_permission/common.handle_all_urls"],
-   "target": { "namespace": "android_app", "package_name": "app.therack", "sha256_cert_fingerprints": ["<SHA-256 fingerprint>"] } }]
+   "target": { "namespace": "android_app", "package_name": "com.therack", "sha256_cert_fingerprints": ["<SHA-256 fingerprint>"] } }]
 ```
 
 It is served at `https://the-rack-5787.web.app/.well-known/assetlinks.json` (`firebase.json` no longer ignores dot-folders, only

@@ -3,7 +3,7 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "app.therack",
+      "package_name": "com.therack",
       "sha256_cert_fingerprints": [
         "D2:42:E6:76:79:C2:4E:21:9E:B8:5E:97:5E:C2:9B:FD:E4:3A:11:F3:F4:1D:FC:B3:B4:14:8D:7A:D9:E2:88:FD"
       ]

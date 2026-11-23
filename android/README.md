@@ -1,7 +1,7 @@
 # The Rack: Android app (Trusted Web Activity)
 
 Built with [Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap) from the live manifest
-(`https://the-rack-5787.web.app/manifest.webmanifest`). Package name: `app.therack`.
+(`https://the-rack-5787.web.app/manifest.webmanifest`). Package name: `com.therack`.
 
 Tracked in git: `twa-manifest.json` (no secrets) and this file. **Everything else here is generated or secret and is
 git-ignored: never commit or push it**, especially `android.keystore` (the signing key). Keep a backup of the keystore

@@ -1,6 +1,6 @@
 // manifest.webmanifest and the service worker's offline list, for installing the app and packaging it for Google Play
 // (Trusted Web Activity): the manifest is valid and complete, its pictures really exist at the sizes it claims,
-// every icon is cached for offline use, and Digital Asset Links name the Android app (app.therack).
+// every icon is cached for offline use, and Digital Asset Links name the Android app (com.therack).
 const { check, done, assert, read, fs, path, root } = require('./_harness');
 
 const raw = read('manifest.webmanifest');
@@ -86,19 +86,19 @@ check('the screenshots are the real app (not blank): each has more than a flat c
     manifest.screenshots.forEach(s => assert(fs.statSync(path.join(root, s.src)).size > 20000, s.src));
 });
 
-check('Digital Asset Links: assetlinks.json is in standard Trusted Web Activity form, for the package app.therack, with well-formed SHA-256 fingerprints', () => {
+check('Digital Asset Links: assetlinks.json is in standard Trusted Web Activity form, for the package com.therack, with well-formed SHA-256 fingerprints', () => {
     const links = JSON.parse(fs.readFileSync(path.join(root, '.well-known', 'assetlinks.json'), 'utf8'));
     assert(Array.isArray(links) && links.length === 1, 'one statement');
     assert.deepStrictEqual(links[0].relation, ['delegate_permission/common.handle_all_urls']);
     assert.strictEqual(links[0].target.namespace, 'android_app');
-    assert.strictEqual(links[0].target.package_name, 'app.therack');
+    assert.strictEqual(links[0].target.package_name, 'com.therack');
     const prints = links[0].target.sha256_cert_fingerprints;
     assert(Array.isArray(prints) && prints.length >= 1);
     prints.forEach(p => assert(/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(p), 'a SHA-256 fingerprint is 32 hex bytes separated by colons: ' + p));
 });
 check('the Android project uses the same package name as the assetlinks file, and the signing key is never published or committed', () => {
     const twa = JSON.parse(fs.readFileSync(path.join(root, 'android', 'twa-manifest.json'), 'utf8'));
-    assert.strictEqual(twa.packageId, 'app.therack');
+    assert.strictEqual(twa.packageId, 'com.therack');
     assert.strictEqual(twa.host, 'the-rack-5787.web.app');
     assert.strictEqual(twa.webManifestUrl, 'https://the-rack-5787.web.app/manifest.webmanifest');
     assert(!/pass/i.test(JSON.stringify(twa)), 'no password in twa-manifest.json');
